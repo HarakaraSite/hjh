@@ -1,0 +1,81 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "error": "ReferenceError: 'require' is not defined",
+    "durationMS": 6,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "12a631fc1a02708a-commonjs_body",
+    "ownerPID": 352700,
+    "root": "call-1",
+    "status": "failed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:50:28.149052065Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:50:28.150945615Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "probe",
+        "phase": "started",
+        "input": {}
+      },
+      {
+        "sequence": 3,
+        "time": "2026-10-10T04:50:28.15228145Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "probe",
+        "phase": "failed",
+        "result": null,
+        "error": "ReferenceError: 'require' is not defined"
+      },
+      {
+        "sequence": 4,
+        "time": "2026-10-10T04:50:28.153771815Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "failed",
+        "error": "ReferenceError: 'require' is not defined"
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "failed",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        },
+        "error": "ReferenceError: 'require' is not defined"
+      },
+      {
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "probe",
+        "status": "failed",
+        "input": {},
+        "result": null,
+        "error": "ReferenceError: 'require' is not defined"
+      }
+    ]
+  }
+}

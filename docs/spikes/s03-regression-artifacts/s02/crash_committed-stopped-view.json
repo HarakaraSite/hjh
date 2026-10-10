@@ -1,0 +1,146 @@
+{
+  "run": "b81a4c3a2f5b0ed1-crash_committed",
+  "ownerPID": 353089,
+  "root": "call-1",
+  "status": "pending",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:51:11.258375353Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-crash_committed.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:51:11.260539801Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-crash_committed.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:51:11.261890023Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-crash_committed.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:51:11.263859486Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 353099,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:51:11.265281652Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 353099,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "pending",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-crash_committed.effect.txt"
+        }
+      }
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-crash_committed.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 353099,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-crash_committed.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 353099,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "run": "12ecebc0859238cc-crash_uncommitted",
+  "ownerPID": 351382,
+  "root": "call-1",
+  "status": "interrupted",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:38:56.435296Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_uncommitted.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:38:56.437357592Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_uncommitted.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:38:56.438529057Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_uncommitted.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:38:56.44837246Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "outcome_unknown",
+      "error": "experiment observed writer PID 351382 exit (signal: killed); Wait completed"
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:38:56.448416707Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "outcome_unknown",
+      "error": "experiment observed writer PID 351382 exit (signal: killed); Wait completed"
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:38:56.448430315Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "interrupted",
+      "error": "experiment observed writer PID 351382 exit (signal: killed); Wait completed"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "interrupted",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_uncommitted.effect.txt"
+        }
+      },
+      "error": "experiment observed writer PID 351382 exit (signal: killed); Wait completed"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "outcome_unknown",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_uncommitted.effect.txt"
+        ]
+      },
+      "error": "experiment observed writer PID 351382 exit (signal: killed); Wait completed"
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "outcome_unknown",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_uncommitted.effect.txt"
+        ]
+      },
+      "error": "experiment observed writer PID 351382 exit (signal: killed); Wait completed"
+    }
+  ]
+}

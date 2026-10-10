@@ -1,0 +1,104 @@
+{
+  "run": "657e420d8eea7a65-crash_uncommitted",
+  "ownerPID": 351673,
+  "root": "call-1",
+  "status": "pending",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:39:22.661231507Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-crash_uncommitted.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:39:22.693370228Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-crash_uncommitted.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:39:22.701782944Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-crash_uncommitted.effect.txt"
+        ]
+      }
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "pending",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-crash_uncommitted.effect.txt"
+        }
+      }
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "pending",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-crash_uncommitted.effect.txt"
+        ]
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "pending",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-crash_uncommitted.effect.txt"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{"sequence":1,"time":"2026-10-10T04:51:11.315154964Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"globalThis.workerLabel = input.label; await tools.http({url: input.url}); return {label: workerLabel, count: await tools.counter()};","input":{"label":"worker-A","url":"http://127.0.0.1:40389/paired?group=workers"}}}
+{"sequence":2,"time":"2026-10-10T04:51:11.315824392Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"started","input":{"url":"http://127.0.0.1:40389/paired?group=workers"}}
+{"sequence":3,"time":"2026-10-10T04:51:11.315882875Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"started","input":{"url":"http://127.0.0.1:40389/paired?group=workers"}}
+{"sequence":4,"time":"2026-10-10T04:51:11.316254254Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"completed","result":{"status":200,"body":"paired"}}
+{"sequence":5,"time":"2026-10-10T04:51:11.31636107Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"completed","result":{"status":200,"body":"paired"}}
+{"sequence":6,"time":"2026-10-10T04:51:11.316379484Z","id":"call-4","parent":"call-1","kind":"tool","name":"counter","phase":"started","input":{}}
+{"sequence":7,"time":"2026-10-10T04:51:11.316415151Z","id":"call-4","parent":"call-1","kind":"tool","name":"counter","phase":"completed","result":1}
+{"sequence":8,"time":"2026-10-10T04:51:11.316530271Z","id":"call-1","kind":"execution","name":"generated_js","phase":"completed","result":{"label":"worker-A","count":1}}

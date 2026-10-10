@@ -1,0 +1,77 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "value": {
+      "fetch": "undefined",
+      "URL": "undefined",
+      "TextEncoder": "undefined",
+      "Intl": "undefined",
+      "process": "undefined",
+      "require": "undefined",
+      "Buffer": "undefined",
+      "setTimeout": "undefined"
+    },
+    "durationMS": 30,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "12a631fc1a02708a-globals",
+    "ownerPID": 352700,
+    "root": "call-1",
+    "status": "completed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:50:28.095488959Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "return Object.fromEntries([\"fetch\",\"URL\",\"TextEncoder\",\"Intl\",\"process\",\"require\",\"Buffer\",\"setTimeout\"].map(name =\u003e [name,typeof globalThis[name]]));",
+          "input": null
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:50:28.12308452Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "completed",
+        "result": {
+          "fetch": "undefined",
+          "URL": "undefined",
+          "TextEncoder": "undefined",
+          "Intl": "undefined",
+          "process": "undefined",
+          "require": "undefined",
+          "Buffer": "undefined",
+          "setTimeout": "undefined"
+        }
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "completed",
+        "input": {
+          "body": "return Object.fromEntries([\"fetch\",\"URL\",\"TextEncoder\",\"Intl\",\"process\",\"require\",\"Buffer\",\"setTimeout\"].map(name =\u003e [name,typeof globalThis[name]]));",
+          "input": null
+        },
+        "result": {
+          "fetch": "undefined",
+          "URL": "undefined",
+          "TextEncoder": "undefined",
+          "Intl": "undefined",
+          "process": "undefined",
+          "require": "undefined",
+          "Buffer": "undefined",
+          "setTimeout": "undefined"
+        }
+      }
+    ]
+  }
+}

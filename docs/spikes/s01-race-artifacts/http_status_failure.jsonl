@@ -1,0 +1,6 @@
+{"sequence":1,"time":"2026-10-10T04:18:59.024138547Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"try { await tools.http({url: input.url}); } catch (e) { return e.message; } throw new Error(\"missing HTTP failure\");","input":{"url":"http://127.0.0.1:45301/status"}}}
+{"sequence":2,"time":"2026-10-10T04:18:59.037605122Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"started","input":{"url":"http://127.0.0.1:45301/status"}}
+{"sequence":3,"time":"2026-10-10T04:18:59.038375656Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"started","input":{"url":"http://127.0.0.1:45301/status"}}
+{"sequence":4,"time":"2026-10-10T04:18:59.038947209Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"completed","result":{"status":503,"body":"service unavailable"}}
+{"sequence":5,"time":"2026-10-10T04:18:59.039451018Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"failed","result":null,"error":"Error: HTTP status 503: service unavailable"}
+{"sequence":6,"time":"2026-10-10T04:18:59.042579896Z","id":"call-1","kind":"execution","name":"generated_js","phase":"completed","result":"HTTP status 503: service unavailable"}

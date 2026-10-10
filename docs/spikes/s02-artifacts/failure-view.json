@@ -1,0 +1,156 @@
+{
+  "run": "12ecebc0859238cc-failure",
+  "ownerPID": 351211,
+  "root": "call-1",
+  "status": "failed",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:38:56.254290516Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf persisted \u003e \"$1\"',\"effect\",input.path]}); throw new Error(\"failure after effect\");",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-failure.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:38:56.257074954Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-failure.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:38:56.2586345Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-failure.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:38:56.26486587Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351316,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:38:56.267084594Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351316,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:38:56.271173891Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "failed",
+      "error": "Error: failure after effect"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "failed",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf persisted \u003e \"$1\"',\"effect\",input.path]}); throw new Error(\"failure after effect\");",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-failure.effect.txt"
+        }
+      },
+      "error": "Error: failure after effect"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-failure.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 351316,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-failure.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 351316,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  ]
+}

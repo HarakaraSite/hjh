@@ -1,0 +1,22 @@
+{
+  "adopted": "2026-10-10",
+  "repository": "/home/agent/projects/henji-harness",
+  "commit": "2eb586316f80ec8297873a96122568d0088971eb",
+  "schemaVersion": 3,
+  "ddlSource": "v0/agent/history/history_schema.ts",
+  "extraction": "HISTORY_SCHEMA_SQL template body; substitute HISTORY_SCHEMA_VERSION only",
+  "ddlSHA256": "6f7cf24c97ca4afe50ba6ab9de25cf8a1e3eb6ece364464af0bb0ae95e2b0eef",
+  "sources": {
+    "v0/agent/history/history_schema.ts": "f26d85d4497b6a16b8fc5e4b874fbca0712418b0cab3656d30e3dba6e4fe4364",
+    "v0/agent/history/sqlite_history_core.ts": "172dc5fefc8d77d93050be833b85742b16f607946ae697e2a69ee9a321137033",
+    "v0/agent/history/sqlite_history_store.ts": "581d108a7ea7c4526a7228c2b11c357df8b4f83690461d90590b71ded24ab96f",
+    "v0/agent/history/history_semantic_model.ts": "f603fbe073d559162b4451abdea30c258b2dfcb622e13bee303d82661ac3f664",
+    "v0/agent/history/history_store_contract.ts": "77e0a45bfbb2b987db52442c21baaea8d5a3ea248886324b0cca3f8cd603190b",
+    "v0/agent/history/context_attribution.ts": "0f079a9f0a0fea1c40eaa267337e6e2323e1a585ca783d8d56221990ce6c64a6",
+    "v0/agent/history/exact_byte_plan.ts": "5d22f10b0a8832e6756ac695e5330bd9d15c3c577d84a7381f5a7eca8a351a64",
+    "v0/agent/core/contracts.ts": "e364a1e3b6252dd5c45bf267c395d3367560add43acd9f7c13b72f18bff01dca",
+    "v0/agent/worker/worker_configuration.ts": "8f16563b531d3f97f6a44bb506eff7890b5b0c3dbd1c3243302b4430bd2886e4",
+    "v0/agent/session/session_store_contract.ts": "15d0a2781821f7cfab5f8b43deaa09f7ac591e5a21c01090225c935a666c50df",
+    "v0/agent/session/session_record_codec.ts": "f3b097741bfd0fb90fbf386de6914951ba449eaa9a85821c43c3b8bdcfb01db4"
+  }
+}

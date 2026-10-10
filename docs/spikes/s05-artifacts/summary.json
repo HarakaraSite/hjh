@@ -1,0 +1,93 @@
+{
+  "at": "2026-10-10T06:41:20.287514+00:00",
+  "target": "Linux/amd64",
+  "uname": [
+    "Linux",
+    "vm201",
+    "6.12.111+deb13-amd64",
+    "#1 SMP PREEMPT_DYNAMIC Debian 6.12.111-1 (2026-09-28)",
+    "x86_64"
+  ],
+  "archive": "/home/agent/projects/hjh/dist/s05-packages/build-ksb_ygfr/hjh-linux-amd64.tar.gz",
+  "archiveSHA256": "843901de2ef5432aef83ed0e841addfec00a57406e844dcabcfc6554e768c037",
+  "binarySHA256": "53c5d4273323d175ef97422c345c1a57177c171fa29c509ecc49f4430f866aa5",
+  "binaryBytes": 20785655,
+  "root": "/home/agent/projects/hjh/dist/s05-work/root-i9w8gmq1",
+  "cases": [
+    {
+      "name": "static-binary-empty-root-http-sqlite",
+      "passed": true,
+      "pid": 358712,
+      "sourceFiles": 125,
+      "sharedLibraries": []
+    },
+    {
+      "name": "edited-tool-hook-config-next-process-session-resume",
+      "passed": true,
+      "pids": [
+        358712,
+        358731
+      ],
+      "binaryUnchanged": true,
+      "turns": 2,
+      "adoptedPairs": 2,
+      "events": 80
+    },
+    {
+      "name": "https-with-os-ca-and-hostname-resolution",
+      "passed": true,
+      "addedResources": [
+        "/etc/hosts",
+        "/etc/ssl/certs/ca-certificates.crt"
+      ],
+      "tlsVerified": true
+    },
+    {
+      "name": "public-https-no-curl",
+      "passed": true,
+      "url": "https://bellard.org/quickjs/",
+      "status": 200,
+      "bytes": 4967,
+      "resolver": "/etc/resolv.conf"
+    },
+    {
+      "name": "optional-external-command",
+      "passed": true,
+      "addedFiles": [
+        "/bin/echo",
+        "/lib/x86_64-linux-gnu/libc.so.6",
+        "/lib64/ld-linux-x86-64.so.2"
+      ],
+      "ldd": "\tlinux-vdso.so.1 (0x00007f08c0a01000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f08c07f5000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007f08c0a03000)\n",
+      "missingCommandRecorded": true,
+      "shellRequired": false
+    }
+  ],
+  "sqlite": {
+    "engine": "3.53.4",
+    "journal": "wal",
+    "synchronous": 2
+  },
+  "session": {
+    "id": "distributed",
+    "title": "S-05 Linux distribution",
+    "created": "2026-10-10T06:41:20.377964817Z",
+    "turns": 6,
+    "adopted": 2,
+    "events": 148
+  },
+  "requests": [
+    {
+      "path": "/catalog.yaml",
+      "tls": false
+    },
+    {
+      "path": "/catalog.yaml",
+      "tls": false
+    },
+    {
+      "path": "/catalog.yaml",
+      "tls": true
+    }
+  ]
+}

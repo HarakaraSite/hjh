@@ -1,0 +1,453 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n",
+    "durationMS": 823,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "281bcf09b30bca03-yaml_error",
+    "ownerPID": 353005,
+    "root": "call-1",
+    "status": "failed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:51:15.532749838Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "const w = await tools.workflow(input); return {report:w.report, savedBytes:w.savedBytes, names:w.report.compatible.map(dep =\u003e dep.name)};",
+          "input": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:51:16.195073136Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "phase": "started",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "sequence": 3,
+        "time": "2026-10-10T04:51:16.203021971Z",
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        }
+      },
+      {
+        "sequence": 4,
+        "time": "2026-10-10T04:51:16.20922578Z",
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "sequence": 5,
+        "time": "2026-10-10T04:51:16.215312324Z",
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "phase": "started",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "sequence": 6,
+        "time": "2026-10-10T04:51:16.22101074Z",
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        }
+      },
+      {
+        "sequence": 7,
+        "time": "2026-10-10T04:51:16.227833437Z",
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml"
+        }
+      },
+      {
+        "sequence": 8,
+        "time": "2026-10-10T04:51:16.233814568Z",
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "text": "note: prepared\n"
+        }
+      },
+      {
+        "sequence": 9,
+        "time": "2026-10-10T04:51:16.258169098Z",
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid",
+          "note": "prepared:hook-one"
+        }
+      },
+      {
+        "sequence": 10,
+        "time": "2026-10-10T04:51:16.266349451Z",
+        "id": "call-7",
+        "parent": "call-4",
+        "kind": "tool",
+        "name": "http",
+        "phase": "started",
+        "input": {
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "sequence": 11,
+        "time": "2026-10-10T04:51:16.273059446Z",
+        "id": "call-8",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        }
+      },
+      {
+        "sequence": 12,
+        "time": "2026-10-10T04:51:16.281166906Z",
+        "id": "call-8",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "sequence": 13,
+        "time": "2026-10-10T04:51:16.288140242Z",
+        "id": "call-9",
+        "parent": "call-7",
+        "kind": "host",
+        "name": "http",
+        "phase": "started",
+        "input": {
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "sequence": 14,
+        "time": "2026-10-10T04:51:16.293272872Z",
+        "id": "call-9",
+        "parent": "call-7",
+        "kind": "host",
+        "name": "http",
+        "phase": "completed",
+        "result": {
+          "status": 200,
+          "body": "project: [unterminated"
+        }
+      },
+      {
+        "sequence": 15,
+        "time": "2026-10-10T04:51:16.297900307Z",
+        "id": "call-10",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "started",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139/invalid"
+          },
+          "result": {
+            "status": 200,
+            "body": "project: [unterminated"
+          }
+        }
+      },
+      {
+        "sequence": 16,
+        "time": "2026-10-10T04:51:16.303311866Z",
+        "id": "call-10",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "completed",
+        "result": {
+          "status": 200,
+          "body": "project: [unterminated"
+        }
+      },
+      {
+        "sequence": 17,
+        "time": "2026-10-10T04:51:16.306917636Z",
+        "id": "call-7",
+        "parent": "call-4",
+        "kind": "tool",
+        "name": "http",
+        "phase": "completed",
+        "result": {
+          "status": 200,
+          "body": "project: [unterminated"
+        }
+      },
+      {
+        "sequence": 18,
+        "time": "2026-10-10T04:51:16.324895669Z",
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "phase": "failed",
+        "result": null,
+        "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n"
+      },
+      {
+        "sequence": 19,
+        "time": "2026-10-10T04:51:16.327782306Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "phase": "failed",
+        "result": null,
+        "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n"
+      },
+      {
+        "sequence": 20,
+        "time": "2026-10-10T04:51:16.353454986Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "failed",
+        "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n"
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "failed",
+        "input": {
+          "body": "const w = await tools.workflow(input); return {report:w.report, savedBytes:w.savedBytes, names:w.report.compatible.map(dep =\u003e dep.name)};",
+          "input": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        },
+        "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n"
+      },
+      {
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "status": "failed",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid"
+        },
+        "result": null,
+        "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n"
+      },
+      {
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        },
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "status": "failed",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid"
+        },
+        "result": null,
+        "error": "YAMLParseError: Flow sequence in block collection must be sufficiently indented and end with a ] at line 1, column 23:\n\nproject: [unterminated\n                      ^\n"
+      },
+      {
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        },
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-yaml_error.report.json",
+          "url": "http://127.0.0.1:37139/invalid",
+          "note": "prepared:hook-one"
+        }
+      },
+      {
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "text": "note: prepared\n"
+        }
+      },
+      {
+        "id": "call-7",
+        "parent": "call-4",
+        "kind": "tool",
+        "name": "http",
+        "status": "completed",
+        "input": {
+          "url": "http://127.0.0.1:37139/invalid"
+        },
+        "result": {
+          "status": 200,
+          "body": "project: [unterminated"
+        }
+      },
+      {
+        "id": "call-8",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139/invalid"
+          }
+        },
+        "result": {
+          "url": "http://127.0.0.1:37139/invalid"
+        }
+      },
+      {
+        "id": "call-9",
+        "parent": "call-7",
+        "kind": "host",
+        "name": "http",
+        "status": "completed",
+        "input": {
+          "url": "http://127.0.0.1:37139/invalid"
+        },
+        "result": {
+          "status": 200,
+          "body": "project: [unterminated"
+        }
+      },
+      {
+        "id": "call-10",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "afterTool",
+        "status": "completed",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139/invalid"
+          },
+          "result": {
+            "status": 200,
+            "body": "project: [unterminated"
+          }
+        },
+        "result": {
+          "status": 200,
+          "body": "project: [unterminated"
+        }
+      }
+    ]
+  }
+}

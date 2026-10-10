@@ -1,0 +1,9 @@
+{
+  "archive": "/home/agent/projects/hjh/dist/s05-packages/build-ksb_ygfr/hjh-linux-amd64.tar.gz",
+  "sha256": "843901de2ef5432aef83ed0e841addfec00a57406e844dcabcfc6554e768c037",
+  "bytes": 11833590,
+  "binarySHA256": "53c5d4273323d175ef97422c345c1a57177c171fa29c509ecc49f4430f866aa5",
+  "binaryBytes": 20785655,
+  "files": 126,
+  "manifest": "/home/agent/projects/hjh/dist/s05-packages/build-ksb_ygfr/hjh-linux-amd64/manifest.json"
+}

@@ -1,0 +1,26 @@
+{
+  "turn": "e963eb2a2f026b01-failed",
+  "run": "e963eb2a2f026b01-failed-run",
+  "configuration": "4edeb95f97311b3f49ba11b869ecaa8598c245bdd8dc378c6904bc997f5787dd",
+  "worker": {
+    "execution": "call-1",
+    "error": "Error: failure after saved report",
+    "durationMS": 81,
+    "hostOperationsAfterReturn": 0
+  },
+  "modelInputCandidate": {
+    "model": "spike-model-a",
+    "instruction": "initial instruction",
+    "messages": [
+      {
+        "role": "user",
+        "content": "first"
+      },
+      {
+        "role": "assistant",
+        "content": "first: candidates=[accepted]; tool-one/hook-one"
+      }
+    ]
+  },
+  "adopted": false
+}

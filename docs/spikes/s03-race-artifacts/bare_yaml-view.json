@@ -1,0 +1,50 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "error": "TypeError: module load failed: open /tmp/hjh-s03-probe-1616007781/yaml: no such file or directory",
+    "durationMS": 24,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "281bcf09b30bca03-bare_yaml",
+    "ownerPID": 353005,
+    "root": "call-1",
+    "status": "failed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:51:17.890909027Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:51:17.909603423Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "failed",
+        "error": "TypeError: module load failed: open /tmp/hjh-s03-probe-1616007781/yaml: no such file or directory"
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "failed",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        },
+        "error": "TypeError: module load failed: open /tmp/hjh-s03-probe-1616007781/yaml: no such file or directory"
+      }
+    ]
+  }
+}

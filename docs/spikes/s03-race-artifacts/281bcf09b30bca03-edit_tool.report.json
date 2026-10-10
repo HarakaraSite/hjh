@@ -1,0 +1,16 @@
+{
+  "project": "hjh-library-spike",
+  "compatible": [
+    {
+      "name": "accepted",
+      "version": "1.4.2"
+    },
+    {
+      "name": "prerelease",
+      "version": "2.1.0-beta.2"
+    }
+  ],
+  "note": "prepared:hook-one",
+  "toolRevision": "tool-two",
+  "hookRevision": "hook-one"
+}

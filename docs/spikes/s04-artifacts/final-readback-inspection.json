@@ -1,0 +1,125 @@
+{
+  "info": {
+    "id": "e963eb2a2f026b01-main",
+    "title": "S-04 saved session",
+    "created": "2026-10-10T05:08:06.004427011Z",
+    "turns": 8,
+    "adopted": 3,
+    "events": 298
+  },
+  "conversation": {
+    "pairs": [
+      {
+        "turn": "e963eb2a2f026b01-first",
+        "position": 1,
+        "configuration": "4edeb95f97311b3f49ba11b869ecaa8598c245bdd8dc378c6904bc997f5787dd",
+        "request": "first",
+        "response": "first: candidates=[accepted]; tool-one/hook-one"
+      },
+      {
+        "turn": "e963eb2a2f026b01-restart_a",
+        "position": 2,
+        "configuration": "4edeb95f97311b3f49ba11b869ecaa8598c245bdd8dc378c6904bc997f5787dd",
+        "request": "restart_a.report.json",
+        "response": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one"
+      },
+      {
+        "turn": "e963eb2a2f026b01-restart_b",
+        "position": 3,
+        "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+        "request": "restart_b.report.json",
+        "response": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two"
+      }
+    ],
+    "rowsDecoded": 3,
+    "textBytes": 220
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "first"
+    },
+    {
+      "role": "assistant",
+      "content": "first: candidates=[accepted]; tool-one/hook-one"
+    },
+    {
+      "role": "user",
+      "content": "restart_a.report.json"
+    },
+    {
+      "role": "assistant",
+      "content": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one"
+    },
+    {
+      "role": "user",
+      "content": "restart_b.report.json"
+    },
+    {
+      "role": "assistant",
+      "content": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two"
+    }
+  ],
+  "turnPage": [
+    {
+      "id": "e963eb2a2f026b01-first",
+      "session": "e963eb2a2f026b01-main",
+      "ordinal": 1,
+      "run": "e963eb2a2f026b01-first-run",
+      "configuration": "4edeb95f97311b3f49ba11b869ecaa8598c245bdd8dc378c6904bc997f5787dd",
+      "request": "first",
+      "response": "first: candidates=[accepted]; tool-one/hook-one",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "prepared:hook-one",
+          "toolRevision": "tool-one",
+          "hookRevision": "hook-one"
+        },
+        "savedBytes": 213,
+        "previous": null,
+        "historyMessages": 0,
+        "instruction": "initial instruction"
+      },
+      "adopted": true
+    },
+    {
+      "id": "e963eb2a2f026b01-failed",
+      "session": "e963eb2a2f026b01-main",
+      "ordinal": 2,
+      "run": "e963eb2a2f026b01-failed-run",
+      "configuration": "4edeb95f97311b3f49ba11b869ecaa8598c245bdd8dc378c6904bc997f5787dd",
+      "request": "failed",
+      "outcome": "failed",
+      "result": null,
+      "error": "Error: failure after saved report",
+      "adopted": false
+    },
+    {
+      "id": "e963eb2a2f026b01-cancelled",
+      "session": "e963eb2a2f026b01-main",
+      "ordinal": 3,
+      "run": "e963eb2a2f026b01-cancelled-run",
+      "configuration": "4edeb95f97311b3f49ba11b869ecaa8598c245bdd8dc378c6904bc997f5787dd",
+      "request": "cancelled",
+      "outcome": "cancelled",
+      "result": null,
+      "error": "context canceled\ncontext canceled",
+      "adopted": false
+    }
+  ],
+  "queryPlan": [
+    "SEARCH a USING INDEX sqlite_autoindex_adoptions_2 (session_id=?)",
+    "SEARCH t USING INDEX sqlite_autoindex_turns_1 (id=?)"
+  ],
+  "inputBytes": 410,
+  "windowAllocatedBytes": 2480,
+  "windowDurationUS": 98
+}

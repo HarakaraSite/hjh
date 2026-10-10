@@ -1,0 +1,6 @@
+{"sequence":1,"time":"2026-10-10T04:18:59.076978957Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"try { await tools.command({program: \"sh\", args: [\"-c\", \"printf bad \u003e\u00262; exit 7\"]}); } catch (e) { return e.message; } throw new Error(\"missing command failure\");","input":null}}
+{"sequence":2,"time":"2026-10-10T04:18:59.097698699Z","id":"call-2","parent":"call-1","kind":"tool","name":"command","phase":"started","input":{"program":"sh","args":["-c","printf bad \u003e\u00262; exit 7"]}}
+{"sequence":3,"time":"2026-10-10T04:18:59.098519846Z","id":"call-3","parent":"call-2","kind":"host","name":"command","phase":"started","input":{"program":"sh","args":["-c","printf bad \u003e\u00262; exit 7"]}}
+{"sequence":4,"time":"2026-10-10T04:18:59.099969142Z","id":"call-3","parent":"call-2","kind":"host","name":"command","phase":"completed","result":{"pid":350182,"exitCode":7,"stdout":"","stderr":"bad"}}
+{"sequence":5,"time":"2026-10-10T04:18:59.100697453Z","id":"call-2","parent":"call-1","kind":"tool","name":"command","phase":"failed","result":null,"error":"Error: command exit 7: bad"}
+{"sequence":6,"time":"2026-10-10T04:18:59.103782794Z","id":"call-1","kind":"execution","name":"generated_js","phase":"completed","result":"command exit 7: bad"}

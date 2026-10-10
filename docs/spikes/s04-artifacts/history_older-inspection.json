@@ -1,0 +1,159 @@
+{
+  "info": {
+    "id": "e963eb2a2f026b01-large",
+    "title": "S-04 growing history",
+    "created": "2026-10-10T05:08:06.916156312Z",
+    "turns": 123,
+    "adopted": 123,
+    "events": 4920
+  },
+  "conversation": {
+    "pairs": [
+      {
+        "turn": "e963eb2a2f026b01-history_0118",
+        "position": 118,
+        "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+        "request": "history_0118",
+        "response": "history_0118: candidates=[accepted]; tool-two/hook-two"
+      },
+      {
+        "turn": "e963eb2a2f026b01-history_0119",
+        "position": 119,
+        "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+        "request": "history_0119",
+        "response": "history_0119: candidates=[accepted]; tool-two/hook-two"
+      },
+      {
+        "turn": "e963eb2a2f026b01-history_0120",
+        "position": 120,
+        "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+        "request": "history_0120",
+        "response": "history_0120: candidates=[accepted]; tool-two/hook-two"
+      }
+    ],
+    "rowsDecoded": 3,
+    "textBytes": 198
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "history_0118"
+    },
+    {
+      "role": "assistant",
+      "content": "history_0118: candidates=[accepted]; tool-two/hook-two"
+    },
+    {
+      "role": "user",
+      "content": "history_0119"
+    },
+    {
+      "role": "assistant",
+      "content": "history_0119: candidates=[accepted]; tool-two/hook-two"
+    },
+    {
+      "role": "user",
+      "content": "history_0120"
+    },
+    {
+      "role": "assistant",
+      "content": "history_0120: candidates=[accepted]; tool-two/hook-two"
+    }
+  ],
+  "turnPage": [
+    {
+      "id": "e963eb2a2f026b01-history_0001",
+      "session": "e963eb2a2f026b01-large",
+      "ordinal": 1,
+      "run": "e963eb2a2f026b01-history_0001-run",
+      "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+      "request": "history_0001",
+      "response": "history_0001: candidates=[accepted]; tool-two/hook-two",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "changed:hook-two",
+          "toolRevision": "tool-two",
+          "hookRevision": "hook-two"
+        },
+        "savedBytes": 212,
+        "previous": null,
+        "historyMessages": 0,
+        "instruction": "resumed instruction"
+      },
+      "adopted": true
+    },
+    {
+      "id": "e963eb2a2f026b01-history_0002",
+      "session": "e963eb2a2f026b01-large",
+      "ordinal": 2,
+      "run": "e963eb2a2f026b01-history_0002-run",
+      "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+      "request": "history_0002",
+      "response": "history_0002: candidates=[accepted]; tool-two/hook-two",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "changed:hook-two",
+          "toolRevision": "tool-two",
+          "hookRevision": "hook-two"
+        },
+        "savedBytes": 212,
+        "previous": "history_0001: candidates=[accepted]; tool-two/hook-two",
+        "historyMessages": 2,
+        "instruction": "resumed instruction"
+      },
+      "adopted": true
+    },
+    {
+      "id": "e963eb2a2f026b01-history_0003",
+      "session": "e963eb2a2f026b01-large",
+      "ordinal": 3,
+      "run": "e963eb2a2f026b01-history_0003-run",
+      "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+      "request": "history_0003",
+      "response": "history_0003: candidates=[accepted]; tool-two/hook-two",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "changed:hook-two",
+          "toolRevision": "tool-two",
+          "hookRevision": "hook-two"
+        },
+        "savedBytes": 212,
+        "previous": "history_0002: candidates=[accepted]; tool-two/hook-two",
+        "historyMessages": 4,
+        "instruction": "resumed instruction"
+      },
+      "adopted": true
+    }
+  ],
+  "queryPlan": [
+    "SEARCH a USING INDEX sqlite_autoindex_adoptions_2 (session_id=? AND position\u003c?)",
+    "SEARCH t USING INDEX sqlite_autoindex_turns_1 (id=?)"
+  ],
+  "inputBytes": 388,
+  "windowAllocatedBytes": 2776,
+  "windowDurationUS": 221
+}

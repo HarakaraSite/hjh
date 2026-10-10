@@ -1,0 +1,94 @@
+{
+  "time": "2026-10-10T05:08:54.172596515Z",
+  "environment": "linux/amd64 go1.27.2",
+  "session": "4f88d27131c5b72a-main",
+  "database": "history.sqlite",
+  "cases": [
+    {
+      "name": "execution_then_conversation_adoption",
+      "passed": true,
+      "observation": {
+        "after": "after_adoption-inspection.json",
+        "before": "before_adoption-inspection.json",
+        "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+        "execution": "first-execution.json",
+        "savedExecutionStatus": "completed",
+        "turn": "4f88d27131c5b72a-first"
+      }
+    },
+    {
+      "name": "failed_cancelled_and_unadopted_attempts",
+      "passed": true,
+      "observation": {
+        "evidence": "mixed-evidence.json",
+        "inspection": "mixed-inspection.json",
+        "outcomes": {
+          "4f88d27131c5b72a-cancelled": "cancelled",
+          "4f88d27131c5b72a-failed": "failed",
+          "4f88d27131c5b72a-first": "completed",
+          "4f88d27131c5b72a-unadopted": "completed"
+        },
+        "retainedSideEffectBytes": 213
+      }
+    },
+    {
+      "name": "restart_current_config_and_archived_sources",
+      "passed": true,
+      "observation": {
+        "archive": "configuration-archive.json",
+        "currentConfiguration": "7992b8a61e7f06733cc522d115bcf919ee8316408b2b261b5ae2db747adec865",
+        "currentModel": "spike-model-b",
+        "inspection": "resumed-inspection.json",
+        "newPID": 354514,
+        "oldConfiguration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+        "oldModel": "spike-model-a",
+        "oldPID": 354498,
+        "oldSourceWorker": "frozen_after_edit-execution.json"
+      }
+    },
+    {
+      "name": "kill_before_adoption_commit",
+      "passed": true,
+      "observation": {
+        "adoptedAfterStop": 3,
+        "adoptedBefore": 3,
+        "adoptedWhileTransactionOpen": 3,
+        "evidence": "crash_execution_evidence.json",
+        "executionStatus": "completed",
+        "exit": "signal: killed",
+        "gateFile": "4f88d27131c5b72a-adoption.gate.json",
+        "live": "crash_live-inspection.json",
+        "stopped": "crash_stopped-inspection.json",
+        "turn": "4f88d27131c5b72a-crash_adoption",
+        "writerPID": 354551
+      }
+    },
+    {
+      "name": "growing_history_selected_windows_and_pages",
+      "passed": true,
+      "observation": {
+        "additionalRealTurns": 120,
+        "eventPages": "history_event_pages.json",
+        "largeInputBytes": 388,
+        "largeWindowAllocatedBytes": 2648,
+        "largeWindowDurationUS": 1519,
+        "largeWindowRows": 3,
+        "latest": "history_large-inspection.json",
+        "older": "history_older-inspection.json",
+        "queryPlan": [
+          "SEARCH a USING INDEX sqlite_autoindex_adoptions_2 (session_id=?)",
+          "SEARCH t USING INDEX sqlite_autoindex_turns_1 (id=?)"
+        ],
+        "session": "4f88d27131c5b72a-large",
+        "small": "history_small-inspection.json",
+        "smallInputBytes": 388,
+        "smallWindowAllocatedBytes": 2600,
+        "smallWindowDurationUS": 1802,
+        "smallWindowRows": 3,
+        "totalEvents": 4920,
+        "totalTurns": 123,
+        "turnPage": "history_turn_page-inspection.json"
+      }
+    }
+  ]
+}

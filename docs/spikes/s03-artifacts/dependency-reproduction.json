@@ -1,0 +1,11 @@
+{
+  "commands": [
+    "npm ci --ignore-scripts --no-audit --no-fund",
+    "npm run vendor"
+  ],
+  "manifestSHA256Before": "5e68157fea94c9f7595237873c9bfd9807b749c80dcb661a0516be33ddadf146",
+  "manifestSHA256After": "5e68157fea94c9f7595237873c9bfd9807b749c80dcb661a0516be33ddadf146",
+  "identical": true,
+  "node": "v24.21.0",
+  "npm": "12.0.2"
+}

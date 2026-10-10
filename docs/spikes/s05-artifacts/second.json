@@ -1,0 +1,68 @@
+{
+  "argv": [
+    "/usr/bin/sudo",
+    "-n",
+    "/usr/sbin/chroot",
+    "--userspec=1000:1000",
+    "/home/agent/projects/hjh/dist/s05-work/root-i9w8gmq1",
+    "/app/hjh",
+    "run",
+    "-session",
+    "distributed",
+    "-turn",
+    "second",
+    "-text",
+    "second",
+    "-url",
+    "http://127.0.0.1:33125/catalog.yaml"
+  ],
+  "exitCode": 0,
+  "stderr": "",
+  "output": {
+    "pid": 358731,
+    "result": {
+      "turn": "second",
+      "run": "second-run",
+      "configuration": "02b860b99aa22312fa776a7a11c56402803705b0a35b119716209914204dfa8e",
+      "worker": {
+        "execution": "call-1",
+        "value": {
+          "report": {
+            "project": "distributed-hjh",
+            "compatible": [
+              {
+                "name": "compatible",
+                "version": "1.4.2"
+              }
+            ],
+            "note": "edited:hook-two",
+            "toolRevision": "tool-two",
+            "hookRevision": "hook-two"
+          },
+          "savedBytes": 211,
+          "previous": "first: candidates=[compatible]; tool-one/hook-one",
+          "historyMessages": 2,
+          "instruction": "distributed instruction two"
+        },
+        "durationMS": 106,
+        "hostOperationsAfterReturn": 0
+      },
+      "modelInputCandidate": {
+        "model": "spike-only-no-model-call",
+        "instruction": "distributed instruction two",
+        "messages": [
+          {
+            "role": "user",
+            "content": "first"
+          },
+          {
+            "role": "assistant",
+            "content": "first: candidates=[compatible]; tool-one/hook-one"
+          }
+        ]
+      },
+      "adopted": false
+    },
+    "activeHostCalls": 0
+  }
+}

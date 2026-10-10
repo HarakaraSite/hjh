@@ -1,0 +1,1161 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "value": {
+      "report": {
+        "project": "hjh-library-spike",
+        "compatible": [
+          {
+            "name": "accepted",
+            "version": "1.4.2"
+          },
+          {
+            "name": "prerelease",
+            "version": "2.1.0-beta.2"
+          }
+        ],
+        "note": "prepared:hook-distributed",
+        "toolRevision": "tool-distributed",
+        "hookRevision": "hook-distributed"
+      },
+      "savedBytes": 310,
+      "names": [
+        "accepted",
+        "prerelease"
+      ]
+    },
+    "durationMS": 1061,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "281bcf09b30bca03-distributed_edited",
+    "ownerPID": 353190,
+    "root": "call-1",
+    "status": "completed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:51:20.396199572Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "const w = await tools.workflow(input); return {report:w.report, savedBytes:w.savedBytes, names:w.report.compatible.map(dep =\u003e dep.name)};",
+          "input": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:51:21.07522213Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "phase": "started",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 3,
+        "time": "2026-10-10T04:51:21.082005264Z",
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 4,
+        "time": "2026-10-10T04:51:21.089041745Z",
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 5,
+        "time": "2026-10-10T04:51:21.095161291Z",
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "phase": "started",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 6,
+        "time": "2026-10-10T04:51:21.100983072Z",
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 7,
+        "time": "2026-10-10T04:51:21.107353214Z",
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml"
+        }
+      },
+      {
+        "sequence": 8,
+        "time": "2026-10-10T04:51:21.113393573Z",
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "text": "note: prepared\n"
+        }
+      },
+      {
+        "sequence": 9,
+        "time": "2026-10-10T04:51:21.135243461Z",
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139",
+          "note": "prepared:hook-distributed"
+        }
+      },
+      {
+        "sequence": 10,
+        "time": "2026-10-10T04:51:21.143576446Z",
+        "id": "call-7",
+        "parent": "call-4",
+        "kind": "tool",
+        "name": "http",
+        "phase": "started",
+        "input": {
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 11,
+        "time": "2026-10-10T04:51:21.149633795Z",
+        "id": "call-8",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 12,
+        "time": "2026-10-10T04:51:21.155206561Z",
+        "id": "call-8",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 13,
+        "time": "2026-10-10T04:51:21.160775129Z",
+        "id": "call-9",
+        "parent": "call-7",
+        "kind": "host",
+        "name": "http",
+        "phase": "started",
+        "input": {
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 14,
+        "time": "2026-10-10T04:51:21.166085844Z",
+        "id": "call-9",
+        "parent": "call-7",
+        "kind": "host",
+        "name": "http",
+        "phase": "completed",
+        "result": {
+          "status": 200,
+          "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+        }
+      },
+      {
+        "sequence": 15,
+        "time": "2026-10-10T04:51:21.172016648Z",
+        "id": "call-10",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "started",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139"
+          },
+          "result": {
+            "status": 200,
+            "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+          }
+        }
+      },
+      {
+        "sequence": 16,
+        "time": "2026-10-10T04:51:21.178564285Z",
+        "id": "call-10",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "completed",
+        "result": {
+          "status": 200,
+          "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+        }
+      },
+      {
+        "sequence": 17,
+        "time": "2026-10-10T04:51:21.183476289Z",
+        "id": "call-7",
+        "parent": "call-4",
+        "kind": "tool",
+        "name": "http",
+        "phase": "completed",
+        "result": {
+          "status": 200,
+          "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+        }
+      },
+      {
+        "sequence": 18,
+        "time": "2026-10-10T04:51:21.289400421Z",
+        "id": "call-11",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "started",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139",
+            "note": "prepared:hook-distributed"
+          },
+          "result": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed"
+          }
+        }
+      },
+      {
+        "sequence": 19,
+        "time": "2026-10-10T04:51:21.298628782Z",
+        "id": "call-11",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "completed",
+        "result": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            },
+            {
+              "name": "prerelease",
+              "version": "2.1.0-beta.2"
+            }
+          ],
+          "note": "prepared:hook-distributed",
+          "toolRevision": "tool-distributed",
+          "hookRevision": "hook-distributed"
+        }
+      },
+      {
+        "sequence": 20,
+        "time": "2026-10-10T04:51:21.304519367Z",
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "phase": "completed",
+        "result": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            },
+            {
+              "name": "prerelease",
+              "version": "2.1.0-beta.2"
+            }
+          ],
+          "note": "prepared:hook-distributed",
+          "toolRevision": "tool-distributed",
+          "hookRevision": "hook-distributed"
+        }
+      },
+      {
+        "sequence": 21,
+        "time": "2026-10-10T04:51:21.310511139Z",
+        "id": "call-12",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "writeFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "sequence": 22,
+        "time": "2026-10-10T04:51:21.316017949Z",
+        "id": "call-13",
+        "parent": "call-12",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "writeFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+          }
+        }
+      },
+      {
+        "sequence": 23,
+        "time": "2026-10-10T04:51:21.322318566Z",
+        "id": "call-13",
+        "parent": "call-12",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "sequence": 24,
+        "time": "2026-10-10T04:51:21.329251953Z",
+        "id": "call-14",
+        "parent": "call-12",
+        "kind": "host",
+        "name": "writeFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "sequence": 25,
+        "time": "2026-10-10T04:51:21.335443695Z",
+        "id": "call-14",
+        "parent": "call-12",
+        "kind": "host",
+        "name": "writeFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "bytes": 310
+        }
+      },
+      {
+        "sequence": 26,
+        "time": "2026-10-10T04:51:21.342471902Z",
+        "id": "call-15",
+        "parent": "call-12",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "started",
+        "input": {
+          "name": "writeFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+          },
+          "result": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "bytes": 310
+          }
+        }
+      },
+      {
+        "sequence": 27,
+        "time": "2026-10-10T04:51:21.350697078Z",
+        "id": "call-15",
+        "parent": "call-12",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "bytes": 310
+        }
+      },
+      {
+        "sequence": 28,
+        "time": "2026-10-10T04:51:21.357205123Z",
+        "id": "call-12",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "writeFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "bytes": 310
+        }
+      },
+      {
+        "sequence": 29,
+        "time": "2026-10-10T04:51:21.363959289Z",
+        "id": "call-16",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "readFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+        }
+      },
+      {
+        "sequence": 30,
+        "time": "2026-10-10T04:51:21.370731091Z",
+        "id": "call-17",
+        "parent": "call-16",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "readFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+          }
+        }
+      },
+      {
+        "sequence": 31,
+        "time": "2026-10-10T04:51:21.377466652Z",
+        "id": "call-17",
+        "parent": "call-16",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+        }
+      },
+      {
+        "sequence": 32,
+        "time": "2026-10-10T04:51:21.383673075Z",
+        "id": "call-18",
+        "parent": "call-16",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+        }
+      },
+      {
+        "sequence": 33,
+        "time": "2026-10-10T04:51:21.387532973Z",
+        "id": "call-18",
+        "parent": "call-16",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "sequence": 34,
+        "time": "2026-10-10T04:51:21.393877953Z",
+        "id": "call-19",
+        "parent": "call-16",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "started",
+        "input": {
+          "name": "readFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+          },
+          "result": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+          }
+        }
+      },
+      {
+        "sequence": 35,
+        "time": "2026-10-10T04:51:21.400575673Z",
+        "id": "call-19",
+        "parent": "call-16",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "sequence": 36,
+        "time": "2026-10-10T04:51:21.40522375Z",
+        "id": "call-16",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "readFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "sequence": 37,
+        "time": "2026-10-10T04:51:21.41227211Z",
+        "id": "call-20",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "started",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          },
+          "result": {
+            "report": {
+              "project": "hjh-library-spike",
+              "compatible": [
+                {
+                  "name": "accepted",
+                  "version": "1.4.2"
+                },
+                {
+                  "name": "prerelease",
+                  "version": "2.1.0-beta.2"
+                }
+              ],
+              "note": "prepared:hook-distributed",
+              "toolRevision": "tool-distributed",
+              "hookRevision": "hook-distributed"
+            },
+            "savedBytes": 310
+          }
+        }
+      },
+      {
+        "sequence": 38,
+        "time": "2026-10-10T04:51:21.41841089Z",
+        "id": "call-20",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "afterTool",
+        "phase": "completed",
+        "result": {
+          "report": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed",
+            "hookRevision": "hook-distributed"
+          },
+          "savedBytes": 310
+        }
+      },
+      {
+        "sequence": 39,
+        "time": "2026-10-10T04:51:21.42348635Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "phase": "completed",
+        "result": {
+          "report": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed",
+            "hookRevision": "hook-distributed"
+          },
+          "savedBytes": 310
+        }
+      },
+      {
+        "sequence": 40,
+        "time": "2026-10-10T04:51:21.453721456Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "completed",
+        "result": {
+          "report": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed",
+            "hookRevision": "hook-distributed"
+          },
+          "savedBytes": 310,
+          "names": [
+            "accepted",
+            "prerelease"
+          ]
+        }
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "completed",
+        "input": {
+          "body": "const w = await tools.workflow(input); return {report:w.report, savedBytes:w.savedBytes, names:w.report.compatible.map(dep =\u003e dep.name)};",
+          "input": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "result": {
+          "report": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed",
+            "hookRevision": "hook-distributed"
+          },
+          "savedBytes": 310,
+          "names": [
+            "accepted",
+            "prerelease"
+          ]
+        }
+      },
+      {
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "status": "completed",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139"
+        },
+        "result": {
+          "report": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed",
+            "hookRevision": "hook-distributed"
+          },
+          "savedBytes": 310
+        }
+      },
+      {
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "status": "completed",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139"
+        },
+        "result": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            },
+            {
+              "name": "prerelease",
+              "version": "2.1.0-beta.2"
+            }
+          ],
+          "note": "prepared:hook-distributed",
+          "toolRevision": "tool-distributed",
+          "hookRevision": "hook-distributed"
+        }
+      },
+      {
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "url": "http://127.0.0.1:37139",
+          "note": "prepared:hook-distributed"
+        }
+      },
+      {
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+          "text": "note: prepared\n"
+        }
+      },
+      {
+        "id": "call-7",
+        "parent": "call-4",
+        "kind": "tool",
+        "name": "http",
+        "status": "completed",
+        "input": {
+          "url": "http://127.0.0.1:37139"
+        },
+        "result": {
+          "status": 200,
+          "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+        }
+      },
+      {
+        "id": "call-8",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "result": {
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "id": "call-9",
+        "parent": "call-7",
+        "kind": "host",
+        "name": "http",
+        "status": "completed",
+        "input": {
+          "url": "http://127.0.0.1:37139"
+        },
+        "result": {
+          "status": 200,
+          "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+        }
+      },
+      {
+        "id": "call-10",
+        "parent": "call-7",
+        "kind": "hook",
+        "name": "afterTool",
+        "status": "completed",
+        "input": {
+          "name": "http",
+          "args": {
+            "url": "http://127.0.0.1:37139"
+          },
+          "result": {
+            "status": 200,
+            "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+          }
+        },
+        "result": {
+          "status": 200,
+          "body": "project: hjh-library-spike\nbaseline: \u0026baseline \"^1.2.0\"\ndependencies:\n  - name: accepted\n    range: *baseline\n    candidate: 1.4.2\n  - name: excluded\n    range: *baseline\n    candidate: 2.0.0\n  - name: prerelease\n    range: \"\u003e=2.1.0-beta.1 \u003c2.1.0\"\n    candidate: 2.1.0-beta.2\n"
+        }
+      },
+      {
+        "id": "call-11",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "afterTool",
+        "status": "completed",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139",
+            "note": "prepared:hook-distributed"
+          },
+          "result": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed"
+          }
+        },
+        "result": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            },
+            {
+              "name": "prerelease",
+              "version": "2.1.0-beta.2"
+            }
+          ],
+          "note": "prepared:hook-distributed",
+          "toolRevision": "tool-distributed",
+          "hookRevision": "hook-distributed"
+        }
+      },
+      {
+        "id": "call-12",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "writeFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "bytes": 310
+        }
+      },
+      {
+        "id": "call-13",
+        "parent": "call-12",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "writeFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+          }
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "id": "call-14",
+        "parent": "call-12",
+        "kind": "host",
+        "name": "writeFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "bytes": 310
+        }
+      },
+      {
+        "id": "call-15",
+        "parent": "call-12",
+        "kind": "hook",
+        "name": "afterTool",
+        "status": "completed",
+        "input": {
+          "name": "writeFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+          },
+          "result": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "bytes": 310
+          }
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "bytes": 310
+        }
+      },
+      {
+        "id": "call-16",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "readFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "id": "call-17",
+        "parent": "call-16",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "readFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+          }
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+        }
+      },
+      {
+        "id": "call-18",
+        "parent": "call-16",
+        "kind": "host",
+        "name": "readFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "id": "call-19",
+        "parent": "call-16",
+        "kind": "hook",
+        "name": "afterTool",
+        "status": "completed",
+        "input": {
+          "name": "readFile",
+          "args": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json"
+          },
+          "result": {
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+          }
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+          "text": "{\n  \"project\": \"hjh-library-spike\",\n  \"compatible\": [\n    {\n      \"name\": \"accepted\",\n      \"version\": \"1.4.2\"\n    },\n    {\n      \"name\": \"prerelease\",\n      \"version\": \"2.1.0-beta.2\"\n    }\n  ],\n  \"note\": \"prepared:hook-distributed\",\n  \"toolRevision\": \"tool-distributed\",\n  \"hookRevision\": \"hook-distributed\"\n}"
+        }
+      },
+      {
+        "id": "call-20",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "afterTool",
+        "status": "completed",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/hook-config.yaml",
+            "path": "/home/agent/projects/hjh/dist/s03-packages/281bcf09b30bca03/report.json",
+            "url": "http://127.0.0.1:37139"
+          },
+          "result": {
+            "report": {
+              "project": "hjh-library-spike",
+              "compatible": [
+                {
+                  "name": "accepted",
+                  "version": "1.4.2"
+                },
+                {
+                  "name": "prerelease",
+                  "version": "2.1.0-beta.2"
+                }
+              ],
+              "note": "prepared:hook-distributed",
+              "toolRevision": "tool-distributed",
+              "hookRevision": "hook-distributed"
+            },
+            "savedBytes": 310
+          }
+        },
+        "result": {
+          "report": {
+            "project": "hjh-library-spike",
+            "compatible": [
+              {
+                "name": "accepted",
+                "version": "1.4.2"
+              },
+              {
+                "name": "prerelease",
+                "version": "2.1.0-beta.2"
+              }
+            ],
+            "note": "prepared:hook-distributed",
+            "toolRevision": "tool-distributed",
+            "hookRevision": "hook-distributed"
+          },
+          "savedBytes": 310
+        }
+      }
+    ]
+  }
+}

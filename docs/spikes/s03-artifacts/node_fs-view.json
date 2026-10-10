@@ -1,0 +1,50 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "error": "TypeError: module load failed: open /tmp/hjh-s03-probe-4264708480/node:fs: no such file or directory",
+    "durationMS": 3,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "12a631fc1a02708a-node_fs",
+    "ownerPID": 352700,
+    "root": "call-1",
+    "status": "failed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:50:28.160670392Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:50:28.16270379Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "failed",
+        "error": "TypeError: module load failed: open /tmp/hjh-s03-probe-4264708480/node:fs: no such file or directory"
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "failed",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        },
+        "error": "TypeError: module load failed: open /tmp/hjh-s03-probe-4264708480/node:fs: no such file or directory"
+      }
+    ]
+  }
+}

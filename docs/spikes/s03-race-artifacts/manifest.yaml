@@ -1,0 +1,12 @@
+project: hjh-library-spike
+baseline: &baseline "^1.2.0"
+dependencies:
+  - name: accepted
+    range: *baseline
+    candidate: 1.4.2
+  - name: excluded
+    range: *baseline
+    candidate: 2.0.0
+  - name: prerelease
+    range: ">=2.1.0-beta.1 <2.1.0"
+    candidate: 2.1.0-beta.2

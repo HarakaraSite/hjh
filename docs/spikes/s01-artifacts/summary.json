@@ -1,0 +1,265 @@
+{
+  "time": "2026-10-10T04:18:19.705755359Z",
+  "environment": "linux/amd64 go1.27.2",
+  "binding": "modernc.org/quickjs v0.25.0",
+  "engine": "2026-06-04",
+  "cases": [
+    {
+      "name": "result_chain",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 10,
+        "worker": {
+          "execution": "call-1",
+          "value": {
+            "text": "RED\nBLUE",
+            "exitCode": 0
+          },
+          "durationMS": 2,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "nested_tools",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 12,
+        "worker": {
+          "execution": "call-1",
+          "value": {
+            "pid": 346141,
+            "exitCode": 0,
+            "stdout": "RED\nBLUE",
+            "stderr": ""
+          },
+          "durationMS": 2,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "parallel_http",
+      "passed": true,
+      "observation": {
+        "maxConcurrentHTTPHandlers": 2,
+        "readbackEvents": 10,
+        "worker": {
+          "execution": "call-1",
+          "value": [
+            "paired",
+            "paired"
+          ],
+          "durationMS": 1,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "js_exception",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 2,
+        "worker": {
+          "execution": "call-1",
+          "error": "Error: generated JS failure",
+          "durationMS": 1,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "tool_exception",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 4,
+        "worker": {
+          "execution": "call-1",
+          "error": "Error: external tool failure",
+          "durationMS": 1,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "http_status_failure",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 6,
+        "worker": {
+          "execution": "call-1",
+          "value": "HTTP status 503: service unavailable",
+          "durationMS": 2,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "http_transport_failure",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 6,
+        "worker": {
+          "execution": "call-1",
+          "value": "Get \"http://127.0.0.1:38213\": dial tcp 127.0.0.1:38213: connect: connection refused",
+          "durationMS": 2,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "command_failure",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 6,
+        "worker": {
+          "execution": "call-1",
+          "value": "command exit 7: bad",
+          "durationMS": 3,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "partial_failure_evidence",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 6,
+        "sideEffectReadback": "persisted",
+        "worker": {
+          "execution": "call-1",
+          "error": "Error: failure after effect",
+          "durationMS": 3,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "cancel_sync_js",
+      "passed": true,
+      "observation": {
+        "jsLoopStarted": true,
+        "readbackEvents": 4,
+        "worker": {
+          "execution": "call-1",
+          "error": "context canceled\ncontext canceled",
+          "durationMS": 51,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "cancel_async_js",
+      "passed": true,
+      "observation": {
+        "jsLoopStarted": true,
+        "readbackEvents": 8,
+        "worker": {
+          "execution": "call-1",
+          "error": "context canceled\nInternalError: interrupted",
+          "durationMS": 51,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "cancel_http",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 6,
+        "serverRequestContextEnded": true,
+        "worker": {
+          "execution": "call-1",
+          "error": "context canceled\ncontext canceled",
+          "durationMS": 51,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "cancel_process_group",
+      "passed": true,
+      "observation": {
+        "childPID": 346148,
+        "childStateAfterReturn": "absent",
+        "parentPID": 346147,
+        "parentStateAfterReturn": "absent",
+        "readbackEvents": 6,
+        "worker": {
+          "execution": "call-1",
+          "error": "context canceled\ncontext canceled",
+          "durationMS": 55,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "external_edit_next_worker",
+      "passed": true,
+      "observation": {
+        "firstWorker": {
+          "execution": "call-1",
+          "value": "revision-one",
+          "durationMS": 1,
+          "hostOperationsAfterReturn": 0
+        },
+        "nextWorker": {
+          "execution": "call-1",
+          "value": "revision-two",
+          "durationMS": 1,
+          "hostOperationsAfterReturn": 0
+        },
+        "sameExecutable": true
+      }
+    },
+    {
+      "name": "vm_shared_state",
+      "passed": true,
+      "observation": {
+        "readbackEvents": 6,
+        "worker": {
+          "execution": "call-1",
+          "value": [
+            1,
+            2
+          ],
+          "durationMS": 1,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "vm_parallel_isolation",
+      "passed": true,
+      "observation": {
+        "maxConcurrentHTTPHandlers": 2,
+        "workers": [
+          {
+            "readbackEvents": 8,
+            "worker": {
+              "execution": "call-1",
+              "value": {
+                "label": "worker-A",
+                "count": 1
+              },
+              "durationMS": 3,
+              "hostOperationsAfterReturn": 0
+            }
+          },
+          {
+            "readbackEvents": 8,
+            "worker": {
+              "execution": "call-1",
+              "value": {
+                "label": "worker-B",
+                "count": 1
+              },
+              "durationMS": 3,
+              "hostOperationsAfterReturn": 0
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

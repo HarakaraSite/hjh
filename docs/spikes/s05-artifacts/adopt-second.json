@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "/usr/bin/sudo",
+    "-n",
+    "/usr/sbin/chroot",
+    "--userspec=1000:1000",
+    "/home/agent/projects/hjh/dist/s05-work/root-i9w8gmq1",
+    "/app/hjh",
+    "adopt",
+    "-session",
+    "distributed",
+    "-turn",
+    "second"
+  ],
+  "exitCode": 0,
+  "stderr": "",
+  "output": {
+    "id": "distributed",
+    "title": "S-05 Linux distribution",
+    "created": "2026-10-10T06:41:20.377964817Z",
+    "turns": 2,
+    "adopted": 2,
+    "events": 80
+  }
+}

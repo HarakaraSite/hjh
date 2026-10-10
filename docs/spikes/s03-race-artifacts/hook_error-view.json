@@ -1,0 +1,271 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "error": "Error: hook edit failure",
+    "durationMS": 780,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "281bcf09b30bca03-hook_error",
+    "ownerPID": 353005,
+    "root": "call-1",
+    "status": "failed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:51:16.374562948Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "const w = await tools.workflow(input); return {report:w.report, savedBytes:w.savedBytes, names:w.report.compatible.map(dep =\u003e dep.name)};",
+          "input": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:51:17.041885793Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "phase": "started",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 3,
+        "time": "2026-10-10T04:51:17.050741652Z",
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 4,
+        "time": "2026-10-10T04:51:17.059552464Z",
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "completed",
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 5,
+        "time": "2026-10-10T04:51:17.066022161Z",
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "phase": "started",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "sequence": 6,
+        "time": "2026-10-10T04:51:17.071790105Z",
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "started",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        }
+      },
+      {
+        "sequence": 7,
+        "time": "2026-10-10T04:51:17.078447861Z",
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "started",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml"
+        }
+      },
+      {
+        "sequence": 8,
+        "time": "2026-10-10T04:51:17.084329905Z",
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "phase": "completed",
+        "result": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "text": "note: prepared\n"
+        }
+      },
+      {
+        "sequence": 9,
+        "time": "2026-10-10T04:51:17.106226037Z",
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "phase": "failed",
+        "result": null,
+        "error": "Error: hook edit failure"
+      },
+      {
+        "sequence": 10,
+        "time": "2026-10-10T04:51:17.112279305Z",
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "phase": "failed",
+        "result": null,
+        "error": "Error: hook edit failure"
+      },
+      {
+        "sequence": 11,
+        "time": "2026-10-10T04:51:17.118035845Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "phase": "failed",
+        "result": null,
+        "error": "Error: hook edit failure"
+      },
+      {
+        "sequence": 12,
+        "time": "2026-10-10T04:51:17.150787345Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "failed",
+        "error": "Error: hook edit failure"
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "failed",
+        "input": {
+          "body": "const w = await tools.workflow(input); return {report:w.report, savedBytes:w.savedBytes, names:w.report.compatible.map(dep =\u003e dep.name)};",
+          "input": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "error": "Error: hook edit failure"
+      },
+      {
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "workflow",
+        "status": "failed",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+          "url": "http://127.0.0.1:37139"
+        },
+        "result": null,
+        "error": "Error: hook edit failure"
+      },
+      {
+        "id": "call-3",
+        "parent": "call-2",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "completed",
+        "input": {
+          "name": "workflow",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "result": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+          "url": "http://127.0.0.1:37139"
+        }
+      },
+      {
+        "id": "call-4",
+        "parent": "call-2",
+        "kind": "tool",
+        "name": "catalog",
+        "status": "failed",
+        "input": {
+          "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+          "url": "http://127.0.0.1:37139"
+        },
+        "result": null,
+        "error": "Error: hook edit failure"
+      },
+      {
+        "id": "call-5",
+        "parent": "call-4",
+        "kind": "hook",
+        "name": "beforeTool",
+        "status": "failed",
+        "input": {
+          "name": "catalog",
+          "args": {
+            "hookConfigPath": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+            "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook_error.report.json",
+            "url": "http://127.0.0.1:37139"
+          }
+        },
+        "result": null,
+        "error": "Error: hook edit failure"
+      },
+      {
+        "id": "call-6",
+        "parent": "call-5",
+        "kind": "host",
+        "name": "readFile",
+        "status": "completed",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml"
+        },
+        "result": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-race-artifacts/281bcf09b30bca03-hook-config.yaml",
+          "text": "note: prepared\n"
+        }
+      }
+    ]
+  }
+}

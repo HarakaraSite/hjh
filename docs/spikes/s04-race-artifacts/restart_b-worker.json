@@ -1,0 +1,54 @@
+{
+  "pid": 354514,
+  "result": {
+    "turn": "4f88d27131c5b72a-restart_b",
+    "run": "4f88d27131c5b72a-restart_b-run",
+    "configuration": "7992b8a61e7f06733cc522d115bcf919ee8316408b2b261b5ae2db747adec865",
+    "worker": {
+      "execution": "call-1",
+      "value": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "changed:hook-two",
+          "toolRevision": "tool-two",
+          "hookRevision": "hook-two"
+        },
+        "savedBytes": 212,
+        "previous": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one",
+        "historyMessages": 4,
+        "instruction": "resumed instruction"
+      },
+      "durationMS": 1297,
+      "hostOperationsAfterReturn": 0
+    },
+    "modelInputCandidate": {
+      "model": "spike-model-b",
+      "instruction": "resumed instruction",
+      "messages": [
+        {
+          "role": "user",
+          "content": "first"
+        },
+        {
+          "role": "assistant",
+          "content": "first: candidates=[accepted]; tool-one/hook-one"
+        },
+        {
+          "role": "user",
+          "content": "restart_a.report.json"
+        },
+        {
+          "role": "assistant",
+          "content": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one"
+        }
+      ]
+    },
+    "adopted": true
+  }
+}

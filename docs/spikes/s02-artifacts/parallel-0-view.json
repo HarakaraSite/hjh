@@ -1,0 +1,152 @@
+{
+  "run": "12ecebc0859238cc-parallel-A",
+  "ownerPID": 351211,
+  "root": "call-1",
+  "status": "completed",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:38:56.377653275Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "return (await tools.command({program:\"tr\",args:[\"a-z\",\"A-Z\"],stdin:input.label})).stdout;",
+        "input": {
+          "label": "a"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:38:56.382720511Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "a"
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:38:56.384456843Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "a"
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:38:56.387555738Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351340,
+        "exitCode": 0,
+        "stdout": "A",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:38:56.389258664Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351340,
+        "exitCode": 0,
+        "stdout": "A",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:38:56.391597162Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "completed",
+      "result": "A"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "completed",
+      "input": {
+        "body": "return (await tools.command({program:\"tr\",args:[\"a-z\",\"A-Z\"],stdin:input.label})).stdout;",
+        "input": {
+          "label": "a"
+        }
+      },
+      "result": "A"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "a"
+      },
+      "result": {
+        "pid": 351340,
+        "exitCode": 0,
+        "stdout": "A",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "a"
+      },
+      "result": {
+        "pid": 351340,
+        "exitCode": 0,
+        "stdout": "A",
+        "stderr": ""
+      }
+    }
+  ]
+}

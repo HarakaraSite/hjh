@@ -1,0 +1,156 @@
+{
+  "run": "12ecebc0859238cc-crash_committed",
+  "ownerPID": 351354,
+  "root": "call-1",
+  "status": "interrupted",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:38:56.409274954Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_committed.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:38:56.411194916Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_committed.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:38:56.412585317Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_committed.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:38:56.414567476Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351361,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:38:56.415796504Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351361,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:38:56.424519065Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "interrupted",
+      "error": "experiment observed writer PID 351354 exit (signal: killed); Wait completed"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "interrupted",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf crash-effect \u003e \"$1\"; printf command-finished',\"effect\",input.path]}); return \"parent-finished\";",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_committed.effect.txt"
+        }
+      },
+      "error": "experiment observed writer PID 351354 exit (signal: killed); Wait completed"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_committed.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 351361,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf crash-effect \u003e \"$1\"; printf command-finished",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-artifacts/12ecebc0859238cc-crash_committed.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 351361,
+        "exitCode": 0,
+        "stdout": "command-finished",
+        "stderr": ""
+      }
+    }
+  ]
+}

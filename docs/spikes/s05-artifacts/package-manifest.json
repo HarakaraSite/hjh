@@ -1,0 +1,755 @@
+{
+  "target": "linux/amd64",
+  "build": "/home/agent/projects/hjh/dist/s05-packages/build-ksb_ygfr/hjh-linux-amd64/hjh: go1.27.2\n\tpath\thjh/spikes/s01/cmd/s05\n\tmod\thjh/spikes/s01\t(devel)\t\n\tdep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/remyoudompheng/bigfft\tv0.0.0-20230129092748-24d4a6f8daec\th1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=\n\tdep\tgolang.org/x/sys\tv0.48.0\th1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=\n\tdep\tmodernc.org/libc\tv1.77.1\th1:Ct8j47QtiZ1Enj2DtFXQtUqrPCAjdCmPjtCuvrYQ0Hs=\n\tdep\tmodernc.org/libquickjs\tv0.13.1\th1:uCb9AYyEyL1JS2dnKtLZKWH/vDb36cx1Mr1SIdbzb8A=\n\tdep\tmodernc.org/mathutil\tv1.7.1\th1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=\n\tdep\tmodernc.org/memory\tv1.12.1\th1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=\n\tdep\tmodernc.org/quickjs\tv0.25.0\th1:j0oeoGlDh7YMYiNgpqLxrnxXZ8DPawv3M4u4B+qqqP0=\n\tdep\tmodernc.org/sqlite\tv1.60.1\th1:/blz53O951KWFOso4QQvEs/Fq6cDBKLtMVrYNSeJVKw=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n\tbuild\tvcs=git\n\tbuild\tvcs.modified=true\n",
+  "elfProgramHeaders": "\nElf file type is EXEC (Executable file)\nEntry point 0x48e740\nThere are 6 program headers, starting at offset 64\n\nProgram Headers:\n  Type           Offset             VirtAddr           PhysAddr\n                 FileSiz            MemSiz              Flags  Align\n  PHDR           0x0000000000000040 0x0000000000400040 0x0000000000400040\n                 0x0000000000000150 0x0000000000000150  R      0x1000\n  NOTE           0x0000000000000f78 0x0000000000400f78 0x0000000000400f78\n                 0x0000000000000064 0x0000000000000064  R      0x4\n  LOAD           0x0000000000000000 0x0000000000400000 0x0000000000400000\n                 0x00000000006fe791 0x00000000006fe791  R E    0x1000\n  LOAD           0x00000000006ff000 0x0000000000aff000 0x0000000000aff000\n                 0x00000000005cfee0 0x00000000005cfee0  R      0x1000\n  LOAD           0x0000000000ccf000 0x00000000010cf000 0x00000000010cf000\n                 0x0000000000084c40 0x00000000020cebd8  RW     0x1000\n  GNU_STACK      0x0000000000000000 0x0000000000000000 0x0000000000000000\n                 0x0000000000000000 0x0000000000000000  RW     0x8\n\n Section to Segment mapping:\n  Segment Sections...\n   00     \n   01     .note.go.buildid \n   02     .note.go.buildid .note.gnu.build-id .text \n   03     .rodata .gopclntab .go.type .go.func \n   04     .go.buildinfo .go.fipsinfo .go.module .noptrdata .data .bss .noptrbss \n   05     \n",
+  "goDependencies": [
+    {
+      "module": "github.com/dustin/go-humanize",
+      "version": "v1.0.1",
+      "sum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=",
+      "notices": [
+        "licenses/github.com/dustin/go-humanize/LICENSE"
+      ]
+    },
+    {
+      "module": "github.com/google/uuid",
+      "version": "v1.6.0",
+      "sum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=",
+      "notices": [
+        "licenses/github.com/google/uuid/CONTRIBUTORS",
+        "licenses/github.com/google/uuid/LICENSE"
+      ]
+    },
+    {
+      "module": "github.com/remyoudompheng/bigfft",
+      "version": "v0.0.0-20230129092748-24d4a6f8daec",
+      "sum": "h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=",
+      "notices": [
+        "licenses/github.com/remyoudompheng/bigfft/LICENSE"
+      ]
+    },
+    {
+      "module": "golang.org/x/sys",
+      "version": "v0.48.0",
+      "sum": "h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=",
+      "notices": [
+        "licenses/golang.org/x/sys/LICENSE",
+        "licenses/golang.org/x/sys/PATENTS"
+      ]
+    },
+    {
+      "module": "modernc.org/libc",
+      "version": "v1.77.1",
+      "sum": "h1:Ct8j47QtiZ1Enj2DtFXQtUqrPCAjdCmPjtCuvrYQ0Hs=",
+      "notices": [
+        "licenses/modernc.org/libc/AUTHORS",
+        "licenses/modernc.org/libc/CONTRIBUTORS",
+        "licenses/modernc.org/libc/LICENSE",
+        "licenses/modernc.org/libc/LICENSE-3RD-PARTY.md"
+      ]
+    },
+    {
+      "module": "modernc.org/libquickjs",
+      "version": "v0.13.1",
+      "sum": "h1:uCb9AYyEyL1JS2dnKtLZKWH/vDb36cx1Mr1SIdbzb8A=",
+      "notices": [
+        "licenses/modernc.org/libquickjs/AUTHORS",
+        "licenses/modernc.org/libquickjs/CONTRIBUTORS",
+        "licenses/modernc.org/libquickjs/LICENSE",
+        "licenses/modernc.org/libquickjs/LICENSE-LIBQUICKJS",
+        "licenses/modernc.org/libquickjs/LICENSE_TEST262"
+      ]
+    },
+    {
+      "module": "modernc.org/mathutil",
+      "version": "v1.7.1",
+      "sum": "h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=",
+      "notices": [
+        "licenses/modernc.org/mathutil/AUTHORS",
+        "licenses/modernc.org/mathutil/CONTRIBUTORS",
+        "licenses/modernc.org/mathutil/LICENSE"
+      ]
+    },
+    {
+      "module": "modernc.org/memory",
+      "version": "v1.12.1",
+      "sum": "h1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=",
+      "notices": [
+        "licenses/modernc.org/memory/AUTHORS",
+        "licenses/modernc.org/memory/CONTRIBUTORS",
+        "licenses/modernc.org/memory/LICENSE",
+        "licenses/modernc.org/memory/LICENSE-GO",
+        "licenses/modernc.org/memory/LICENSE-LOGO",
+        "licenses/modernc.org/memory/LICENSE-MMAP-GO"
+      ]
+    },
+    {
+      "module": "modernc.org/quickjs",
+      "version": "v0.25.0",
+      "sum": "h1:j0oeoGlDh7YMYiNgpqLxrnxXZ8DPawv3M4u4B+qqqP0=",
+      "notices": [
+        "licenses/modernc.org/quickjs/AUTHORS",
+        "licenses/modernc.org/quickjs/CONTRIBUTORS",
+        "licenses/modernc.org/quickjs/LICENSE",
+        "licenses/modernc.org/quickjs/LICENSE-LIBQUICKJS"
+      ]
+    },
+    {
+      "module": "modernc.org/sqlite",
+      "version": "v1.60.1",
+      "sum": "h1:/blz53O951KWFOso4QQvEs/Fq6cDBKLtMVrYNSeJVKw=",
+      "notices": [
+        "licenses/modernc.org/sqlite/AUTHORS",
+        "licenses/modernc.org/sqlite/CONTRIBUTORS",
+        "licenses/modernc.org/sqlite/LICENSE",
+        "licenses/modernc.org/sqlite/LICENSE-3RD-PARTY.md",
+        "licenses/modernc.org/sqlite/LICENSE-SQLITE",
+        "licenses/modernc.org/sqlite/LICENSE-SQLITE_VEC"
+      ]
+    }
+  ],
+  "jsDependencies": {
+    "yaml": {
+      "version": "2.9.1",
+      "resolved": "https://registry.npmjs.org/yaml/-/yaml-2.9.1.tgz",
+      "integrity": "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw=="
+    },
+    "semver": {
+      "version": "7.8.5",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="
+    },
+    "esbuild": {
+      "version": "0.28.2",
+      "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz",
+      "integrity": "sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA=="
+    }
+  },
+  "files": {
+    "README.md": {
+      "bytes": 2729,
+      "sha256": "e3f107367accb9f6886749c56b12fb0ce8edbe0bf20630217d173bd034bd7f41",
+      "mode": "0o664"
+    },
+    "catalog.yaml": {
+      "bytes": 161,
+      "sha256": "50317759002c0bcc040eba3ec4bd047398208878d22c88ea9526c1325e8086c1",
+      "mode": "0o664"
+    },
+    "command.js": {
+      "bytes": 35,
+      "sha256": "62be3b4a4c0097774f4b644f67d76c65ac446f58f7f3cae759079a387b7c86c1",
+      "mode": "0o664"
+    },
+    "hjh": {
+      "bytes": 20785655,
+      "sha256": "53c5d4273323d175ef97422c345c1a57177c171fa29c509ecc49f4430f866aa5",
+      "mode": "0o775"
+    },
+    "http.js": {
+      "bytes": 144,
+      "sha256": "9564e3349f43773dc99a81c5875589bc08ba11ecd099cc590df84be2c998c201",
+      "mode": "0o664"
+    },
+    "licenses/github.com/dustin/go-humanize/LICENSE": {
+      "bytes": 1136,
+      "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71",
+      "mode": "0o664"
+    },
+    "licenses/github.com/google/uuid/CONTRIBUTORS": {
+      "bytes": 105,
+      "sha256": "d69e90a1901a669b3cc34dc07e99d60c8627d73c88dd374de488fec4fefd7118",
+      "mode": "0o664"
+    },
+    "licenses/github.com/google/uuid/LICENSE": {
+      "bytes": 1480,
+      "sha256": "0a8d61ed3cbfd5312326e8126c31ce9c627a283adc99131b56896d29ada04b2d",
+      "mode": "0o664"
+    },
+    "licenses/github.com/remyoudompheng/bigfft/LICENSE": {
+      "bytes": 1479,
+      "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d",
+      "mode": "0o664"
+    },
+    "licenses/go/LICENSE": {
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "mode": "0o664"
+    },
+    "licenses/go/PATENTS": {
+      "bytes": 1303,
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "mode": "0o664"
+    },
+    "licenses/golang.org/x/sys/LICENSE": {
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "mode": "0o664"
+    },
+    "licenses/golang.org/x/sys/PATENTS": {
+      "bytes": 1303,
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libc/AUTHORS": {
+      "bytes": 827,
+      "sha256": "40224528f3c7363534f59521d803a4eb627966b334d732bfc68a788655cb2545",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libc/CONTRIBUTORS": {
+      "bytes": 967,
+      "sha256": "668ed2d4e433fc021e74ef4f9f16057cc59de6718d94cbf05c296022c8cd51fc",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libc/LICENSE": {
+      "bytes": 1482,
+      "sha256": "95ff867eb55a56935fa7492406cfa953fb7c13ca73f4c0a86ae05756b4605600",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libc/LICENSE-3RD-PARTY.md": {
+      "bytes": 10505,
+      "sha256": "f597097efe3d97021f89170746bd3a0fb9a8b6fb26b82043ed68a4e0283bee6c",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libquickjs/AUTHORS": {
+      "bytes": 346,
+      "sha256": "f79ff8b413938c3ce7c60db12242a663d8e840249bd838fcf58f4aaccfec5454",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libquickjs/CONTRIBUTORS": {
+      "bytes": 277,
+      "sha256": "3e15203e4b12f2d1b0286daec3cd80da1517e0224325b6aa5be0acedf3330406",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libquickjs/LICENSE": {
+      "bytes": 1491,
+      "sha256": "2ba0de05b7951c15291bf307444703bbd705ba454b4dc171cd88eb8b0769c314",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libquickjs/LICENSE-LIBQUICKJS": {
+      "bytes": 1130,
+      "sha256": "598fd7fc928e4350abce36e337ba5a1346923c5c692f5be92c3d8e29ddd7c18d",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/libquickjs/LICENSE_TEST262": {
+      "bytes": 2213,
+      "sha256": "4dd9244dfe8197c75348c4b24ab53d29d3b1cfad143ac76b5a3d8942aa354ce0",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/mathutil/AUTHORS": {
+      "bytes": 412,
+      "sha256": "51fcdd68bb605f080283bb6eabb72452591289650599d3d67603381834e536af",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/mathutil/CONTRIBUTORS": {
+      "bytes": 511,
+      "sha256": "9d28a0a20fa7014a6f1ff7811da94ec9c51552ca420a36eb6b62a2210ede64a2",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/mathutil/LICENSE": {
+      "bytes": 1486,
+      "sha256": "bfa9bf72a72ca009fd62a8f84fca3dca67e51d93af96352723646599898b6cf5",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/memory/AUTHORS": {
+      "bytes": 529,
+      "sha256": "df1f424436f279309de85b82e494d548297a2570e9b5794630d7e72c9eb50b6a",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/memory/CONTRIBUTORS": {
+      "bytes": 532,
+      "sha256": "1066923ff5a4ddebd362c37f64bf4f2622a41696a298623ab1f82406165477e0",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/memory/LICENSE": {
+      "bytes": 1484,
+      "sha256": "59895e669f48f168b6b858358f6005779cdf40a265f7828813061b56af67b496",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/memory/LICENSE-GO": {
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/memory/LICENSE-LOGO": {
+      "bytes": 62,
+      "sha256": "5ae5bee3072a841376451b48d8cfcec7188e10543926d5870828d36c8a750dc5",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/memory/LICENSE-MMAP-GO": {
+      "bytes": 1518,
+      "sha256": "c2eba69f20d05414538c3a5df7694dde392e065ff70882e1625e90f5d6659fff",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/quickjs/AUTHORS": {
+      "bytes": 379,
+      "sha256": "5bd7e976d8573f3867c944f80f7e755b3575d6519b18c2caf03cd3a8c1e3317f",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/quickjs/CONTRIBUTORS": {
+      "bytes": 310,
+      "sha256": "4a9a3181539fcac658fbcb290352b13c92c74d4192768f5952fa92bed8fa11a0",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/quickjs/LICENSE": {
+      "bytes": 1488,
+      "sha256": "f0a622a45461250e6ca844145de0dd2f98ad919ca15a896fbda7d252e533a9c0",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/quickjs/LICENSE-LIBQUICKJS": {
+      "bytes": 1130,
+      "sha256": "598fd7fc928e4350abce36e337ba5a1346923c5c692f5be92c3d8e29ddd7c18d",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/sqlite/AUTHORS": {
+      "bytes": 1196,
+      "sha256": "6bff0356ad7a2aee1961df765de4c5beef4b1d0a00fa2d8704ecb6b6043b4922",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/sqlite/CONTRIBUTORS": {
+      "bytes": 1745,
+      "sha256": "e2949e32fc15001cfc98d073acf97b7e61ee56406aa4bc06fc1019cf7ff2508e",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/sqlite/LICENSE": {
+      "bytes": 1489,
+      "sha256": "c6fe05491a60ae13bcd223088d2705e36dede24e5587226231d2459ada5c4822",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/sqlite/LICENSE-3RD-PARTY.md": {
+      "bytes": 74323,
+      "sha256": "b4366b9c27a9364633e015011a231913ed19bf1228f335bf617e50a6f7b168a6",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/sqlite/LICENSE-SQLITE": {
+      "bytes": 1506,
+      "sha256": "8438c9c89b849131ead81d5435cb97fcf052df5b0b286dda8a2d4c29e6cb3fd0",
+      "mode": "0o664"
+    },
+    "licenses/modernc.org/sqlite/LICENSE-SQLITE_VEC": {
+      "bytes": 1068,
+      "sha256": "6ce72bbe12d975bd5286e5ab0a064c069693300c47bccbc57bec18485f1621ea",
+      "mode": "0o664"
+    },
+    "settings.json": {
+      "bytes": 138,
+      "sha256": "0fed4b60ab49c69514b146a4d3bc7d43120cf8c43e6f86a5f078917490e17f57",
+      "mode": "0o664"
+    },
+    "tools/hook-config.yaml": {
+      "bytes": 18,
+      "sha256": "3ed39cfb181a0ada98a814a5281f4781222aaeb061773b2db4757f3cbbbbaf81",
+      "mode": "0o664"
+    },
+    "tools/hooks.js": {
+      "bytes": 437,
+      "sha256": "2bbae9124be4cb97b74b2e1aabe75508ab8c90ccaf796ddbf42fb465760c3fcb",
+      "mode": "0o664"
+    },
+    "tools/index.js": {
+      "bytes": 679,
+      "sha256": "6a61df9a38b1901f77379083bbbca5e08c7f68623a1a1a423ba3fa094b0ec7d7",
+      "mode": "0o664"
+    },
+    "tools/modules/catalog.js": {
+      "bytes": 523,
+      "sha256": "f34d27187b22df438107354118c4d1ce33703da3d18d6f0dc2b84982e8dab6b5",
+      "mode": "0o664"
+    },
+    "tools/vendor/manifest.json": {
+      "bytes": 12251,
+      "sha256": "5e68157fea94c9f7595237873c9bfd9807b749c80dcb661a0516be33ddadf146",
+      "mode": "0o664"
+    },
+    "tools/vendor/semver/LICENSE": {
+      "bytes": 765,
+      "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b",
+      "mode": "0o664"
+    },
+    "tools/vendor/semver/build-meta.json": {
+      "bytes": 29634,
+      "sha256": "8934cee10c779822771d2b3dec5e5598d54557c6618d74e5749b5ea264f01cd8",
+      "mode": "0o664"
+    },
+    "tools/vendor/semver/index.mjs": {
+      "bytes": 66433,
+      "sha256": "34086258a0c5b8c6408983beee79158d8d23f596f2ec2fa240e904d86aec9083",
+      "mode": "0o664"
+    },
+    "tools/vendor/semver/raw-index.cjs": {
+      "bytes": 2691,
+      "sha256": "4b3e57d3d40e29e0706002eba113d09f35aea593578376bbeec83b777b9912ab",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/LICENSE": {
+      "bytes": 738,
+      "sha256": "5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/compose-collection.js": {
+      "bytes": 3500,
+      "sha256": "7fa2b7a37902d99bf924c3e4db7b003202837597a7815d9917736dbd1861b7f6",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/compose-doc.js": {
+      "bytes": 1555,
+      "sha256": "0ec9140185c6d965783c4d3e9ae427fb4a377935dd20d8872eb35b56ec461579",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/compose-node.js": {
+      "bytes": 4122,
+      "sha256": "c6ddd844d89a2086cc1c4cc643cae6361e7fae0728dc0f71066ded02bb7b5d12",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/compose-scalar.js": {
+      "bytes": 3316,
+      "sha256": "3b7d0f5876dd7c33b8f2bf896178008283be8e4a82495070dc638a922e202e07",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/composer.js": {
+      "bytes": 8484,
+      "sha256": "214e221c39346468e4b7713d775bfa9dca87695463ac795399e66b91a06540cc",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-block-map.js": {
+      "bytes": 4915,
+      "sha256": "ffa61d87f9f0e58a5e05c54073f67c34c4575234f357bcaba6fb164e36996b97",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-block-scalar.js": {
+      "bytes": 7447,
+      "sha256": "2a89c2b128e143a98f61751b9ab7dd08d140105c185ece6a687015ea8e0be036",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-block-seq.js": {
+      "bytes": 1740,
+      "sha256": "7905b607f90dc9078463fd40e3fbb22537e45e0ef2514fc6c662526b4cdc2ec6",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-end.js": {
+      "bytes": 1239,
+      "sha256": "e0a32e1b8c5649ea14152b0c0d45fbd64d46dbfa299a7328b71421e49ee48db2",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-flow-collection.js": {
+      "bytes": 8778,
+      "sha256": "957722ee22cb72b48e9d78ed6dabdca97fcbff188cad1f362864a959b184925f",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-flow-scalar.js": {
+      "bytes": 7355,
+      "sha256": "5516b92d61fedb6dbfb4523a7aa6c44c12b627e18da5178eafa28324aef4ff7d",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/resolve-props.js": {
+      "bytes": 5552,
+      "sha256": "4b6c34fe620ddaf31e06c44a1acbbbe8e49a617ae805bb8dca70a278812c16cb",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/util-contains-newline.js": {
+      "bytes": 1051,
+      "sha256": "4810ffba0d74ebb913731e1369ea17f6fef20df2feb2ef0bd8553e439f4a6b78",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/util-empty-scalar-position.js": {
+      "bytes": 816,
+      "sha256": "571d615e24fd379998df23e29df09f127349f4757fc4cbad176aecbfe77b7d82",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/util-flow-indent-check.js": {
+      "bytes": 494,
+      "sha256": "ebab50fc461c9eaffe07c807dde4aff4f8c5976f5aa4e8f02608ed57ef52a690",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/compose/util-map-includes.js": {
+      "bytes": 428,
+      "sha256": "584a79bdaf93b530fee951c888daf844a6a329f672ffb57450b39f72b0bdfb95",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/doc/Document.js": {
+      "bytes": 12903,
+      "sha256": "6b9c9187a04d13331c07d7193baf29b0547fd20de042e1fd57289f13d61ad196",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/doc/anchors.js": {
+      "bytes": 2276,
+      "sha256": "0d5c8fd9bf01e2f4eb0cf08771705e0c0efbd05d9835714fc94850d943003cc6",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/doc/applyReviver.js": {
+      "bytes": 1923,
+      "sha256": "b653aa07fcd8619637c1dbf6151d9de5e22efcb3becfd4dff86cdcf4bb2f1a97",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/doc/createNode.js": {
+      "bytes": 3061,
+      "sha256": "80a8212199fa1591e0836c0b19e05f9734dd5e6a7dcd54d6da1e4f2a20f2450c",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/doc/directives.js": {
+      "bytes": 6188,
+      "sha256": "688805b988a34cf7c2f6e5b6c3f1e6a798b22b4eaa450286df095d6b741fedf0",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/errors.js": {
+      "bytes": 2023,
+      "sha256": "410bb3397beb0d3a8c649d048b6e087bddf1f7114832eaf94be0fcbb4a8af29b",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/index.js": {
+      "bytes": 879,
+      "sha256": "c7d10350202ee8cb14febfce6b559c93760405cc4738a89c10abcb3c44fd6990",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/log.js": {
+      "bytes": 260,
+      "sha256": "2e7d7edee783c901f36a8f986d126f15f33ac504fe17d4655e6846869d07b9e4",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/Alias.js": {
+      "bytes": 3998,
+      "sha256": "0aaa9956d9f965e29f391c268baca1e7f9c50649b900128a9e5e669450d76411",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/Collection.js": {
+      "bytes": 5076,
+      "sha256": "f18de1edc4f5a3ae163a6ca894e2b4debd3a8c480338f580ac6cdffebbfc4bc9",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/Node.js": {
+      "bytes": 1339,
+      "sha256": "aaf0e1042d4b11f4760f7de032ec99ac49dda1742e55911f5a4df182cbd5471f",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/Pair.js": {
+      "bytes": 1124,
+      "sha256": "a9f0acf0f06eab7852a99418a07628fd0e26476895c90af3ae66bab8704e9b11",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/Scalar.js": {
+      "bytes": 700,
+      "sha256": "80a4961d380ec00c5eb9a47f29dfb378437d055910e163a9ebd9accf032b6e03",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/YAMLMap.js": {
+      "bytes": 4957,
+      "sha256": "42b884f36dfb23248e9f2200bce5e7a6007f90e0adfd228de8079346e9627737",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/YAMLSeq.js": {
+      "bytes": 3573,
+      "sha256": "75d12e1a5edbf1e3d04d6310ffdaf553a3a1ff7d12643cfa428330ca7189604d",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/addPairToJSMap.js": {
+      "bytes": 2289,
+      "sha256": "67cc22455591363a78723876f73640c5712161bb840423e705820666cb0d3ada",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/identity.js": {
+      "bytes": 1513,
+      "sha256": "da71af70da393500ab6e3cdbceba9c66965bc89c3401388c9ad422c91abf467f",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/nodes/toJS.js": {
+      "bytes": 1266,
+      "sha256": "80f2431eaef0c531ab93b1a8883206394ae3fac75732cc683cdabfdcc00dd724",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/cst-scalar.js": {
+      "bytes": 9235,
+      "sha256": "e30a85b8b613badfb50039938fbb5bbbafbd5f9f95f3a630300ad3dec5fb3dc8",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/cst-stringify.js": {
+      "bytes": 1775,
+      "sha256": "275b500e3f1a0067d5d8671af5c536963a46d4921e49cf156547f796067b8810",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/cst-visit.js": {
+      "bytes": 3966,
+      "sha256": "0baadd57686b26163ba71e7323a9208fcba81978e9ecebbad80afaa8baa61788",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/cst.js": {
+      "bytes": 2886,
+      "sha256": "8bf6c87dc02b9375750d550a9099cb1cd1cd71ca9da68f1a0798844a0f76bf8f",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/lexer.js": {
+      "bytes": 24138,
+      "sha256": "14d3a6e0f1bf7945a92dfa0366f61bcd122aa3c62addb6fbfdaadd796c634036",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/line-counter.js": {
+      "bytes": 1419,
+      "sha256": "2428d1b9a18ad7d8dabc7e12276e0fd90446c9e3433f1501e6bb43e111ad63c0",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/parse/parser.js": {
+      "bytes": 35393,
+      "sha256": "761580b1ad5b36b6fd5e2ffb411798cb5603f8fc46ff11ad8e68ca2ba32a405f",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/public-api.js": {
+      "bytes": 3992,
+      "sha256": "1635da91bae6389b88d38bc99c57fa6ed71c017b026cb80be9cead10bbafa499",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/Schema.js": {
+      "bytes": 1495,
+      "sha256": "515d6576e94a5cc96c999cd9da230f7ef79d8fbea1f4c6c6939631ef122fb50e",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/common/map.js": {
+      "bytes": 439,
+      "sha256": "6094c4919ff0051a663866cf75df489be51987d808f0862b9b9e36d4090182a7",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/common/null.js": {
+      "bytes": 434,
+      "sha256": "6666e819b0dd4c9eac1498e8520e23943abf2c9d92cee72b9c5607557800eb14",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/common/seq.js": {
+      "bytes": 440,
+      "sha256": "446dc09d297b2b9823d981f3c44e595f8d87c2ce97e2435e1ecc01bc6c31f4b9",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/common/string.js": {
+      "bytes": 421,
+      "sha256": "830740273a4f0a39b94549377cb12183ab8ce558dfb12818f7b295fe261fc08e",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/core/bool.js": {
+      "bytes": 607,
+      "sha256": "9d4b1fe540d36d8e09cf5799b8abed53e4ee620425d3d6712e8a50c927752615",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/core/float.js": {
+      "bytes": 1399,
+      "sha256": "b24b968b6b714be9650480e07f10d039f145e88e4299ce2268eed57de02673a8",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/core/int.js": {
+      "bytes": 1324,
+      "sha256": "dc7ae60f465273fd7e5dfd6b7f686ac47887fa02db3fe9ec603290003cc9baff",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/core/schema.js": {
+      "bytes": 480,
+      "sha256": "92e75125989595b02d9b9f8d6788076d4c1ec173bfa4b0f04eabaaff86153dd9",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/json/schema.js": {
+      "bytes": 1867,
+      "sha256": "a33036dc6f8916682f9494431ad7ffb1116af7616aa83439b1a956b628e44068",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/tags.js": {
+      "bytes": 2962,
+      "sha256": "c8085f537d22c3f7f17ea2906ddc11fc69b0106d5447aac2953eec19c025f136",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/binary.js": {
+      "bytes": 2315,
+      "sha256": "ad5b0407d199dda7bc4fbacaee90d2a2a99540c8ced44c13bdf6974cb6dc3ef1",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/bool.js": {
+      "bytes": 787,
+      "sha256": "1d605f63430047574323f352893ba3c52fc73fbd1b52e47fa6dec2eb375301a5",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/float.js": {
+      "bytes": 1515,
+      "sha256": "40e68189590e6924d063f2b88c7b2415dcb2f796fbd6e9af18e9b119eed3ce23",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/int.js": {
+      "bytes": 2132,
+      "sha256": "6c83bf34c4ecfa722eff2c252c8bdf95661777738c9971c4ccda3a5413218d80",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/merge.js": {
+      "bytes": 2524,
+      "sha256": "f3ac8d7fb4701053e97d5399bdacde15cdc662420cd7e85de349eb20330dab5e",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/omap.js": {
+      "bytes": 2473,
+      "sha256": "fb3d04682a48ec1e0ad26c1afc8a85d1e6c814942ca6eba8bfb94a6571d3e9a6",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/pairs.js": {
+      "bytes": 2751,
+      "sha256": "3c37806050903fd81b51e597bfe7acfff972e788e9a1b3c0148f17b32da3f568",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/schema.js": {
+      "bytes": 860,
+      "sha256": "1e684cad435d9e9601aa56dd4d55243369a010e75edba21ff31d7be84c8600eb",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/set.js": {
+      "bytes": 3030,
+      "sha256": "0cdce6c41328c116fc17f5660a79f8995af8d0227e424e89177a30894138b687",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/schema/yaml-1.1/timestamp.js": {
+      "bytes": 3698,
+      "sha256": "18fb9beee49f0f3452601ba01b46ae1d6e49bf4a63b499e9eff28366e3dfcb5d",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/foldFlowLines.js": {
+      "bytes": 4794,
+      "sha256": "1a6360496e3cb52767d4c346655307c978cb2c94853229152f97017c4209745a",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringify.js": {
+      "bytes": 4400,
+      "sha256": "af3ccd112cba318ff9b4686ed9afd0b33fc238da51954fd431dc4c7a9db0b455",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringifyCollection.js": {
+      "bytes": 5552,
+      "sha256": "0d2babd8428322fe6a9f5cd10fde361a1d8dedae662fd4245c6d151e4a5ae013",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringifyComment.js": {
+      "bytes": 724,
+      "sha256": "20d3dc6bebda3efc2394ca162455ce9e4691b6c60995b5b4418b30659e09e03e",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringifyDocument.js": {
+      "bytes": 2983,
+      "sha256": "3ca3818dc9e81ee7e45f0e26792065f47fccee99b6150e76a94fcbb3d0306421",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringifyNumber.js": {
+      "bytes": 778,
+      "sha256": "e0d02220e66fedc267b435e5d13d2383e24c8460562d815f670a169dadc2859f",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringifyPair.js": {
+      "bytes": 5285,
+      "sha256": "4074dc125fdad4ef2ec8bab4fbf7ece4b399ecd2fbd1813c4a316e88243f1179",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/stringify/stringifyString.js": {
+      "bytes": 13164,
+      "sha256": "0fd2e43243792cfa0a1d8cea13ba8e05ddaf6fb1296a4fde497b956454bfa44c",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/util.js": {
+      "bytes": 594,
+      "sha256": "e6b73d7297c4253e5299d4f97dc2c05e6e30d69ace66962412f6ab9690d4d412",
+      "mode": "0o664"
+    },
+    "tools/vendor/yaml/visit.js": {
+      "bytes": 9107,
+      "sha256": "d9daffd11ec68755a7238684ae3f9c64f59dc86338d0e7cbe521a8fc1d45bd19",
+      "mode": "0o664"
+    }
+  }
+}

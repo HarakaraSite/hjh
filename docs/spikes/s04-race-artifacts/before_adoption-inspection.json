@@ -1,0 +1,54 @@
+{
+  "info": {
+    "id": "4f88d27131c5b72a-main",
+    "title": "S-04 saved session",
+    "created": "2026-10-10T05:08:54.301360758Z",
+    "turns": 1,
+    "adopted": 0,
+    "events": 40
+  },
+  "conversation": {
+    "pairs": [],
+    "rowsDecoded": 0,
+    "textBytes": 0
+  },
+  "messages": [],
+  "turnPage": [
+    {
+      "id": "4f88d27131c5b72a-first",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 1,
+      "run": "4f88d27131c5b72a-first-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "first",
+      "response": "first: candidates=[accepted]; tool-one/hook-one",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "prepared:hook-one",
+          "toolRevision": "tool-one",
+          "hookRevision": "hook-one"
+        },
+        "savedBytes": 213,
+        "previous": null,
+        "historyMessages": 0,
+        "instruction": "initial instruction"
+      },
+      "adopted": false
+    }
+  ],
+  "queryPlan": [
+    "SEARCH a USING INDEX sqlite_autoindex_adoptions_2 (session_id=?)",
+    "SEARCH t USING INDEX sqlite_autoindex_turns_1 (id=?)"
+  ],
+  "inputBytes": 2,
+  "windowAllocatedBytes": 1128,
+  "windowDurationUS": 1609
+}

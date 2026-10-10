@@ -1,0 +1,241 @@
+{
+  "info": {
+    "id": "4f88d27131c5b72a-main",
+    "title": "S-04 saved session",
+    "created": "2026-10-10T05:08:54.301360758Z",
+    "turns": 7,
+    "adopted": 3,
+    "events": 258
+  },
+  "conversation": {
+    "pairs": [
+      {
+        "turn": "4f88d27131c5b72a-first",
+        "position": 1,
+        "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+        "request": "first",
+        "response": "first: candidates=[accepted]; tool-one/hook-one"
+      },
+      {
+        "turn": "4f88d27131c5b72a-restart_a",
+        "position": 2,
+        "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+        "request": "restart_a.report.json",
+        "response": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one"
+      },
+      {
+        "turn": "4f88d27131c5b72a-restart_b",
+        "position": 3,
+        "configuration": "7992b8a61e7f06733cc522d115bcf919ee8316408b2b261b5ae2db747adec865",
+        "request": "restart_b.report.json",
+        "response": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two"
+      }
+    ],
+    "rowsDecoded": 3,
+    "textBytes": 220
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "first"
+    },
+    {
+      "role": "assistant",
+      "content": "first: candidates=[accepted]; tool-one/hook-one"
+    },
+    {
+      "role": "user",
+      "content": "restart_a.report.json"
+    },
+    {
+      "role": "assistant",
+      "content": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one"
+    },
+    {
+      "role": "user",
+      "content": "restart_b.report.json"
+    },
+    {
+      "role": "assistant",
+      "content": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two"
+    }
+  ],
+  "turnPage": [
+    {
+      "id": "4f88d27131c5b72a-first",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 1,
+      "run": "4f88d27131c5b72a-first-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "first",
+      "response": "first: candidates=[accepted]; tool-one/hook-one",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "prepared:hook-one",
+          "toolRevision": "tool-one",
+          "hookRevision": "hook-one"
+        },
+        "savedBytes": 213,
+        "previous": null,
+        "historyMessages": 0,
+        "instruction": "initial instruction"
+      },
+      "adopted": true
+    },
+    {
+      "id": "4f88d27131c5b72a-failed",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 2,
+      "run": "4f88d27131c5b72a-failed-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "failed",
+      "outcome": "failed",
+      "result": null,
+      "error": "Error: failure after saved report",
+      "adopted": false
+    },
+    {
+      "id": "4f88d27131c5b72a-cancelled",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 3,
+      "run": "4f88d27131c5b72a-cancelled-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "cancelled",
+      "outcome": "cancelled",
+      "result": null,
+      "error": "context canceled\ncontext canceled",
+      "adopted": false
+    },
+    {
+      "id": "4f88d27131c5b72a-unadopted",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 4,
+      "run": "4f88d27131c5b72a-unadopted-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "unadopted",
+      "response": "unadopted: candidates=[accepted]; tool-one/hook-one",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "prepared:hook-one",
+          "toolRevision": "tool-one",
+          "hookRevision": "hook-one"
+        },
+        "savedBytes": 213,
+        "previous": "first: candidates=[accepted]; tool-one/hook-one",
+        "historyMessages": 2,
+        "instruction": "initial instruction"
+      },
+      "adopted": false
+    },
+    {
+      "id": "4f88d27131c5b72a-restart_a",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 5,
+      "run": "4f88d27131c5b72a-restart_a-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "restart_a.report.json",
+      "response": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "prepared:hook-one",
+          "toolRevision": "tool-one",
+          "hookRevision": "hook-one"
+        },
+        "savedBytes": 213,
+        "previous": "first: candidates=[accepted]; tool-one/hook-one",
+        "historyMessages": 2,
+        "instruction": "initial instruction"
+      },
+      "adopted": true
+    },
+    {
+      "id": "4f88d27131c5b72a-restart_b",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 6,
+      "run": "4f88d27131c5b72a-restart_b-run",
+      "configuration": "7992b8a61e7f06733cc522d115bcf919ee8316408b2b261b5ae2db747adec865",
+      "request": "restart_b.report.json",
+      "response": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "changed:hook-two",
+          "toolRevision": "tool-two",
+          "hookRevision": "hook-two"
+        },
+        "savedBytes": 212,
+        "previous": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one",
+        "historyMessages": 4,
+        "instruction": "resumed instruction"
+      },
+      "adopted": true
+    },
+    {
+      "id": "4f88d27131c5b72a-frozen_after_edit",
+      "session": "4f88d27131c5b72a-main",
+      "ordinal": 7,
+      "run": "4f88d27131c5b72a-frozen_after_edit-run",
+      "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+      "request": "frozen_after_edit",
+      "response": "frozen_after_edit: candidates=[accepted]; tool-one/hook-one",
+      "outcome": "completed",
+      "result": {
+        "report": {
+          "project": "hjh-library-spike",
+          "compatible": [
+            {
+              "name": "accepted",
+              "version": "1.4.2"
+            }
+          ],
+          "note": "prepared:hook-one",
+          "toolRevision": "tool-one",
+          "hookRevision": "hook-one"
+        },
+        "savedBytes": 213,
+        "previous": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two",
+        "historyMessages": 6,
+        "instruction": "initial instruction"
+      },
+      "adopted": false
+    }
+  ],
+  "queryPlan": [
+    "SEARCH a USING INDEX sqlite_autoindex_adoptions_2 (session_id=?)",
+    "SEARCH t USING INDEX sqlite_autoindex_turns_1 (id=?)"
+  ],
+  "inputBytes": 410,
+  "windowAllocatedBytes": 2592,
+  "windowDurationUS": 2417
+}

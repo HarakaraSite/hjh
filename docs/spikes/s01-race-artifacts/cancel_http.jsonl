@@ -1,0 +1,6 @@
+{"sequence":1,"time":"2026-10-10T04:18:59.28313485Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"return tools.http({url: input.url});","input":{"url":"http://127.0.0.1:45301/wait"}}}
+{"sequence":2,"time":"2026-10-10T04:18:59.295359217Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"started","input":{"url":"http://127.0.0.1:45301/wait"}}
+{"sequence":3,"time":"2026-10-10T04:18:59.296132208Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"started","input":{"url":"http://127.0.0.1:45301/wait"}}
+{"sequence":4,"time":"2026-10-10T04:18:59.347481331Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"cancelled","result":{"status":0,"body":""},"error":"Get \"http://127.0.0.1:45301/wait\": context canceled"}
+{"sequence":5,"time":"2026-10-10T04:18:59.354675947Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"cancelled","error":"context canceled\ncontext canceled"}
+{"sequence":6,"time":"2026-10-10T04:18:59.354744418Z","id":"call-1","kind":"execution","name":"generated_js","phase":"cancelled","error":"context canceled\ncontext canceled"}

@@ -1,0 +1,4 @@
+{"sequence":1,"time":"2026-10-10T04:51:11.094390615Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"__mark(\"busy\"); while (true) {}","input":{"url":"http://127.0.0.1:40389/data"}}}
+{"sequence":2,"time":"2026-10-10T04:51:11.094894878Z","id":"call-2","parent":"call-1","kind":"marker","name":"busy","phase":"started"}
+{"sequence":3,"time":"2026-10-10T04:51:11.094903626Z","id":"call-2","parent":"call-1","kind":"marker","name":"busy","phase":"completed"}
+{"sequence":4,"time":"2026-10-10T04:51:11.145361905Z","id":"call-1","kind":"execution","name":"generated_js","phase":"cancelled","error":"context canceled\ncontext canceled"}

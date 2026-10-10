@@ -1,0 +1,8 @@
+{"sequence":1,"time":"2026-10-10T04:18:19.828889529Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"await tools.http({url: input.url}); __mark(\"busy\"); while (true) {}","input":{"url":"http://127.0.0.1:40505/data"}}}
+{"sequence":2,"time":"2026-10-10T04:18:19.829395771Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"started","input":{"url":"http://127.0.0.1:40505/data"}}
+{"sequence":3,"time":"2026-10-10T04:18:19.829431711Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"started","input":{"url":"http://127.0.0.1:40505/data"}}
+{"sequence":4,"time":"2026-10-10T04:18:19.829722378Z","id":"call-3","parent":"call-2","kind":"host","name":"http","phase":"completed","result":{"status":200,"body":"{\"values\":[\"red\",\"blue\"]}"}}
+{"sequence":5,"time":"2026-10-10T04:18:19.829790951Z","id":"call-2","parent":"call-1","kind":"tool","name":"http","phase":"completed","result":{"status":200,"body":"{\"values\":[\"red\",\"blue\"]}"}}
+{"sequence":6,"time":"2026-10-10T04:18:19.829799481Z","id":"call-4","parent":"call-1","kind":"marker","name":"busy","phase":"started"}
+{"sequence":7,"time":"2026-10-10T04:18:19.829804658Z","id":"call-4","parent":"call-1","kind":"marker","name":"busy","phase":"completed"}
+{"sequence":8,"time":"2026-10-10T04:18:19.880301398Z","id":"call-1","kind":"execution","name":"generated_js","phase":"cancelled","error":"context canceled\nInternalError: interrupted"}

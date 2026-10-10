@@ -1,0 +1,4 @@
+{"sequence":1,"time":"2026-10-10T04:18:19.735053139Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"return tools.fail();","input":null}}
+{"sequence":2,"time":"2026-10-10T04:18:19.736326731Z","id":"call-2","parent":"call-1","kind":"tool","name":"fail","phase":"started","input":{}}
+{"sequence":3,"time":"2026-10-10T04:18:19.736484761Z","id":"call-2","parent":"call-1","kind":"tool","name":"fail","phase":"failed","result":null,"error":"Error: external tool failure"}
+{"sequence":4,"time":"2026-10-10T04:18:19.73678396Z","id":"call-1","kind":"execution","name":"generated_js","phase":"failed","error":"Error: external tool failure"}

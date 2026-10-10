@@ -1,0 +1,156 @@
+{
+  "run": "657e420d8eea7a65-failure",
+  "ownerPID": 351542,
+  "root": "call-1",
+  "status": "failed",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:39:13.893007769Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf persisted \u003e \"$1\"',\"effect\",input.path]}); throw new Error(\"failure after effect\");",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-failure.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:39:13.914769899Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-failure.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:39:13.92221784Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-failure.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:39:13.929808909Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351588,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:39:13.936144584Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351588,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:39:13.947023903Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "failed",
+      "error": "Error: failure after effect"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "failed",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf persisted \u003e \"$1\"',\"effect\",input.path]}); throw new Error(\"failure after effect\");",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-failure.effect.txt"
+        }
+      },
+      "error": "Error: failure after effect"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-failure.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 351588,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s02-race-artifacts/657e420d8eea7a65-failure.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 351588,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  ]
+}

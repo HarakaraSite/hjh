@@ -1,0 +1,2 @@
+{"sequence":1,"time":"2026-10-10T04:18:19.729164317Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"throw new Error(\"generated JS failure\");","input":null}}
+{"sequence":2,"time":"2026-10-10T04:18:19.730302093Z","id":"call-1","kind":"execution","name":"generated_js","phase":"failed","error":"Error: generated JS failure"}

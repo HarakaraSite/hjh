@@ -1,0 +1,12 @@
+{"sequence":1,"time":"2026-10-10T04:18:58.925873186Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"return tools.pipeline({url: input.url});","input":{"url":"http://127.0.0.1:45301/data"}}}
+{"sequence":2,"time":"2026-10-10T04:18:58.943369357Z","id":"call-2","parent":"call-1","kind":"tool","name":"pipeline","phase":"started","input":{"url":"http://127.0.0.1:45301/data"}}
+{"sequence":3,"time":"2026-10-10T04:18:58.94408552Z","id":"call-3","parent":"call-2","kind":"tool","name":"http","phase":"started","input":{"url":"http://127.0.0.1:45301/data"}}
+{"sequence":4,"time":"2026-10-10T04:18:58.944992018Z","id":"call-4","parent":"call-3","kind":"host","name":"http","phase":"started","input":{"url":"http://127.0.0.1:45301/data"}}
+{"sequence":5,"time":"2026-10-10T04:18:58.945762941Z","id":"call-4","parent":"call-3","kind":"host","name":"http","phase":"completed","result":{"status":200,"body":"{\"values\":[\"red\",\"blue\"]}"}}
+{"sequence":6,"time":"2026-10-10T04:18:58.946245847Z","id":"call-3","parent":"call-2","kind":"tool","name":"http","phase":"completed","result":{"status":200,"body":"{\"values\":[\"red\",\"blue\"]}"}}
+{"sequence":7,"time":"2026-10-10T04:18:58.946665316Z","id":"call-5","parent":"call-2","kind":"tool","name":"command","phase":"started","input":{"program":"tr","args":["a-z","A-Z"],"stdin":"red\nblue"}}
+{"sequence":8,"time":"2026-10-10T04:18:58.947504703Z","id":"call-6","parent":"call-5","kind":"host","name":"command","phase":"started","input":{"program":"tr","args":["a-z","A-Z"],"stdin":"red\nblue"}}
+{"sequence":9,"time":"2026-10-10T04:18:58.948664034Z","id":"call-6","parent":"call-5","kind":"host","name":"command","phase":"completed","result":{"pid":350178,"exitCode":0,"stdout":"RED\nBLUE","stderr":""}}
+{"sequence":10,"time":"2026-10-10T04:18:58.949182453Z","id":"call-5","parent":"call-2","kind":"tool","name":"command","phase":"completed","result":{"pid":350178,"exitCode":0,"stdout":"RED\nBLUE","stderr":""}}
+{"sequence":11,"time":"2026-10-10T04:18:58.949501538Z","id":"call-2","parent":"call-1","kind":"tool","name":"pipeline","phase":"completed","result":{"pid":350178,"exitCode":0,"stdout":"RED\nBLUE","stderr":""}}
+{"sequence":12,"time":"2026-10-10T04:18:58.952679016Z","id":"call-1","kind":"execution","name":"generated_js","phase":"completed","result":{"pid":350178,"exitCode":0,"stdout":"RED\nBLUE","stderr":""}}

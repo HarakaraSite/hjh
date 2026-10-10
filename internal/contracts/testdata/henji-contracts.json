@@ -1,0 +1,27 @@
+{
+  "sourceCommit": "2eb586316f80ec8297873a96122568d0088971eb",
+  "messages": [
+    "{\"role\":\"user\",\"content\":{\"kind\":\"text\",\"text\":\"日本語 <input> のファイルを編集\"}}",
+    "{\"role\":\"assistant\",\"content\":[{\"kind\":\"tool_call\",\"callId\":\"call_actual\",\"name\":\"run_js\",\"arguments\":{\"code\":\"return await tools.read({path: \\\"input.txt\\\"});\"}}],\"text\":\"確認します\",\"providerState\":{\"provider\":\"openrouter-chat\",\"model\":\"example/model\",\"reasoningDetails\":[{\"type\":\"reasoning.encrypted\",\"data\":\"opaque\",\"format\":\"opaque-v1\",\"index\":0}]}}",
+    "{\"role\":\"tool\",\"content\":[{\"kind\":\"tool_result\",\"callId\":\"call_actual\",\"name\":\"run_js\",\"text\":\"{\\\"text\\\":\\\"元の内容\\\"}\",\"outcome\":\"success\"}]}",
+    "{\"role\":\"assistant\",\"content\":{\"kind\":\"text\",\"text\":\"編集を完了しました。\"}}"
+  ],
+  "canonical": [
+    {
+      "input": "{\"z\":[1,2,{\"b\":\"\\n\",\"a\":\"日本語<&>  \"}],\"a\":true}",
+      "expected": "{\"a\":true,\"z\":[1,2,{\"a\":\"日本語<&>  \",\"b\":\"\\n\"}]}"
+    },
+    {
+      "input": "{\"\":1,\"😀\":2,\"a\":3}",
+      "expected": "{\"a\":3,\"😀\":2,\"\":1}"
+    },
+    {
+      "input": "{\"numbers\":[1e-7,0.000001,100000000000000000000,1e+21,0,1.2345678901234567,1000000000000000100]}",
+      "expected": "{\"numbers\":[1e-7,0.000001,100000000000000000000,1e+21,0,1.2345678901234567,1000000000000000100]}"
+    },
+    {
+      "input": "{\"literal\":\"\\\\u2028\",\"nullable\":null}",
+      "expected": "{\"literal\":\"\\\\u2028\",\"nullable\":null}"
+    }
+  ]
+}

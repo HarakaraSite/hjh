@@ -1,0 +1,4 @@
+{"sequence":1,"time":"2026-10-10T04:18:59.470937541Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"return tools.revision();","input":null}}
+{"sequence":2,"time":"2026-10-10T04:18:59.48502313Z","id":"call-2","parent":"call-1","kind":"tool","name":"revision","phase":"started","input":{}}
+{"sequence":3,"time":"2026-10-10T04:18:59.485866587Z","id":"call-2","parent":"call-1","kind":"tool","name":"revision","phase":"completed","result":"revision-two"}
+{"sequence":4,"time":"2026-10-10T04:18:59.488907762Z","id":"call-1","kind":"execution","name":"generated_js","phase":"completed","result":"revision-two"}

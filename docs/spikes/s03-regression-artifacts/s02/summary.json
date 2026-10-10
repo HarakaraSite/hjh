@@ -1,0 +1,166 @@
+{
+  "time": "2026-10-10T04:51:11.038711341Z",
+  "environment": "linux/amd64 go1.27.2",
+  "driver": "modernc.org/sqlite v1.60.1",
+  "settings": {
+    "engine": "3.53.4",
+    "journal": "wal",
+    "synchronous": 2
+  },
+  "database": "history.sqlite",
+  "cases": [
+    {
+      "name": "success_nested_aggregate",
+      "passed": true,
+      "observation": {
+        "eventCount": 12,
+        "readbackFile": "success-view.json",
+        "reader": "separate process, read-only",
+        "run": "b81a4c3a2f5b0ed1-success",
+        "status": "completed",
+        "worker": {
+          "execution": "call-1",
+          "value": {
+            "length": 8
+          },
+          "durationMS": 18,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "failure_after_effect",
+      "passed": true,
+      "observation": {
+        "eventCount": 6,
+        "readbackFile": "failure-view.json",
+        "reader": "separate process, read-only",
+        "run": "b81a4c3a2f5b0ed1-failure",
+        "sideEffectFile": "b81a4c3a2f5b0ed1-failure.effect.txt",
+        "sideEffectReadback": "persisted",
+        "status": "failed",
+        "worker": {
+          "execution": "call-1",
+          "error": "Error: failure after effect",
+          "durationMS": 9,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "command_failure_details",
+      "passed": true,
+      "observation": {
+        "eventCount": 6,
+        "readbackFile": "command_failure-view.json",
+        "reader": "separate process, read-only",
+        "run": "b81a4c3a2f5b0ed1-command_failure",
+        "status": "failed",
+        "worker": {
+          "execution": "call-1",
+          "error": "Error: command exit 7: bad",
+          "durationMS": 8,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "cancel_after_effect",
+      "passed": true,
+      "observation": {
+        "eventCount": 6,
+        "processAbsentAfterReturn": true,
+        "readbackFile": "cancel-view.json",
+        "reader": "separate process, read-only",
+        "run": "b81a4c3a2f5b0ed1-cancel",
+        "sideEffectFile": "b81a4c3a2f5b0ed1-cancel.effect.txt",
+        "sideEffectReadback": "before-cancel",
+        "status": "cancelled",
+        "worker": {
+          "execution": "call-1",
+          "error": "context canceled\ncontext canceled",
+          "durationMS": 61,
+          "hostOperationsAfterReturn": 0
+        }
+      }
+    },
+    {
+      "name": "parallel_workers_same_database",
+      "passed": true,
+      "observation": {
+        "readbackFiles": [
+          "parallel-0-view.json",
+          "parallel-1-view.json"
+        ],
+        "runs": [
+          "b81a4c3a2f5b0ed1-parallel-A",
+          "b81a4c3a2f5b0ed1-parallel-B"
+        ],
+        "statuses": [
+          "completed",
+          "completed"
+        ],
+        "workers": [
+          {
+            "execution": "call-1",
+            "value": "A",
+            "durationMS": 17,
+            "hostOperationsAfterReturn": 0
+          },
+          {
+            "execution": "call-1",
+            "value": "B",
+            "durationMS": 15,
+            "hostOperationsAfterReturn": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "kill_after_committed_tool",
+      "passed": true,
+      "observation": {
+        "liveEventCount": 5,
+        "liveStatus": "pending",
+        "readbackFiles": [
+          "crash_committed-live-view.json",
+          "crash_committed-stopped-view.json",
+          "crash_committed-resolved-view.json"
+        ],
+        "resolvedEventCount": 6,
+        "resolvedStatus": "interrupted",
+        "run": "b81a4c3a2f5b0ed1-crash_committed",
+        "sideEffectFile": "b81a4c3a2f5b0ed1-crash_committed.effect.txt",
+        "sideEffectReadback": "crash-effect",
+        "stage": "committed",
+        "stoppedBeforeReconcileStatus": "pending",
+        "stoppedEventCount": 5,
+        "writerExit": "signal: killed",
+        "writerPID": 353089
+      }
+    },
+    {
+      "name": "kill_before_host_commit",
+      "passed": true,
+      "observation": {
+        "liveEventCount": 3,
+        "liveStatus": "pending",
+        "readbackFiles": [
+          "crash_uncommitted-live-view.json",
+          "crash_uncommitted-stopped-view.json",
+          "crash_uncommitted-resolved-view.json"
+        ],
+        "resolvedEventCount": 6,
+        "resolvedStatus": "interrupted",
+        "run": "b81a4c3a2f5b0ed1-crash_uncommitted",
+        "sideEffectFile": "b81a4c3a2f5b0ed1-crash_uncommitted.effect.txt",
+        "sideEffectReadback": "crash-effect",
+        "stage": "uncommitted",
+        "stoppedBeforeReconcileStatus": "pending",
+        "stoppedEventCount": 3,
+        "writerExit": "signal: killed",
+        "writerPID": 353118
+      }
+    }
+  ]
+}

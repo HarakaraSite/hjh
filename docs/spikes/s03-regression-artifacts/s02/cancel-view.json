@@ -1,0 +1,148 @@
+{
+  "run": "b81a4c3a2f5b0ed1-cancel",
+  "ownerPID": 353003,
+  "root": "call-1",
+  "status": "cancelled",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:51:11.152951164Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "return tools.command({program:\"sh\",args:[\"-c\",'printf before-cancel \u003e \"$1\"; printf partial-output; exec sleep 60',\"effect\",input.path]});",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-cancel.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:51:11.154486287Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before-cancel \u003e \"$1\"; printf partial-output; exec sleep 60",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-cancel.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:51:11.155588854Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before-cancel \u003e \"$1\"; printf partial-output; exec sleep 60",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-cancel.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:51:11.208744205Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "cancelled",
+      "result": {
+        "pid": 353067,
+        "exitCode": -1,
+        "stdout": "partial-output",
+        "stderr": ""
+      },
+      "error": "context canceled"
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:51:11.211096396Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "cancelled",
+      "error": "context canceled\ncontext canceled"
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:51:11.212829073Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "cancelled",
+      "error": "context canceled\ncontext canceled"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "cancelled",
+      "input": {
+        "body": "return tools.command({program:\"sh\",args:[\"-c\",'printf before-cancel \u003e \"$1\"; printf partial-output; exec sleep 60',\"effect\",input.path]});",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-cancel.effect.txt"
+        }
+      },
+      "error": "context canceled\ncontext canceled"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "cancelled",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before-cancel \u003e \"$1\"; printf partial-output; exec sleep 60",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-cancel.effect.txt"
+        ]
+      },
+      "error": "context canceled\ncontext canceled"
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "cancelled",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before-cancel \u003e \"$1\"; printf partial-output; exec sleep 60",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-cancel.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 353067,
+        "exitCode": -1,
+        "stdout": "partial-output",
+        "stderr": ""
+      },
+      "error": "context canceled"
+    }
+  ]
+}

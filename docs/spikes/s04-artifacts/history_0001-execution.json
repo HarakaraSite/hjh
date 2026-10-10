@@ -1,0 +1,34 @@
+{
+  "turn": "e963eb2a2f026b01-history_0001",
+  "run": "e963eb2a2f026b01-history_0001-run",
+  "configuration": "786e72cfff3529840ff02921b00c9dca7c5531d292ec1c1a2923787133bb629d",
+  "worker": {
+    "execution": "call-1",
+    "value": {
+      "report": {
+        "project": "hjh-library-spike",
+        "compatible": [
+          {
+            "name": "accepted",
+            "version": "1.4.2"
+          }
+        ],
+        "note": "changed:hook-two",
+        "toolRevision": "tool-two",
+        "hookRevision": "hook-two"
+      },
+      "savedBytes": 212,
+      "previous": null,
+      "historyMessages": 0,
+      "instruction": "resumed instruction"
+    },
+    "durationMS": 91,
+    "hostOperationsAfterReturn": 0
+  },
+  "modelInputCandidate": {
+    "model": "spike-model-b",
+    "instruction": "resumed instruction",
+    "messages": []
+  },
+  "adopted": true
+}

@@ -1,0 +1,59 @@
+{
+  "turn": "4f88d27131c5b72a-frozen_after_edit",
+  "run": "4f88d27131c5b72a-frozen_after_edit-run",
+  "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+  "worker": {
+    "execution": "call-1",
+    "value": {
+      "report": {
+        "project": "hjh-library-spike",
+        "compatible": [
+          {
+            "name": "accepted",
+            "version": "1.4.2"
+          }
+        ],
+        "note": "prepared:hook-one",
+        "toolRevision": "tool-one",
+        "hookRevision": "hook-one"
+      },
+      "savedBytes": 213,
+      "previous": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two",
+      "historyMessages": 6,
+      "instruction": "initial instruction"
+    },
+    "durationMS": 1268,
+    "hostOperationsAfterReturn": 0
+  },
+  "modelInputCandidate": {
+    "model": "spike-model-a",
+    "instruction": "initial instruction",
+    "messages": [
+      {
+        "role": "user",
+        "content": "first"
+      },
+      {
+        "role": "assistant",
+        "content": "first: candidates=[accepted]; tool-one/hook-one"
+      },
+      {
+        "role": "user",
+        "content": "restart_a.report.json"
+      },
+      {
+        "role": "assistant",
+        "content": "restart_a.report.json: candidates=[accepted]; tool-one/hook-one"
+      },
+      {
+        "role": "user",
+        "content": "restart_b.report.json"
+      },
+      {
+        "role": "assistant",
+        "content": "restart_b.report.json: candidates=[accepted]; tool-two/hook-two"
+      }
+    ]
+  },
+  "adopted": false
+}

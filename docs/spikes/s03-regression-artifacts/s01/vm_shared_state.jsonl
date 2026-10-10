@@ -1,0 +1,6 @@
+{"sequence":1,"time":"2026-10-10T04:51:11.313287097Z","id":"call-1","kind":"execution","name":"generated_js","phase":"started","input":{"body":"return [await tools.counter(), await tools.counter()];","input":null}}
+{"sequence":2,"time":"2026-10-10T04:51:11.313833293Z","id":"call-2","parent":"call-1","kind":"tool","name":"counter","phase":"started","input":{}}
+{"sequence":3,"time":"2026-10-10T04:51:11.313877116Z","id":"call-2","parent":"call-1","kind":"tool","name":"counter","phase":"completed","result":1}
+{"sequence":4,"time":"2026-10-10T04:51:11.313889417Z","id":"call-3","parent":"call-1","kind":"tool","name":"counter","phase":"started","input":{}}
+{"sequence":5,"time":"2026-10-10T04:51:11.313915088Z","id":"call-3","parent":"call-1","kind":"tool","name":"counter","phase":"completed","result":2}
+{"sequence":6,"time":"2026-10-10T04:51:11.314019821Z","id":"call-1","kind":"execution","name":"generated_js","phase":"completed","result":[1,2]}

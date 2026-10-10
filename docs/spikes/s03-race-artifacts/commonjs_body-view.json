@@ -1,0 +1,81 @@
+{
+  "worker": {
+    "execution": "call-1",
+    "error": "ReferenceError: 'require' is not defined",
+    "durationMS": 41,
+    "hostOperationsAfterReturn": 0
+  },
+  "history": {
+    "run": "281bcf09b30bca03-commonjs_body",
+    "ownerPID": 353005,
+    "root": "call-1",
+    "status": "failed",
+    "events": [
+      {
+        "sequence": 1,
+        "time": "2026-10-10T04:51:17.978364957Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "started",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        }
+      },
+      {
+        "sequence": 2,
+        "time": "2026-10-10T04:51:18.001685103Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "probe",
+        "phase": "started",
+        "input": {}
+      },
+      {
+        "sequence": 3,
+        "time": "2026-10-10T04:51:18.006403148Z",
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "probe",
+        "phase": "failed",
+        "result": null,
+        "error": "ReferenceError: 'require' is not defined"
+      },
+      {
+        "sequence": 4,
+        "time": "2026-10-10T04:51:18.014573985Z",
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "phase": "failed",
+        "error": "ReferenceError: 'require' is not defined"
+      }
+    ],
+    "calls": [
+      {
+        "id": "call-1",
+        "kind": "execution",
+        "name": "generated_js",
+        "status": "failed",
+        "input": {
+          "body": "return tools.probe();",
+          "input": null
+        },
+        "error": "ReferenceError: 'require' is not defined"
+      },
+      {
+        "id": "call-2",
+        "parent": "call-1",
+        "kind": "tool",
+        "name": "probe",
+        "status": "failed",
+        "input": {},
+        "result": null,
+        "error": "ReferenceError: 'require' is not defined"
+      }
+    ]
+  }
+}

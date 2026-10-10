@@ -1,0 +1,9 @@
+{
+  "name": "hjh-s03-library-preparation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "vendor": "node prepare.mjs" },
+  "dependencies": { "yaml": "2.9.1", "semver": "7.8.5" },
+  "devDependencies": { "esbuild": "0.28.2" }
+}

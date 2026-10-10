@@ -1,0 +1,18 @@
+{
+  "stage": "committed",
+  "attemptedEvent": {
+    "sequence": 5,
+    "time": "2026-10-10T04:37:04.476660637Z",
+    "id": "call-2",
+    "parent": "call-1",
+    "kind": "tool",
+    "name": "command",
+    "phase": "completed",
+    "result": {
+      "pid": 350788,
+      "exitCode": 0,
+      "stdout": "command-finished",
+      "stderr": ""
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "run": "b81a4c3a2f5b0ed1-command_failure",
+  "ownerPID": 353003,
+  "root": "call-1",
+  "status": "failed",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:51:11.136959756Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "return tools.command({program:\"sh\",args:[\"-c\",\"printf before; printf bad \u003e\u00262; exit 7\"]});",
+        "input": null
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:51:11.138772655Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before; printf bad \u003e\u00262; exit 7"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:51:11.139959102Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before; printf bad \u003e\u00262; exit 7"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:51:11.141739958Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 353060,
+        "exitCode": 7,
+        "stdout": "before",
+        "stderr": "bad"
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:51:11.142890616Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "failed",
+      "result": null,
+      "error": "Error: command exit 7: bad"
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:51:11.144101485Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "failed",
+      "error": "Error: command exit 7: bad"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "failed",
+      "input": {
+        "body": "return tools.command({program:\"sh\",args:[\"-c\",\"printf before; printf bad \u003e\u00262; exit 7\"]});",
+        "input": null
+      },
+      "error": "Error: command exit 7: bad"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "failed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before; printf bad \u003e\u00262; exit 7"
+        ]
+      },
+      "result": null,
+      "error": "Error: command exit 7: bad"
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf before; printf bad \u003e\u00262; exit 7"
+        ]
+      },
+      "result": {
+        "pid": 353060,
+        "exitCode": 7,
+        "stdout": "before",
+        "stderr": "bad"
+      }
+    }
+  ]
+}

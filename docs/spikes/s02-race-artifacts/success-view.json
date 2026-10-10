@@ -1,0 +1,277 @@
+{
+  "run": "657e420d8eea7a65-success",
+  "ownerPID": 351542,
+  "root": "call-1",
+  "status": "completed",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:39:12.804394216Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "const result = await tools.pipeline({url: input.url}); return {length: result.stdout.length};",
+        "input": {
+          "url": "http://127.0.0.1:46577"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:39:12.821642188Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "pipeline",
+      "phase": "started",
+      "input": {
+        "url": "http://127.0.0.1:46577"
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:39:12.824743565Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "tool",
+      "name": "http",
+      "phase": "started",
+      "input": {
+        "url": "http://127.0.0.1:46577"
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:39:12.827948649Z",
+      "id": "call-4",
+      "parent": "call-3",
+      "kind": "host",
+      "name": "http",
+      "phase": "started",
+      "input": {
+        "url": "http://127.0.0.1:46577"
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:39:12.831341764Z",
+      "id": "call-4",
+      "parent": "call-3",
+      "kind": "host",
+      "name": "http",
+      "phase": "completed",
+      "result": {
+        "status": 200,
+        "body": "{\"values\":[\"red\",\"blue\"]}"
+      }
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:39:12.833702062Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "tool",
+      "name": "http",
+      "phase": "completed",
+      "result": {
+        "status": 200,
+        "body": "{\"values\":[\"red\",\"blue\"]}"
+      }
+    },
+    {
+      "sequence": 7,
+      "time": "2026-10-10T04:39:12.836071824Z",
+      "id": "call-5",
+      "parent": "call-2",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "red\nblue"
+      }
+    },
+    {
+      "sequence": 8,
+      "time": "2026-10-10T04:39:12.839096326Z",
+      "id": "call-6",
+      "parent": "call-5",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "red\nblue"
+      }
+    },
+    {
+      "sequence": 9,
+      "time": "2026-10-10T04:39:12.842617045Z",
+      "id": "call-6",
+      "parent": "call-5",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351577,
+        "exitCode": 0,
+        "stdout": "RED\nBLUE",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 10,
+      "time": "2026-10-10T04:39:12.845422326Z",
+      "id": "call-5",
+      "parent": "call-2",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 351577,
+        "exitCode": 0,
+        "stdout": "RED\nBLUE",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 11,
+      "time": "2026-10-10T04:39:12.847767321Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "pipeline",
+      "phase": "completed",
+      "result": {
+        "pid": 351577,
+        "exitCode": 0,
+        "stdout": "RED\nBLUE",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 12,
+      "time": "2026-10-10T04:39:12.85274806Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "completed",
+      "result": {
+        "length": 8
+      }
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "completed",
+      "input": {
+        "body": "const result = await tools.pipeline({url: input.url}); return {length: result.stdout.length};",
+        "input": {
+          "url": "http://127.0.0.1:46577"
+        }
+      },
+      "result": {
+        "length": 8
+      }
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "pipeline",
+      "status": "completed",
+      "input": {
+        "url": "http://127.0.0.1:46577"
+      },
+      "result": {
+        "pid": 351577,
+        "exitCode": 0,
+        "stdout": "RED\nBLUE",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "tool",
+      "name": "http",
+      "status": "completed",
+      "input": {
+        "url": "http://127.0.0.1:46577"
+      },
+      "result": {
+        "status": 200,
+        "body": "{\"values\":[\"red\",\"blue\"]}"
+      }
+    },
+    {
+      "id": "call-4",
+      "parent": "call-3",
+      "kind": "host",
+      "name": "http",
+      "status": "completed",
+      "input": {
+        "url": "http://127.0.0.1:46577"
+      },
+      "result": {
+        "status": 200,
+        "body": "{\"values\":[\"red\",\"blue\"]}"
+      }
+    },
+    {
+      "id": "call-5",
+      "parent": "call-2",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "red\nblue"
+      },
+      "result": {
+        "pid": 351577,
+        "exitCode": 0,
+        "stdout": "RED\nBLUE",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-6",
+      "parent": "call-5",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "tr",
+        "args": [
+          "a-z",
+          "A-Z"
+        ],
+        "stdin": "red\nblue"
+      },
+      "result": {
+        "pid": 351577,
+        "exitCode": 0,
+        "stdout": "RED\nBLUE",
+        "stderr": ""
+      }
+    }
+  ]
+}

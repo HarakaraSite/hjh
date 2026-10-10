@@ -1,0 +1,8 @@
+project: distributed-hjh
+dependencies:
+  - name: compatible
+    range: ^1.2.0
+    candidate: 1.4.2
+  - name: incompatible
+    range: ^1.2.0
+    candidate: 2.0.0

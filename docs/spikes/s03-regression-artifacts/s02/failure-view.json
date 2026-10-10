@@ -1,0 +1,156 @@
+{
+  "run": "b81a4c3a2f5b0ed1-failure",
+  "ownerPID": 353003,
+  "root": "call-1",
+  "status": "failed",
+  "events": [
+    {
+      "sequence": 1,
+      "time": "2026-10-10T04:51:11.120252422Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "started",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf persisted \u003e \"$1\"',\"effect\",input.path]}); throw new Error(\"failure after effect\");",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-failure.effect.txt"
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "time": "2026-10-10T04:51:11.122448136Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-failure.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "time": "2026-10-10T04:51:11.123914756Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "started",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-failure.effect.txt"
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "time": "2026-10-10T04:51:11.125798528Z",
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 353053,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 5,
+      "time": "2026-10-10T04:51:11.127170251Z",
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "phase": "completed",
+      "result": {
+        "pid": 353053,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "sequence": 6,
+      "time": "2026-10-10T04:51:11.128346705Z",
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "phase": "failed",
+      "error": "Error: failure after effect"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-1",
+      "kind": "execution",
+      "name": "generated_js",
+      "status": "failed",
+      "input": {
+        "body": "await tools.command({program:\"sh\",args:[\"-c\",'printf persisted \u003e \"$1\"',\"effect\",input.path]}); throw new Error(\"failure after effect\");",
+        "input": {
+          "path": "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-failure.effect.txt"
+        }
+      },
+      "error": "Error: failure after effect"
+    },
+    {
+      "id": "call-2",
+      "parent": "call-1",
+      "kind": "tool",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-failure.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 353053,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "call-3",
+      "parent": "call-2",
+      "kind": "host",
+      "name": "command",
+      "status": "completed",
+      "input": {
+        "program": "sh",
+        "args": [
+          "-c",
+          "printf persisted \u003e \"$1\"",
+          "effect",
+          "/home/agent/projects/hjh/docs/spikes/s03-regression-artifacts/s02/b81a4c3a2f5b0ed1-failure.effect.txt"
+        ]
+      },
+      "result": {
+        "pid": 353053,
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  ]
+}

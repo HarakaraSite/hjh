@@ -1,0 +1,34 @@
+{
+  "turn": "4f88d27131c5b72a-first",
+  "run": "4f88d27131c5b72a-first-run",
+  "configuration": "05b1d01c6fc7017eebc575eff44548e4eabade6d1a20e3c5e32991db8af7e8ee",
+  "worker": {
+    "execution": "call-1",
+    "value": {
+      "report": {
+        "project": "hjh-library-spike",
+        "compatible": [
+          {
+            "name": "accepted",
+            "version": "1.4.2"
+          }
+        ],
+        "note": "prepared:hook-one",
+        "toolRevision": "tool-one",
+        "hookRevision": "hook-one"
+      },
+      "savedBytes": 213,
+      "previous": null,
+      "historyMessages": 0,
+      "instruction": "initial instruction"
+    },
+    "durationMS": 1262,
+    "hostOperationsAfterReturn": 0
+  },
+  "modelInputCandidate": {
+    "model": "spike-model-a",
+    "instruction": "initial instruction",
+    "messages": []
+  },
+  "adopted": false
+}

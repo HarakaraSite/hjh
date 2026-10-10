@@ -1,0 +1,76 @@
+{
+  "argv": [
+    "/usr/bin/sudo",
+    "-n",
+    "/usr/sbin/chroot",
+    "--userspec=1000:1000",
+    "/home/agent/projects/hjh/dist/s05-work/root-i9w8gmq1",
+    "/app/hjh",
+    "run",
+    "-session",
+    "distributed",
+    "-turn",
+    "tls",
+    "-text",
+    "tls",
+    "-url",
+    "https://localhost:39837/catalog.yaml"
+  ],
+  "exitCode": 0,
+  "stderr": "",
+  "output": {
+    "pid": 358760,
+    "result": {
+      "turn": "tls",
+      "run": "tls-run",
+      "configuration": "02b860b99aa22312fa776a7a11c56402803705b0a35b119716209914204dfa8e",
+      "worker": {
+        "execution": "call-1",
+        "value": {
+          "report": {
+            "project": "distributed-hjh",
+            "compatible": [
+              {
+                "name": "compatible",
+                "version": "1.4.2"
+              }
+            ],
+            "note": "edited:hook-two",
+            "toolRevision": "tool-two",
+            "hookRevision": "hook-two"
+          },
+          "savedBytes": 211,
+          "previous": "second: candidates=[compatible]; tool-two/hook-two",
+          "historyMessages": 4,
+          "instruction": "distributed instruction two"
+        },
+        "durationMS": 87,
+        "hostOperationsAfterReturn": 0
+      },
+      "modelInputCandidate": {
+        "model": "spike-only-no-model-call",
+        "instruction": "distributed instruction two",
+        "messages": [
+          {
+            "role": "user",
+            "content": "first"
+          },
+          {
+            "role": "assistant",
+            "content": "first: candidates=[compatible]; tool-one/hook-one"
+          },
+          {
+            "role": "user",
+            "content": "second"
+          },
+          {
+            "role": "assistant",
+            "content": "second: candidates=[compatible]; tool-two/hook-two"
+          }
+        ]
+      },
+      "adopted": false
+    },
+    "activeHostCalls": 0
+  }
+}
