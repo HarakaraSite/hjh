@@ -938,7 +938,7 @@ func TestWorkerKeepsVMAndCapturedModulesAcrossCalls(t *testing.T) {
 
 func TestWorkerReturnsModuleInitializationError(t *testing.T) {
 	extensionDir := makeExtensions(t)
-	if err := os.WriteFile(filepath.Join(extensionDir, "broken.js"), []byte(`throw new Error("module-init-marker");`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(extensionDir, "broken.js"), []byte(`function moduleInitializationFrame() {throw new Error("module-init-marker");} moduleInitializationFrame();`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	configPath := filepath.Join(extensionDir, "config.json")
@@ -969,6 +969,9 @@ func TestWorkerReturnsModuleInitializationError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "module-init-marker") {
 		t.Fatalf("module initialization error lost its original cause: %v", err)
+	}
+	if !strings.Contains(err.Error(), "moduleInitializationFrame") {
+		t.Fatalf("module initialization error lost its original stack: %v", err)
 	}
 }
 

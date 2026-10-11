@@ -42,6 +42,9 @@ TUIで再開するときは`--session SESSION_ID`、次runの選択は`--provide
 `--max-steps`・`--from-turn`もTUIのrun条件へ送る。省略時はserveの既定値、明示0は無制限/会話先頭。
 DB/config/credential-file/credential-state-dirはCore起動時に渡し、TUIの画面はそれらを直接開かない。
 manifest.jsonのbinariesに、各binaryのsize/hash/build情報/依存を記録する。licenseは両binaryの依存を同梱する。
+JS実行基盤はPure Goのgo-quickjs v0.25.2。Intl/locale dataもbinaryへ含み、追加downloadは不要。
+engineのMIT、go-intlのUnicode license、Math実装のfdlibm noticeを`licenses/`へ同梱する。
+既に動いているCoreが新engineを使うには、そのCoreを新binaryで再起動する。
 
 配布設定は外部providers JSONからOpenRouter Responsesを既定選択する。
 `--provider ID`・`--model ID`・`--effort VALUE` で切替できる。

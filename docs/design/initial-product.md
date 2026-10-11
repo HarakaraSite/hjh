@@ -21,7 +21,7 @@
 | 対象 | Linux。最初の実装・配布検証はLinux/amd64 | 利用者の指定、[S-05](../spikes/s05-results.md) |
 | 接続先 | OpenRouter。model IDは設定で選択する | 利用者の指定 |
 | 最初の操作画面 | 非対話runから。TUIは後続 | 利用者の最終指定 |
-| JS実行基盤 | `modernc.org/quickjs v0.25.0` | [S-01](../spikes/s01-results.md)、[S-03](../spikes/s03-results.md)、[S-05](../spikes/s05-results.md) |
+| JS実行基盤 | `github.com/go-quickjs/go-quickjs v0.25.2`（Pure Go） | [I-17結果](../results/i17-go-quickjs.md)。初期spikeのengineは過去の結果文書に残す |
 | 実行配置 | Go本体内でQuickJSを実行し、Worker間でVMを共有しない | [S-01](../spikes/s01-results.md) |
 | Agent loop | Goがモデル呼出し、tool実行への接続、終了判断を担当 | 採用済み提案。[初期runで実モデル接続を確認](../results/initial-run.md) |
 | tool／hook | 外部JS。標準toolの振る舞いも外部定義に置く | [S-03](../spikes/s03-results.md)、[S-05](../spikes/s05-results.md)、採用済み提案 |

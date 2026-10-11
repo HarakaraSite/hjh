@@ -12,6 +12,9 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# The engine also contains Math code with its own upstream notices.
+MODULE_NOTICES = {"github.com/go-quickjs/go-quickjs": ["internal/fdlibm/LICENSE"]}
+
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -71,6 +74,12 @@ def package(out):
             if path.is_file() and path.name.upper().startswith(("LICENSE", "COPYING", "NOTICE", "AUTHORS", "CONTRIBUTORS", "PATENTS")):
                 shutil.copyfile(path, destination / path.name)
                 notices.append(str((destination / path.name).relative_to(app)))
+        for relative in MODULE_NOTICES.get(name, []):
+            path = source / relative
+            notice = destination / relative
+            notice.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, notice)
+            notices.append(str(notice.relative_to(app)))
         if not notices:
             raise RuntimeError(f"No upstream license material: {name}")
         dependencies.append({"module": name, "version": version, "sum": checksum, "notices": notices})

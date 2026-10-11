@@ -54,6 +54,9 @@ I-15では`core list/status/stop`、`--version`、3表示の`history` CLIを整�
 I-16では`run --connect URL`でCLIから既存Coreへ依頼し、同じSessionをTUIで開ける。
 [操作と確認方針](docs/plans/i16-cli-core-run.md)を参照する。
 [実Core/TUIと配布物の確認結果](docs/results/i16-cli-core-run.md)を参照する。
+I-17ではJS実行基盤を`github.com/go-quickjs/go-quickjs v0.25.2`へ移行した。
+Worker APIと既存の終了保存・非同期処理を維持する。[移行計画](docs/plans/i17-go-quickjs.md)と
+[互換性・実作業・配布の確認結果](docs/results/i17-go-quickjs.md)を参照する。
 S-01〜S-05スパイクは実施済み。[実験コード](spikes/s01/README.md)、
 [S-01の結果](docs/spikes/s01-results.md)、[S-02の結果](docs/spikes/s02-results.md)、
 [S-03の結果](docs/spikes/s03-results.md)、[S-04の結果](docs/spikes/s04-results.md)、
@@ -256,7 +259,7 @@ Denoの開発体制変更を契機に、Henjiを継続して育てる実行基�
 ## 現在の方針
 
 - Go本体がAgent loop、履歴保存、実行管理、HTTP・ファイル・プロセス等の機能を担う。
-- QuickJSをtool・hookとAgent生成JSの実行基盤として採用する。bindingは検証した `modernc.org/quickjs v0.25.0`。
+- tool・hookとAgent生成JSの実行基盤はPure Goの `github.com/go-quickjs/go-quickjs v0.25.2`。
 - Go本体内でQuickJSを実行し、Worker間でVMを共有しない。
 - モデル接続はOpenRouter。非対話runとTUIが同じGo操作を呼ぶ。
 - 履歴SQLiteは旧henji-harnessの現行schema v3と同一にする。スパイクの簡略schemaは製品に採用しない。

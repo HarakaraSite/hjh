@@ -88,11 +88,16 @@ configurationIdはcaptureごとのUUIDであり、source digestとは別の識�
 `Worker.Definitions()` はroleが選んだbuilt-in／外部toolのmodel向けdefinitionを返す。
 `Worker.Close()` はVMと停止中のhost workを閉じる。
 
-VMの生成、module評価、JS call、Promise job処理、値の解放は一つのowner goroutineだけが行う。
+JS実行基盤は`github.com/go-quickjs/go-quickjs v0.25.2`。
+VMの生成、module評価、JS call、Promise job処理、VM終了は一つのowner goroutineだけが行う。
 Go host workは結果をownerへ返し、別goroutineからVM値を操作しない。
 一つのWorkerで複数の `Call` を行うと同じVMと外部module stateを使い、別Worker間ではVMを共有しない。
-context取消はQuickJS interrupt、HTTP request context、Linux process group停止へつながる。
+context取消はJSのCallContext／RunJobsContext、HTTP request context、Linux process group停止へつながる。
 commandはgroup停止後に `Wait` してから戻る。取消されたWorkerを閉じた後は新Workerを作成できる。
+host／子AgentのGo完了queueをownerが受け取り、Promiseを明示的にsettleする。
+root決着時に子scopeを取消し、初回join、残るhost／JS jobsのdrain、遅いAgentRunnerの再join、
+委譲tool／hookの終端記録を終えてから返す。root決着後の子結果は観測へ保存し、JSを再開させない。
+正常終了したcallの取消contextは次Callへ残さない。
 
 ## toolとhookの動作
 
