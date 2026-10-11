@@ -17,6 +17,9 @@ type Input struct {
 	Tools           []contracts.ToolDefinition
 	MaxSteps        int
 	AdditionalInput AdditionalInput
+	// ProjectRequest selects a provider request from the full current transcript.
+	// It never changes messages retained by the loop or persistence.
+	ProjectRequest func(context.Context, int, contracts.ModelRequest) (contracts.ModelRequest, error)
 }
 type Result struct {
 	OK         bool   `json:"ok"`
@@ -96,8 +99,16 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 			return result, err
 		}
 		req := contracts.ModelRequest{Model: input.Model, Instruction: input.Instruction, Messages: messages, Tools: input.Tools}
-		req.WireBody, err = provider.Prepare(req)
+		if input.ProjectRequest != nil {
+			req, err = input.ProjectRequest(ctx, step, req)
+		} else {
+			req.WireBody, err = provider.Prepare(req)
+		}
 		if err != nil {
+			var outcome interface{ Outcome() string }
+			if errors.As(err, &outcome) {
+				result.Outcome, result.StopReason = outcome.Outcome(), outcome.Outcome()
+			}
 			return result, err
 		}
 		if before != nil {

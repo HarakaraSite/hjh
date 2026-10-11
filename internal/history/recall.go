@@ -96,6 +96,24 @@ func (s *Store) SessionContext(ctx context.Context, sessionID string) (contracts
 		return contracts.SessionContext{}, fmt.Errorf("history read latest parent model request: %w", err)
 	}
 	var admission contracts.RecallAdmission
+	var budgetExecution, budgetJSON string
+	var budgetOrdinal int64
+	budgetErr := tx.QueryRowContext(ctx, `SELECT r.execution_id,r.ordinal,r.payload_json
+		FROM semantic_records r JOIN execution_display_positions p ON p.execution_id=r.execution_id
+		JOIN executions e ON e.execution_id=r.execution_id
+		WHERE p.session_correlation=? AND e.parent_execution_id IS NULL AND r.kind='context_budget'
+		ORDER BY p.execution_ordinal DESC,r.ordinal DESC LIMIT 1`, sessionID).Scan(&budgetExecution, &budgetOrdinal, &budgetJSON)
+	if budgetErr == nil {
+		var budget contracts.ContextBudgetStatus
+		if err := json.Unmarshal([]byte(budgetJSON), &budget); err != nil {
+			return contracts.SessionContext{}, err
+		}
+		budget.ExecutionID = budgetExecution
+		budget.RecordOrdinal = budgetOrdinal
+		result.LatestBudget = &budget
+	} else if !errors.Is(budgetErr, sql.ErrNoRows) {
+		return contracts.SessionContext{}, budgetErr
+	}
 	err = tx.QueryRowContext(ctx, `SELECT rr.source_execution_id,rr.target_execution_id,rr.record_id,r.observed_at
 		FROM recall_relations rr JOIN semantic_records r ON r.record_id=rr.record_id
 		JOIN executions target ON target.execution_id=rr.target_execution_id

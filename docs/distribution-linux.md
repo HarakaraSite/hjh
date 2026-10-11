@@ -13,16 +13,34 @@ archiveを展開し、任意の作業ディレクトリから使う。`/path/to/
 /path/to/hjh-linux-amd64/hjh run --role reviewer --config /path/to/hjh-linux-amd64/extensions/config.json 'input.txtを読んでレビューして'
 ```
 
-TUIはCoreと別processで起動する。次の2行は別端末で実行する。
+TUIだけを起動すると、同じVMのCoreへ接続し、未起動なら同じ配布directoryの`hjh`を起動する。
+CoreとTUIは別processで、TUIをdetachした後もCoreは継続する。
+
+```sh
+/path/to/hjh-linux-amd64/hjh-tui --workspace /path/to/work --config /path/to/hjh-linux-amd64/extensions/config.json
+```
+
+既定の接続先は`http://127.0.0.1:8765`。起動済みCoreは再利用する。
+`--db`・`--config`・`--credential-file`・`--credential-state-dir`・`--model-favorites-dir`は新Coreへの起動option。
+既存Coreへの接続ではそのCoreの起動設定を使う。新規Coreのworkspaceは現在directoryが既定で、
+既存Coreへの接続ではTUIの`--workspace`省略時にそのCoreの既定workspaceを使う。
+起動logは実効DBと同じdirectoryの`core.log`へ追記する。
+別配置のCore binaryは`--core-binary PATH`で指定できる。
+SSH先のVMでTUIを動かす場合も、このVM上でCoreを起動する。
+
+接続だけを行う場合は`--endpoint URL`を明示する。Coreを別端末で起動する既存の方式も使える。
 
 ```sh
 /path/to/hjh-linux-amd64/hjh serve --workspace /path/to/work --config /path/to/hjh-linux-amd64/extensions/config.json --listen 127.0.0.1:8765
 /path/to/hjh-linux-amd64/hjh-tui --endpoint http://127.0.0.1:8765
 ```
 
+同じVMの別portで自動起動する場合は`--endpoint http://127.0.0.1:PORT --start-core`。
+`--start-core=false`は既定の接続先にも接続だけを行う。
+
 TUIで再開するときは`--session SESSION_ID`、次runの選択は`--provider`・`--model`・`--role`等を指定する。
 `--max-steps`・`--from-turn`もTUIのrun条件へ送る。省略時はserveの既定値、明示0は無制限/会話先頭。
-DB/config/credential-file/credential-state-dirはCoreに指定し、TUIはそれらを直接開かない。
+DB/config/credential-file/credential-state-dirはCore起動時に渡し、TUIの画面はそれらを直接開かない。
 manifest.jsonのbinariesに、各binaryのsize/hash/build情報/依存を記録する。licenseは両binaryの依存を同梱する。
 
 配布設定は外部providers JSONからOpenRouter Responsesを既定選択する。
@@ -43,13 +61,45 @@ ChatGPTは `hjh auth --provider openai-chatgpt login` でhjh自身の認証を�
 
 flagは依頼文より前に指定する。依頼文を省略するとstdinから読む。
 既定DBは作業ディレクトリの `.hjh/history.sqlite3`。他の場所から参照するときは `--db PATH` を指定する。
-再開時はSession保存済みworkspaceを使う。Ctrl-Cで停止し、途中の証拠も残す。
-stdoutは最終回答、stderrは進捗と識別子。成功0、失敗1、取消130。
+
+`hjh --version`／`hjh-tui --version`は版・source revision/dirty・実バイナリhash・Go/target・
+拡張契約を表示する。配布buildはsource情報を両バイナリとmanifestへ埋め込む。
+表示だけではCore、DB、拡張設定を作成しない。
+
+`hjh core list [--workspace PATH] [--json]`で同じVM・ユーザーの登録を一覧表示する。
+`hjh core status --core ID_OR_PREFIX`、`hjh core stop --core ID_OR_PREFIX`で対象を選ぶ。
+URL指定は`--connect URL`。対象省略時は一覧を表示し、停止しない。
+stopはCoreの取消・終了保存・HTTP停止を待つ。Coreを新規起動するコマンドではない。
+登録はXDG stateの`hjh/cores/`に置き、通常終了時に自身の登録を外す。
+異常終了の登録は到達不能として表示する。既存Coreには再起動で反映する。
+
+`hjh history --latest`は既定で統一会話テキスト。`--session`は一意な短縮IDも使える。
+`--view canonical`は採用会話Markdown、`--view detail`は保存実行証拠のNDJSON。
+detailのrecord contentはbase64で保存bytesを保持する。
+`--json`は採用message配列。`--connect URL`はCore側の履歴を読み、未指定ならローカルDBを
+read-onlyで読む。範囲は`--from-turn`／`--to-turn`で指定する。
+`run`の再開時はSession保存済みworkspaceを使う。Ctrl-Cで停止し、途中の証拠も残す。
+`run`のstdoutは最終回答、stderrは進捗と識別子。成功0、失敗1、取消130。
+`hjh run --connect URL "READMEを要約して" > summary.txt`で起動済みCoreへ依頼できる。
+stderrのSession IDを`hjh-tui --endpoint URL --session ID`で開くと、その実行へ途中から接続できる。
+接続runもCtrl-Cは取消と終了保存を待ち、通信切断やCLI強制終了ではCoreの作業が続く。
+workspace省略はCore既定、相対pathはCore基準、再開は保存workspaceを使う。
+DB/config/credential関連のfile指定はCore起動時に行う。max-steps/from-turn省略はCoreの既定設定を使う。
 `--stream` は本文を受信しながらstdoutへ表示する。途中本文とtool進捗を追いながら利用でき、
 最終回答の重複出力はしない。失敗・取消でもすでに表示した本文は残る。
 
 配布先 `extensions/index.js`・`hooks.js`・`config.json` を編集すると次のrunから反映される。
 `--config` を省略したrunはworkspaceの `.hjh/extensions/` に標準拡張を配置し、そちらを使う。
+Webページは`web_fetch`で読み取る。通常は1MiBまでを可読テキストで返し、`save_to`は本文を
+上限なくfileへ保存する。コンテキスト予算管理はCoreが行い、ターン内・次ターン・再開・
+モデル変更・子Agentに適用する。履歴全文は残し、モデルへ送る内容だけを選ぶ。
+TUIの`/context`で有効予算、出典、選択した履歴と保存元を確認できる。
+上書きはconfig.jsonの`contextBudget.defaults/providers/models`で指定する。
+
+既存workspaceの拡張は自動置換しない。`web_fetch`を追加するときは配布configのtool definitionを
+既存config.toolsへ、使うrole.toolsへ`web_fetch`を追加し、配布index.jsのwebFetch exportを反映する。
+容量を公開catalogから解決する標準OpenRouterの`catalog`、標準OpenAIの`modelsDevProviderId`も
+配布configを参照する。本体とTUIを更新した後、既存Coreは一度終了して新しい本体で起動する。
 生成JSでは `await tools.read_file({path:"input.txt"})` のようにtoolを組み合わせる。
 configのdefaultRoleとrolesでinstruction・利用toolを定義する。親も子も共通genericへroleを渡す。
 既定defaultは作業と委譲、reviewerはrun_js・read_fileを選ぶ。

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"hjh/internal/agent"
+	"hjh/internal/contextbudget"
 	"hjh/internal/contracts"
 	"hjh/internal/executiondata"
 	"hjh/internal/extensions"
@@ -183,22 +184,6 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	}
 	var messages []contracts.Message
 	var recallSource *recallAttribution
-	if input.session != nil {
-		stored, e := store.Conversation(ctx, input.rootSessionID, input.fromTurn, -1)
-		if e != nil {
-			return result, e
-		}
-		for _, saved := range stored {
-			var m contracts.Message
-			if e = json.Unmarshal(saved.JSON, &m); e != nil {
-				return result, e
-			}
-			if saved.TurnNumber < input.session.PrivateStateFromTurn || input.previousModel.Provider != input.model.Provider || input.previousModel.ModelID != input.model.ModelID {
-				m.ProviderState = nil
-			}
-			messages = append(messages, m)
-		}
-	}
 	if input.recall != nil {
 		evidence, e := store.RecallEvidence(ctx, input.recall.SourceExecutionID)
 		if e != nil {
@@ -241,12 +226,48 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		return result, err
 	}
 	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource}
+	registry, e := capturedRegistry(input.snapshot, input.configPath)
+	if e != nil {
+		return result, e
+	}
+	budget, metadataError := input.connections.budget(ctx, registry, input.model, input.injectedProvider, input.configPath)
+	var prefix []contextbudget.Entry
+	for i, message := range messages {
+		prefix = append(prefix, contextbudget.Entry{Message: message, Source: contextbudget.Source{
+			Kind: "prefix", ExecutionID: execution.ID, Turn: execution.Turn, MessageOrdinal: int64(i)}})
+	}
+	projector := contextbudget.New(budget, budgetHistoryReader(store, input), prefix)
+	notices := map[string]bool{}
 	var additionalInput agent.AdditionalInput
 	if additional != nil {
 		additionalInput = additional
 	}
 	result, err = agent.Run(ctx, agent.Input{Task: execution.Task, Model: input.model, Instruction: input.snapshot.SystemInstruction,
-		History: messages, Tools: worker.Definitions(), MaxSteps: input.maxSteps, AdditionalInput: additionalInput}, provider, guardedExecutor{worker, control},
+		History: messages, Tools: worker.Definitions(), MaxSteps: input.maxSteps, AdditionalInput: additionalInput,
+		ProjectRequest: func(projectCtx context.Context, step int, request contracts.ModelRequest) (contracts.ModelRequest, error) {
+			current := make([]contextbudget.Entry, 0, len(request.Messages)-len(prefix))
+			for i, message := range request.Messages[len(prefix):] {
+				current = append(current, contextbudget.Entry{Message: message, Source: contextbudget.Source{
+					Kind: "current", ExecutionID: execution.ID, Turn: execution.Turn, MessageOrdinal: int64(i + len(prefix))}})
+			}
+			request.Messages = nil
+			projection, projectErr := projector.Project(projectCtx, request, current, provider.Prepare)
+			var exceeded *contextbudget.ExceededError
+			if projectErr != nil && !errors.As(projectErr, &exceeded) {
+				return request, projectErr
+			}
+			payload := contracts.JSON(map[string]any{"modelStep": step, "modelSelection": input.model,
+				"fact": projection.Fact, "metadataError": metadataError, "exceeded": exceeded != nil})
+			if _, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{
+				Kind: "context_budget", Payload: payload, Content: projection.Request.WireBody}); e != nil {
+				return request, control.storage(e)
+			}
+			attribution.sources, attribution.budget = projection.Sources, payload
+			if e := contextBudgetNotice(j, step, projection.Fact, notices); e != nil {
+				return request, e
+			}
+			return projection.Request, projectErr
+		}}, provider, guardedExecutor{worker, control},
 		func(m contracts.Message) error {
 			return j.appendMessage(m)
 		}, j.observe, func(step int, req contracts.ModelRequest) error {

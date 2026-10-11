@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	"hjh/internal/contextbudget"
 	"hjh/internal/contracts"
 	"hjh/internal/credentials"
 	"hjh/internal/provider/protocol"
@@ -16,10 +17,11 @@ import (
 // public so app can pass the same captured configuration to its resolver and
 // provider factory.
 type Config struct {
-	Providers   map[string]Definition          `json:"providers"`
-	Credentials map[string]credentials.Profile `json:"credentials"`
-	Model       contracts.ModelSelection       `json:"model"`
-	Roles       map[string]RoleModel           `json:"roles"`
+	ContextBudget contextbudget.Configuration    `json:"contextBudget,omitempty"`
+	Providers     map[string]Definition          `json:"providers"`
+	Credentials   map[string]credentials.Profile `json:"credentials"`
+	Model         contracts.ModelSelection       `json:"model"`
+	Roles         map[string]RoleModel           `json:"roles"`
 }
 
 // RoleModel contains the model defaults contributed by one role. Every field
@@ -31,19 +33,20 @@ type RoleModel struct {
 // Definition describes one connection using an API and authentication
 // implementation already supported by the Go runtime.
 type Definition struct {
-	ID            string            `json:"id"`
-	DisplayName   string            `json:"displayName"`
-	API           string            `json:"api"`
-	BaseURL       string            `json:"baseURL"`
-	Path          string            `json:"path"`
-	Auth          Auth              `json:"auth"`
-	DefaultModel  string            `json:"defaultModel"`
-	DefaultEffort string            `json:"defaultEffort"`
-	Models        []ModelInfo       `json:"models,omitempty"`
-	Catalog       Catalog           `json:"catalog,omitempty"`
-	Headers       map[string]string `json:"headers,omitempty"`
-	SessionHeader string            `json:"sessionHeader,omitempty"`
-	Adapter       protocol.Options  `json:"adapter,omitempty"`
+	ModelsDevProviderID string            `json:"modelsDevProviderId,omitempty"`
+	ID                  string            `json:"id"`
+	DisplayName         string            `json:"displayName"`
+	API                 string            `json:"api"`
+	BaseURL             string            `json:"baseURL"`
+	Path                string            `json:"path"`
+	Auth                Auth              `json:"auth"`
+	DefaultModel        string            `json:"defaultModel"`
+	DefaultEffort       string            `json:"defaultEffort"`
+	Models              []ModelInfo       `json:"models,omitempty"`
+	Catalog             Catalog           `json:"catalog,omitempty"`
+	Headers             map[string]string `json:"headers,omitempty"`
+	SessionHeader       string            `json:"sessionHeader,omitempty"`
+	Adapter             protocol.Options  `json:"adapter,omitempty"`
 }
 
 // Auth selects a Go authentication method and names a credentials profile.
@@ -56,10 +59,13 @@ type Auth struct {
 // ModelInfo is a display candidate. It does not limit model IDs accepted by
 // Resolve.
 type ModelInfo struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Efforts      []string `json:"efforts,omitempty"`
-	EffortSource string   `json:"effortSource,omitempty"`
+	ContextTokens  *int64   `json:"contextTokens,omitempty"`
+	InputTokens    *int64   `json:"inputTokens,omitempty"`
+	CapacitySource string   `json:"capacitySource,omitempty"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	Efforts        []string `json:"efforts,omitempty"`
+	EffortSource   string   `json:"effortSource,omitempty"`
 }
 
 // Catalog identifies a model catalog source. An account-specific catalog is

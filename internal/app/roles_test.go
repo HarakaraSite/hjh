@@ -26,7 +26,7 @@ func TestRoleChoiceAdoptionResumeAndCurrentConfig(t *testing.T) {
 		if seenRole == "reviewer" {
 			want = []string{"run_js", "read_file"}
 		} else {
-			want = []string{"run_js", "run_agent", "read_file", "write_file", "edit_file", "command", "http"}
+			want = []string{"run_js", "run_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch"}
 		}
 		var actual []string
 		for _, tool := range req.Tools {

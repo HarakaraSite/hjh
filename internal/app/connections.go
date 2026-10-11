@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,12 @@ type connectionFactory struct {
 	overrideProfile, overrideFile string
 	bindingMu                     sync.Mutex
 	bindings                      map[string]*bindingFlight
+	capacityOnce                  sync.Once
+	capacityDone                  chan struct{}
+	capacityMetadata              providers.CapacityMetadata
+	capacityError                 error
+	catalogMu                     sync.Mutex
+	catalogs                      map[string]*catalogFlight
 }
 
 type bindingFlight struct {
@@ -40,7 +47,7 @@ func newConnectionFactory(options RunOptions) *connectionFactory {
 		manager = credentials.NewManager(credentials.Options{HTTPClient: options.HTTPClient, StateDir: options.CredentialStateDir})
 	}
 	return &connectionFactory{credentials: manager, client: options.HTTPClient, ownsCredentials: options.Credentials == nil,
-		bindings: make(map[string]*bindingFlight)}
+		bindings: make(map[string]*bindingFlight), capacityDone: make(chan struct{}), catalogs: make(map[string]*catalogFlight)}
 }
 
 // capture joins the first preparation for one owner without holding a factory
@@ -195,31 +202,48 @@ func (s *Service) ModelsWithAuth(ctx context.Context, workspace, providerID, aut
 		return result, err
 	}
 	result.AuthOwnerID, result.AuthAccountID = binding.OwnerID, binding.AccountID
+	result.Models, err = loadModelCatalog(ctx, s.options.HTTPClient, d, resolved.Token)
+	return result, err
+}
+
+func loadModelCatalog(ctx context.Context, client *http.Client, d providers.Definition, token string) ([]providers.ModelInfo, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(d.BaseURL, "/")+"/"+strings.TrimLeft(d.Catalog.Path, "/"), nil)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	for name, value := range d.Headers {
 		request.Header.Set(name, value)
 	}
 
-	client := s.options.HTTPClient
 	if client == nil {
 		client = http.DefaultClient
 	}
-	client = protocol.NewAuthenticatedHTTPClient(client, request.URL.String(), resolved.Token)
+	client = protocol.NewAuthenticatedHTTPClient(client, request.URL.String(), token)
 	response, err := client.Do(request)
 	if err != nil {
-		return result, fmt.Errorf("model catalog request failed: %w", err)
+		message := err.Error()
+		if token != "" {
+			message = strings.ReplaceAll(message, token, "[redacted]")
+		}
+		return nil, fmt.Errorf("model catalog request failed: %s", message)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return result, fmt.Errorf("model catalog HTTP %s", response.Status)
+		return nil, fmt.Errorf("model catalog HTTP %s", response.Status)
 	}
+	models, err := decodeModelCatalog(response.Body, d.Catalog.Kind)
+	if err != nil {
+		return nil, err
+	}
+	return models, nil
+}
+
+func decodeModelCatalog(reader io.Reader, kind string) ([]providers.ModelInfo, error) {
 	var body struct {
 		Data []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
+			ID            string `json:"id"`
+			Name          string `json:"name"`
+			ContextLength *int64 `json:"context_length"`
 		} `json:"data"`
 		Models []struct {
 			Slug                     string `json:"slug"`
@@ -231,11 +255,11 @@ func (s *Service) ModelsWithAuth(ctx context.Context, workspace, providerID, aut
 			} `json:"supported_reasoning_levels"`
 		} `json:"models"`
 	}
-	if err = json.NewDecoder(response.Body).Decode(&body); err != nil {
-		return result, err
+	if err := json.NewDecoder(reader).Decode(&body); err != nil {
+		return nil, err
 	}
 	var models []providers.ModelInfo
-	if d.Catalog.Kind == "openai-account" {
+	if kind == "openai-account" {
 		for _, model := range body.Models {
 			if model.Visibility == "list" {
 				info := providers.ModelInfo{ID: model.Slug, Name: model.Name}
@@ -251,11 +275,14 @@ func (s *Service) ModelsWithAuth(ctx context.Context, workspace, providerID, aut
 		}
 	} else {
 		for _, model := range body.Data {
-			models = append(models, providers.ModelInfo{ID: model.ID, Name: model.Name})
+			info := providers.ModelInfo{ID: model.ID, Name: model.Name, ContextTokens: model.ContextLength}
+			if model.ContextLength != nil {
+				info.CapacitySource = "catalog"
+			}
+			models = append(models, info)
 		}
 	}
-	result.Models = models
-	return result, nil
+	return models, nil
 }
 
 func (f *connectionFactory) close() error {

@@ -26,16 +26,27 @@ def json_stream(text):
         text = text[end:]
 
 
+def source_metadata():
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
+    return revision, dirty
+
+
 def package(out):
+    source_revision, source_dirty = source_metadata()
     out.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="build-", dir=out))
     app = work / "hjh-linux-amd64"
     app.mkdir()
     env = dict(os.environ, CGO_ENABLED="0", GOOS="linux", GOARCH="amd64", GOAMD64="v1")
+    ldflags = " ".join((
+        f"-X hjh/internal/buildinfo.SourceRevision={source_revision}",
+        f"-X hjh/internal/buildinfo.SourceDirty={str(source_dirty).lower()}",
+    ))
     binaries = {}
     for name, target in [("hjh", "./cmd/hjh"), ("hjh-tui", "./cmd/hjh-tui")]:
         binary = app / name
-        subprocess.run(["go", "build", "-trimpath", "-o", str(binary), target], cwd=ROOT, env=env, check=True)
+        subprocess.run(["go", "build", "-trimpath", "-ldflags", ldflags, "-o", str(binary), target], cwd=ROOT, env=env, check=True)
         build = subprocess.check_output(["go", "version", "-m", str(binary)], text=True)
         headers = subprocess.check_output(["readelf", "-l", str(binary)], text=True)
         if "INTERP" in headers:
@@ -75,7 +86,8 @@ def package(out):
     shutil.copyfile(ROOT / "spikes/s01/s03-tools/modules/catalog.js", app / "extensions/modules/catalog.js")
     shutil.copyfile(ROOT / "docs/distribution-linux.md", app / "README.md")
     (app / "NOTICE").write_text("hjh Linux/amd64 development build: hjh core and optional hjh-tui client.\nGo module and runtime licenses: licenses/.\nOptional YAML and semver ESM licenses: extensions/vendor/.\nPer-binary dependencies and file hashes: manifest.json.\n")
-    manifest = {"target": "linux/amd64", "binaries": binaries, "goDependencies": dependencies,
+    manifest = {"target": "linux/amd64", "source": {"revision": source_revision, "dirty": source_dirty},
+                "binaries": binaries, "goDependencies": dependencies,
                 "jsDependencies": json.loads((app / "extensions/vendor/manifest.json").read_text())["dependencies"],
                 "files": {str(p.relative_to(app)): {"bytes": p.stat().st_size, "sha256": digest(p)} for p in sorted(app.rglob("*")) if p.is_file()}}
     (app / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")

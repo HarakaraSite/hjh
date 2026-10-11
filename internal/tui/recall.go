@@ -69,6 +69,10 @@ func formatSessionContext(state api.SessionContext) string {
 	} else {
 		b.WriteString("\nSaved input preparation · none")
 	}
+	if budget := state.LatestBudget; budget != nil {
+		b.WriteString(formatCoreBudget(*budget))
+	}
+
 	if pending := state.PendingRecall; pending != nil {
 		fmt.Fprintf(&b, "\nPending recall · %s · %s · generation %d", pending.SourceExecutionID, pending.SourceOutcome, pending.Generation)
 		if pending.ClaimedByRunID != "" {

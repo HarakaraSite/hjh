@@ -7,9 +7,26 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestServeOccupiedPortDoesNotOpenHistory(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	workspace := t.TempDir()
+	if code := serve(context.Background(), workspace, "", "", "", "", "", 0, 0, listener.Addr().String(), io.Discard); code != 1 {
+		t.Fatalf("losing startup exit code = %d", code)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".hjh", "history.sqlite3")); !os.IsNotExist(err) {
+		t.Fatalf("losing startup opened history: %v", err)
+	}
+}
 
 func TestServeStopsAfterCoreShutdownRequest(t *testing.T) {
 	reserved, err := net.Listen("tcp", "127.0.0.1:0")

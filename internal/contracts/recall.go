@@ -1,5 +1,7 @@
 package contracts
 
+import "encoding/json"
+
 // RecallReference holds only the prepared source identity, never its body.
 type RecallReference struct {
 	CoreID            string `json:"coreId"`
@@ -93,13 +95,26 @@ type RecallAdmission struct {
 }
 
 type SessionContext struct {
-	CoreID                string            `json:"coreId"`
-	SessionID             string            `json:"sessionId"`
-	Canonical             CanonicalContext  `json:"canonical"`
-	ActiveRunID           string            `json:"activeRunId,omitempty"`
-	LatestRootExecution   *ContextExecution `json:"latestRootExecution,omitempty"`
-	LatestRequest         *ContextRequest   `json:"latestRequest,omitempty"`
-	RecallRevision        uint64            `json:"recallRevision"`
-	PendingRecall         *PendingRecall    `json:"pendingRecall,omitempty"`
-	LatestRecallAdmission *RecallAdmission  `json:"latestRecallAdmission,omitempty"`
+	CoreID                string               `json:"coreId"`
+	SessionID             string               `json:"sessionId"`
+	Canonical             CanonicalContext     `json:"canonical"`
+	ActiveRunID           string               `json:"activeRunId,omitempty"`
+	LatestRootExecution   *ContextExecution    `json:"latestRootExecution,omitempty"`
+	LatestRequest         *ContextRequest      `json:"latestRequest,omitempty"`
+	LatestBudget          *ContextBudgetStatus `json:"latestBudget,omitempty"`
+	RecallRevision        uint64               `json:"recallRevision"`
+	PendingRecall         *PendingRecall       `json:"pendingRecall,omitempty"`
+	LatestRecallAdmission *RecallAdmission     `json:"latestRecallAdmission,omitempty"`
+}
+
+// ContextBudgetStatus describes Core's latest input selection, including a
+// selection that exceeded budget before a provider request was sent.
+type ContextBudgetStatus struct {
+	ExecutionID   string          `json:"executionId"`
+	RecordOrdinal int64           `json:"recordOrdinal"`
+	ModelStep     int             `json:"modelStep"`
+	Selection     ModelSelection  `json:"modelSelection"`
+	Fact          json.RawMessage `json:"fact"`
+	MetadataError string          `json:"metadataError,omitempty"`
+	Exceeded      bool            `json:"exceeded"`
 }

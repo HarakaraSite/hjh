@@ -21,3 +21,9 @@ export async function command(args, api) {
 export async function http(args, api) {
   return api.http({ url: args.url });
 }
+
+export async function webFetch(args, api) {
+  const input = { url: args.url };
+  if (args.save_to !== undefined) input.save_to = args.save_to;
+  return api.webFetch(input);
+}

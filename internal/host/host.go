@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"hjh/internal/webfetch"
 )
 
 type Host struct {
@@ -41,6 +43,11 @@ type HTTPArgs struct {
 type HTTPResult struct {
 	Status int    `json:"status"`
 	Body   string `json:"body"`
+}
+
+type WebFetchArgs struct {
+	URL    string
+	SaveTo string
 }
 
 type CommandArgs struct {
@@ -85,6 +92,16 @@ func (h *Host) Call(ctx context.Context, name string, input json.RawMessage) (an
 			return nil, err
 		}
 		return h.http(ctx, args)
+	case "webFetch":
+		args, err := parseWebFetchArgs(input)
+		if err != nil {
+			return nil, err
+		}
+		savePath := ""
+		if args.SaveTo != "" {
+			savePath = h.resolvePath(args.SaveTo)
+		}
+		return webfetch.Fetch(ctx, h.HTTPClient, args.URL, savePath, args.SaveTo)
 	case "command":
 		var args CommandArgs
 		if err := json.Unmarshal(input, &args); err != nil {
@@ -113,6 +130,41 @@ func (h *Host) resolvePath(path string) string {
 		return path
 	}
 	return filepath.Join(h.Workspace, filepath.FromSlash(path))
+}
+
+func parseWebFetchArgs(input json.RawMessage) (WebFetchArgs, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(input, &fields); err != nil {
+		return WebFetchArgs{}, err
+	}
+	if fields == nil {
+		return WebFetchArgs{}, errors.New("web_fetch expects an object")
+	}
+	for name := range fields {
+		if name != "url" && name != "save_to" {
+			return WebFetchArgs{}, errors.New("web_fetch expects url and optional save_to fields")
+		}
+	}
+	urlValue, ok := fields["url"]
+	if !ok {
+		return WebFetchArgs{}, errors.New("web_fetch expects url and optional save_to fields")
+	}
+	var args WebFetchArgs
+	if err := json.Unmarshal(urlValue, &args.URL); err != nil {
+		return WebFetchArgs{}, err
+	}
+	if strings.TrimSpace(args.URL) == "" {
+		return WebFetchArgs{}, errors.New("web_fetch URL must be a non-empty string")
+	}
+	if saveTo, ok := fields["save_to"]; ok {
+		if err := json.Unmarshal(saveTo, &args.SaveTo); err != nil {
+			return WebFetchArgs{}, err
+		}
+		if strings.TrimSpace(args.SaveTo) == "" {
+			return WebFetchArgs{}, errors.New("web_fetch save_to must be a non-empty string")
+		}
+	}
+	return args, nil
 }
 
 func (h *Host) readFile(args ReadFileArgs) (ReadFileResult, error) {

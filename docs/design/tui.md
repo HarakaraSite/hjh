@@ -24,6 +24,11 @@ TUIはdraft、次回の接続／role／Session選択、会話entity、Markdown�
 Bubble Teaのupdate loopで入力と表示状態を管理し、独立writerで通常画面へ出力する。
 端末の検索・コピーは端末／tmuxのscrollbackを使う。
 
+I-13の起動入口は[計画と操作契約](../plans/i13-core-startup.md)を参照する。
+endpoint省略時は同VMのCoreへ接続し、未起動なら別processの`hjh serve`を起動してHTTP readinessを待つ。
+明示endpointは接続だけを行い、`--start-core`で明示的に同VMのCore起動も選べる。
+起動optionとprocess寿命はCLI／corelaunchが扱い、TUIのmodelへCore実装やDB所有を持ち込まない。
+
 Session会話はSession view snapshotで読み、現在runのsnapshot／upsertを同じID／位置へmergeする。
 本文・公開thinking・tool・子executionをCoreの意味的位置に沿って表示する。
 公開thinkingはproviderが返したtext／summaryだけを使い、private replay stateを本文へ展開しない。

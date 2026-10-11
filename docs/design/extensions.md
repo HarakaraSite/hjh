@@ -52,7 +52,7 @@ run_agentを選んだ場合だけ生成JSへapi.agents.runを公開し、同じr
 selection優先順位、credential形式は[provider・model設定](providers.md)を参照する。
 
 `tools` のexportは `(args, api) => result` を実装する。`api.readFile`、`api.writeFile`、
-`api.command`、`api.http` はcontext付きGo基礎操作へ接続する。
+`api.command`、`api.http`、`api.webFetch` はcontext付きGo基礎操作へ接続する。
 `api.tools.<name>(args)` は別の登録toolを同じVM内で呼ぶ。
 各内側callは親IDを持ち、hookや基礎操作の子callを含めてObserverへ通知される。
 
@@ -106,12 +106,14 @@ toolが成功した場合だけ `afterTool({name,args,result}, api)` を呼び�
 hook自体もcallとしてObserverへ記録し、hook内のGo操作・別toolはhook IDを親に持つ。
 toolまたはhookの例外は呼出し元へそのまま伝える。
 
-標準の外部toolは `run_agent`、`read_file`、`write_file`、`edit_file`、`command`、`http`。
+標準の外部toolは `run_agent`、`read_file`、`write_file`、`edit_file`、`command`、`http`、`web_fetch`。
 file pathとcommand `Dir` はSession workspaceから解決し、プロセス全体のworking directoryを変更しない。
 `edit_file` は `oldText` の全ての完全一致箇所を `newText` に置換して書き込み、置換数とbyte数を返す。
 `command` は `program`、`args`、`stdin` を受け、`exitCode`、`stdout`、`stderr` を返す。
 nonzero exitは構造化結果であり、tool失敗にはしない。
 `http` はGETを行い、statusとbodyを返す。HTTP statusは結果データである。
+ページ読取りは`web_fetch`を使う。HTML可読化、通常1MiB上限、原本文の`save_to`保存は
+[I-14契約](i14-web-context-contract.md)を参照する。
 標準toolの振る舞いは外部JS moduleにあり、host packageはfile、HTTP、Linux processの実処理だけを行う。
 
 Observerには外側tool、生成JS内tool、hook、host操作それぞれの開始・終了を `contracts.Observation`

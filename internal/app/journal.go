@@ -125,6 +125,14 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		return facts, err
 	}
 	payload := contracts.JSON(o)
+	if o.Kind == "context" {
+		var notice map[string]any
+		if err := json.Unmarshal(payload, &notice); err != nil {
+			return nil, err
+		}
+		notice["text"] = o.Preview
+		payload = contracts.JSON(notice)
+	}
 	var metadataPtr *contracts.ConversationMetadata
 	if metadata != nil {
 		metadataPtr = metadata
@@ -155,6 +163,9 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		if kind == "tool_result" {
 			fact.Outcome = o.Phase
 		}
+		if o.Kind == "context" {
+			fact.Text = o.Preview
+		}
 		facts = append(facts, fact)
 		if o.Kind == "execution" && started {
 			facts = append(facts, contracts.ExecutionFact{RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID,
@@ -182,6 +193,8 @@ func observationKind(o contracts.Observation) (kind string, started bool) {
 		kind = "effect_observation"
 	case "hook":
 		kind = "context_update"
+	case "context":
+		kind = "context_update"
 	case "control":
 		kind = "control_decision"
 	case "assistant_text":
@@ -195,6 +208,10 @@ func observationKind(o contracts.Observation) (kind string, started bool) {
 }
 
 func (j *journal) metadataFor(o contracts.Observation, kind string, sequence uint64) *contracts.ConversationMetadata {
+	if o.Kind == "context" {
+		return &contracts.ConversationMetadata{RootExecutionID: j.rootExecutionID, Sequence: sequence,
+			EntityKind: "notice", LocalKey: "context/" + o.Name, FirstSequence: sequence}
+	}
 	switch kind {
 	case "execution_admission":
 		return &contracts.ConversationMetadata{RootExecutionID: j.rootExecutionID, Sequence: sequence,

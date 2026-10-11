@@ -32,11 +32,18 @@ keyやAuthorization headerはVM・構成snapshot・観測へ渡さない。
 `--max-steps N` は利用者が指定したときだけモデルstep上限を設定する。
 未指定は0で無制限を表し、同じ値をschemaのmax_stepsへ保存する。
 上限到達は完了回答と区別し、実行証拠を保持する。
-`--from-turn N` は再開時のmodel入力を完全なturn単位で選ぶ。未指定は全採用会話。
+`--from-turn N` は再開時のmodel入力候補をturn単位で選ぶ。未指定は全採用会話を候補にする。
+I-14ではCoreがその候補からmodelの予算に入る履歴を選び、最新turnは部分選択する場合がある。
 保存済み履歴を切り捨てず、tool callと対応結果を同じprojectionに含める。
+詳しい設定、選択と記録は[コンテキスト管理契約](i14-web-context-contract.md)を参照する。
 
 `hjh sessions` はSession metadataの一覧。
-`hjh history --session ID [--from-turn N] [--to-turn N]` は採用会話。
+`hjh history [--session ID_OR_PREFIX|--latest] [--view session|canonical|detail]` は
+履歴閲覧。既定は最新Sessionの統一会話テキスト、canonicalは採用会話Markdown、detailは
+保存実行証拠のNDJSON。`--json`で採用message配列を取得できる。
+detailのrecord contentはInspectと同じbase64表現で保存bytesを保持する。
+`--from-turn N`／`--to-turn N`でinclusive範囲を指定し、`--connect URL`でCoreの公開APIを使う。
+ローカルはread-onlyで読み、履歴未作成時はno historyで終了する。
 `hjh inspect --execution ID` は失敗・取消・内側call・使用構成を含む実行証拠。
 範囲指定の両端は包含とし、未指定はその側の全範囲。
 
@@ -49,6 +56,13 @@ Go build payloadの差分は[保存対応表](history-payloads.md)に記載し�
 実確認のmodelは利用者指定の `deepseek/deepseek-v4.1-flash`。
 `finish_reason=length` は途中／空回答を保存して失敗終了し、正常turnへ採用しない。
 入力待ち中のSIGINTもstdin読込みを解除してexit 130へ接続する。
+I-16では`run --connect URL`で既存Coreへ依頼する。[操作契約](../plans/i16-cli-core-run.md)を参照する。
+CLI内でDB・設定・認証を開かず、既存StartRunRequestとrun SSEで開始・進捗・終了を読む。
+stdoutは従来と同じ最終回答または--streamの親本文、stderrにCore/Run/Session/Execution IDと進捗。
+workspace省略時はCore既定、明示相対pathはCore基準、再開は保存Sessionのworkspaceを使う。
+DB/config/credential等の起動設定はCore側で管理し、接続runへの明示指定は起動設定の案内で終了する。
+max-steps/from-turnは明示時だけpointerで渡し、省略はCore設定、明示0はoverrideとして扱う。
+Ctrl-C/SIGTERMはCancel APIと最終保存・会話配信の完了を待つ。通信切断やCLI強制終了は取消へ変換しない。
 実行・配布・reviewの結果は[初期runの結果](../results/initial-run.md)を参照する。
 逐次表示の追加実装と実provider確認は[run streamの結果](../results/run-stream.md)を参照する。
 
@@ -60,9 +74,9 @@ Go build payloadの差分は[保存対応表](history-payloads.md)に記載し�
 接続を明示しない再開はSession保存selectionを使う。
 `inspect` のcontextは構成と同じくJSONとして返す。
 
-`hjh tui` は利用者が選んだ同一process方式でこの操作を呼ぶ。
-認証参照は専用credentials moduleをCLIと共用し、TUIの表示状態や履歴queryへkeyを渡さない。
-停止・終了時はbackendをcancel・joinしてからDBを閉じる。
+I-05以降は独立`hjh-tui`がCoreのHTTP APIを呼ぶ。I-16の接続CLIも同じCoreのrunへ接続する。
+認証参照はCoreの専用credentials moduleで扱い、CLI/TUIの表示状態や履歴queryへkeyを渡さない。
+Core停止時はbackendをcancel・joinしてからDBを閉じる。clientを閉じるだけではrunを取消さない。
 詳しい操作は[TUI設計](tui.md)を参照する。
 
 ## I-02：親子実行

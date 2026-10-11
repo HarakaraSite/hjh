@@ -30,6 +30,7 @@
       "auth": {"kind": "api-key", "profile": "openrouter-api-key"},
       "defaultModel": "deepseek/deepseek-v4.1-flash",
       "defaultEffort": "auto",
+      "catalog": {"kind": "openai", "path": "/models"},
       "models": [
         {"id": "deepseek/deepseek-v4.1-flash", "name": "DeepSeek V4.1 Flash"}
       ],
@@ -89,6 +90,7 @@
     "openai-responses": {
       "displayName": "OpenAI API Responses",
       "api": "responses",
+      "modelsDevProviderId": "openai",
       "baseURL": "https://api.openai.com/v1",
       "path": "/responses",
       "auth": {"kind": "api-key", "profile": "openai-api-key"},
@@ -101,6 +103,7 @@
     "openai-chatgpt": {
       "displayName": "ChatGPT Responses",
       "api": "responses",
+      "modelsDevProviderId": "openai",
       "baseURL": "https://api.openai.com/v1",
       "path": "/responses",
       "auth": {"kind": "chatgpt-oauth", "profile": "hjh-chatgpt"},
@@ -114,8 +117,8 @@
     "default": {
       "revision": "1",
       "description": "General-purpose work role that completes requests and verifies the result.",
-      "instruction": "Complete the requested work, verify the result with the available tools, and report what changed.",
-      "tools": ["run_js", "run_agent", "read_file", "write_file", "edit_file", "command", "http"]
+      "instruction": "Complete the requested work, verify the result with the available tools, and report what changed. Use web_fetch to read web pages; use http when a raw HTTP response is needed.",
+      "tools": ["run_js", "run_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch"]
     },
     "reviewer": {
       "revision": "1",
@@ -158,10 +161,17 @@
     },
     {
       "name": "http",
-      "description": "Fetch a URL using HTTP GET and return the response status and body.",
+      "description": "Make a raw HTTP GET request and return its status and body. Use web_fetch to read web pages as text.",
       "inputSchema": {"type":"object","properties":{"url":{"type":"string"}},"required":["url"]},
       "module": "index.js",
       "export": "http"
+    },
+    {
+      "name": "web_fetch",
+      "description": "Read an http or https page or API response. HTML is converted to readable text; text responses are limited to 1 MiB. Set save_to to save the original response bytes to a workspace-relative or absolute path without returning the body.",
+      "inputSchema": {"type":"object","properties":{"url":{"type":"string"},"save_to":{"type":"string"}},"required":["url"],"additionalProperties":false},
+      "module": "index.js",
+      "export": "webFetch"
     },
     {
       "name": "run_agent",

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"hjh/internal/contextbudget"
 	"hjh/internal/contracts"
 	"hjh/internal/history"
 )
@@ -19,6 +20,8 @@ type contextAttribution struct {
 	previousDigest string
 	previousCount  int
 	requests       []map[string]any
+	sources        []contextbudget.Source
+	budget         json.RawMessage
 }
 
 func digest(b []byte) string { sum := sha256.Sum256(b); return "sha256:" + hex.EncodeToString(sum[:]) }
@@ -35,6 +38,7 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 		kind, resource, identity, media string
 		bytes                           []byte
 		recall                          bool
+		source                          *contextbudget.Source
 	}
 	items := make([]item, 0, len(request.Messages)+len(request.Tools)+2)
 	if request.Instruction != "" {
@@ -48,6 +52,10 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 		}
 		messageItem := item{kind: "message", resource: "message", identity: fmt.Sprintf("request/%d/message/%d", step, i),
 			media: "application/vnd.henji.message+json", bytes: b}
+		if i < len(a.sources) {
+			source := a.sources[i]
+			messageItem.source = &source
+		}
 		if a.recall != nil && m.ExecutionFact != nil && m.ExecutionFact.Recall != nil &&
 			m.ExecutionFact.Recall.RelationRecordID == a.recall.recordID {
 			messageItem.recall = true
@@ -70,6 +78,10 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 	for _, item := range items {
 		content := map[string]any{"digest": digest(item.bytes), "byteLength": len(item.bytes), "mediaType": item.media}
 		sources := []map[string]any{{"stage": "projected", "resourceKind": item.resource, "logicalIdentity": item.identity, "contentDigest": digest(item.bytes), "lane": "parent", "modelStep": step}}
+		if item.source != nil {
+			sources = append(sources, map[string]any{"stage": "saved", "resourceKind": "message", "sourceKind": item.source.Kind,
+				"sourceExecutionId": item.source.ExecutionID, "turn": item.source.Turn, "messageOrdinal": item.source.MessageOrdinal})
+		}
 		if item.recall {
 			sources = append(sources, a.recall.sourceRelations()...)
 		}
@@ -96,6 +108,9 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 		return e
 	}
 	delta := map[string]any{"schemaVersion": 2, "requestOrdinal": step, "lane": "parent", "purpose": "user_turn", "modelStep": step, "modelSelection": request.Model, "revisionDigest": revision, "resultItemCount": len(items), "splices": splices, "occurrences": occurrences}
+	if len(a.budget) > 0 {
+		delta["contextBudget"] = a.budget
+	}
 	if a.previousDigest != "" {
 		delta["baseRevisionDigest"] = a.previousDigest
 	}

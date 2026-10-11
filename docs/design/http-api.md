@@ -48,6 +48,7 @@ Content-Type: application/json
 
 | 操作 | request | response |
 | --- | --- | --- |
+| `GET /core/status` | body/query不要 | coreId/apiVersion/workspace/phase/activeRuns。phaseはrunning/stopping、各runはrunId/sessionId/executionId?/phase。準備中も含み、会話本文は読まない |
 | `POST /runs` | 必須coreId/runId/task。省略可sessionId/workspace/role/providerId/modelId/effort/authProfile/maxSteps/fromTurn | run状態。新規登録202、同じIDの受理済み依頼200 |
 | `GET /runs/{runId}` | queryにcoreId | run状態、判明したsessionId/executionId/actualSelection/actualRole、terminalならresult |
 | `GET /runs/{runId}/events` | queryにcoreId | SSE。最初にsnapshot、その後update、終了時terminal |
@@ -220,7 +221,7 @@ TUIは再開Sessionまたは選択workspaceをcatalog/authへ渡す。model/auth
 | 現行option | 分離後の所有者・対応 |
 | --- | --- |
 | workspace | serve既定、TUIの指定はrun/catalog/authのworkspace。再開Sessionの保存値が優先 |
-| db/config/credential-file/credential-state-dir | Core起動option。TUIはDB/config/credential fileを開かない |
+| db/config/credential-file/credential-state-dir | Core起動option。I-13のTUI起動入口でも新Coreへのargvとして指定できる。TUIの画面はDB/config/credential fileを開かない |
 | session/model/provider/role/effort/auth-profile | TUIの次run選択をrun requestへ対応付ける。既存のpartial selection解決を使う |
 | max-steps/from-turn | serve既定と、省略可能なrun field maxSteps/fromTurn。TUI起動指定も送る |
 | from-turn/to-turn、from-ordinal/to-ordinalの閲覧指定 | 該当queryの範囲。runのfromTurnとは別の操作 |

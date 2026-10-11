@@ -302,7 +302,8 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 				COALESCE(json_extract(r.payload_json,'$.recall'),'')
 			FROM semantic_records r
 			WHERE r.execution_id=? AND r.ordinal>? AND r.ordinal<=?
-				AND r.kind IN ('user_message','assistant_message','model_result','tool_call','tool_result','execution_admission','host_decision')
+				AND (r.kind IN ('user_message','assistant_message','model_result','tool_call','tool_result','execution_admission','host_decision')
+					OR (r.kind='context_update' AND json_extract(r.payload_json,'$.conversation.entityKind')='notice'))
 			ORDER BY r.ordinal LIMIT ?`, execution.ExecutionID, after, execution.LatestRecordOrdinal, conversationPageSize)
 		if err != nil {
 			return fmt.Errorf("history read conversation record page: %w", err)

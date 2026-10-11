@@ -21,6 +21,8 @@ import (
 	"hjh/internal/api"
 
 	"hjh/internal/app"
+	"hjh/internal/buildinfo"
+	"hjh/internal/corecatalog"
 	"hjh/internal/corerun"
 	"hjh/internal/credentials"
 	"hjh/internal/history"
@@ -29,8 +31,25 @@ import (
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
+	if len(args) == 1 && args[0] == "--version" {
+		line, err := buildinfo.VersionLine()
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		_, err = fmt.Fprintln(stdout, line)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
+		fmt.Fprint(stdout, cliUsage)
+		return 0
+	}
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: hjh serve|run|roles|providers|models|auth|sessions|history|inspect [options]")
+		fmt.Fprint(stderr, cliUsage)
 		return 2
 	}
 	if args[0] == "tui" {
@@ -39,8 +58,25 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	if args[0] == "core" {
+		return runCore(ctx, args[1:], stdout, stderr)
+	}
+	if args[0] == "history" {
+		return runHistory(ctx, args[1:], stdout, stderr)
+	}
 	f := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	f.SetOutput(stderr)
+	connect := ""
+	if args[0] == "run" {
+		f.StringVar(&connect, "connect", "", "send the task to an existing Core HTTP endpoint")
+		f.Usage = func() {
+			fmt.Fprintln(f.Output(), "Usage: hjh run [options] TASK (or supply TASK on stdin)")
+			f.PrintDefaults()
+			fmt.Fprintln(f.Output(), "\nWith --connect, omitted workspace/max-steps/from-turn use Core settings.")
+			fmt.Fprintln(f.Output(), "Relative workspace paths are Core-side; resuming uses the saved Session workspace.")
+			fmt.Fprintln(f.Output(), "DB/config/credential/favorites paths belong to Core startup (hjh serve).")
+		}
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -62,7 +98,6 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	maxSteps := f.Int("max-steps", 0, "model step limit; 0 is unlimited")
 	stream := f.Bool("stream", false, "display assistant text on stdout as it arrives")
 	fromTurn := f.Int64("from-turn", 0, "first complete conversation turn (inclusive)")
-	toTurn := f.Int64("to-turn", -1, "last complete conversation turn (inclusive)")
 	fromOrdinal := f.Int64("from-ordinal", 0, "first execution record/message ordinal (inclusive)")
 	toOrdinal := f.Int64("to-ordinal", -1, "last execution record/message ordinal (inclusive)")
 	listen := f.String("listen", "127.0.0.1:8765", "HTTP API listen address for serve")
@@ -71,6 +106,36 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 			return 0
 		}
 		return 2
+	}
+	if args[0] == "run" && connect != "" {
+		explicit := make(map[string]bool)
+		f.Visit(func(flag *flag.Flag) { explicit[flag.Name] = true })
+		for _, name := range []string{"db", "config", "credential-file", "credential-state-dir", "model-favorites-dir", "listen"} {
+			if explicit[name] {
+				fmt.Fprintf(stderr, "--%s belongs to Core startup; configure hjh serve before using run --connect\n", name)
+				return 2
+			}
+		}
+		task, taskErr := runTask(ctx, f.Args(), stdin)
+		if taskErr != nil {
+			fmt.Fprintln(stderr, taskErr)
+			if ctx.Err() != nil {
+				return 130
+			}
+			return 1
+		}
+		request := api.StartRunRequest{Task: task, SessionID: *sessionID, ModelID: *modelID,
+			ProviderID: *providerID, Effort: *effort, AuthProfile: *authProfile, Role: *role}
+		if explicit["workspace"] {
+			request.Workspace = *workspace
+		}
+		if explicit["max-steps"] {
+			request.MaxSteps = maxSteps
+		}
+		if explicit["from-turn"] {
+			request.FromTurn = fromTurn
+		}
+		return runConnected(ctx, connect, request, *stream, stdout, stderr)
 	}
 	*workspace, err = filepath.Abs(*workspace)
 	if err != nil {
@@ -176,18 +241,8 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	case "run":
 		service = app.NewService(store, nil, options)
 		var task string
-		if len(f.Args()) > 0 {
-			task = strings.Join(f.Args(), " ")
-		} else {
-			b, e := readInput(ctx, stdin)
-			if e != nil {
-				err = e
-				break
-			}
-			task = strings.TrimSpace(string(b))
-		}
-		if task == "" {
-			err = fmt.Errorf("supply a task as arguments or stdin")
+		task, err = runTask(ctx, f.Args(), stdin)
+		if err != nil {
 			break
 		}
 		output := runOutput{stdout: stdout, stderr: stderr, stream: *stream}
@@ -204,16 +259,6 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		sessions, err = service.Sessions(ctx)
 		if err == nil {
 			err = writeJSON(sessions)
-		}
-	case "history":
-		if *sessionID == "" {
-			err = fmt.Errorf("history requires --session")
-			break
-		}
-		var messages []history.Message
-		messages, err = service.Conversation(ctx, *sessionID, *fromTurn, *toTurn)
-		if err == nil {
-			err = writeJSON(messages)
 		}
 	case "inspect":
 		if *executionID == "" {
@@ -239,10 +284,15 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 }
 
 func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile, modelFavoritesDir, credentialStateDir string, maxSteps int, fromTurn int64, listen string, stderr io.Writer) int {
+	listener, err := net.Listen("tcp", listen)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer listener.Close()
 	if dbPath == "" {
 		dbPath = filepath.Join(workspace, ".hjh", "history.sqlite3")
 	}
-	var err error
 	dbPath, err = filepath.Abs(dbPath)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -263,12 +313,20 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile, m
 	manager := corerun.New(service, workspace)
 	apiServer := httpapi.New(service, manager)
 	defer apiServer.Close()
-
-	listener, err := net.Listen("tcp", listen)
+	endpoint := coreEndpoint(listener.Addr())
+	unregister, err := corecatalog.Register(corecatalog.Entry{CoreID: manager.Core().CoreID,
+		Endpoint: endpoint, Workspace: workspace, PID: os.Getpid(),
+		StartedAt: time.Now().UTC().Format(time.RFC3339Nano), DBPath: dbPath})
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		fmt.Fprintf(stderr, "register Core: %v\n", err)
 		return 1
 	}
+	defer func() {
+		if err := unregister(); err != nil {
+			fmt.Fprintf(stderr, "remove Core registration: %v\n", err)
+		}
+	}()
+
 	server := &http.Server{Handler: apiServer}
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- server.Serve(listener) }()

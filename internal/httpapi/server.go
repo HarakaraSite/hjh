@@ -46,6 +46,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(path, "/")
+	if len(parts) == 2 && parts[0] == "core" && parts[1] == "status" {
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		writeJSON(w, http.StatusOK, s.runs.Status())
+		return
+	}
 	if len(parts) == 2 && parts[0] == "core" && parts[1] == "shutdown" {
 		if !requireMethod(w, r, http.MethodPost) {
 			return

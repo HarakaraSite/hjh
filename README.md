@@ -42,6 +42,18 @@ I-10では`/context`で入力準備と引継ぎ状態を確認し、`/recall`で
 I-12では`/login`からAPIキー登録とChatGPT account選択へ進める。保存済み認証を再利用し、
 登録・選択の変更は次runへ反映する。[契約](docs/design/i12-authentication-contract.md)と
 [確認結果](docs/results/i12-authentication-ui.md)を参照する。
+I-13ではTUIから同じVMの未起動Coreを起動する。起動済みCoreは再利用し、detach後もCoreは継続する。
+[計画](docs/plans/i13-core-startup.md)と[確認結果](docs/results/i13-core-startup.md)を参照する。
+I-14ではWeb読取り用`web_fetch`とCore内のコンテキスト予算管理を追加した。
+ターン内・次ターン・再開・モデル変更・子Agentに適用し、保存全文と送信内容を分ける。
+[契約と設定](docs/design/i14-web-context-contract.md)を参照する。
+[実動作と確認範囲](docs/results/i14-web-context.md)を参照する。
+I-15では`core list/status/stop`、`--version`、3表示の`history` CLIを整備した。
+[操作と確認方針](docs/plans/i15-cli-management-history.md)を参照する。
+[実動作と配布物の確認結果](docs/results/i15-cli-management-history.md)を参照する。
+I-16では`run --connect URL`でCLIから既存Coreへ依頼し、同じSessionをTUIで開ける。
+[操作と確認方針](docs/plans/i16-cli-core-run.md)を参照する。
+[実Core/TUIと配布物の確認結果](docs/results/i16-cli-core-run.md)を参照する。
 S-01〜S-05スパイクは実施済み。[実験コード](spikes/s01/README.md)、
 [S-01の結果](docs/spikes/s01-results.md)、[S-02の結果](docs/spikes/s02-results.md)、
 [S-03の結果](docs/spikes/s03-results.md)、[S-04の結果](docs/spikes/s04-results.md)、
@@ -65,15 +77,31 @@ APIキーを設定JSONへ書かない。[provider設定と認証](docs/design/pr
 ./dist/hjh run --stream --model deepseek/deepseek-v4.1-flash --workspace /path/to/work 'input.txtを読み、結果を説明して'
 ./dist/hjh sessions --workspace /path/to/work
 ./dist/hjh history --workspace /path/to/work --session SESSION_ID
+./dist/hjh history --workspace /path/to/work --latest --view canonical
+./dist/hjh history --connect http://127.0.0.1:8765 --session SESSION_ID_PREFIX --view detail
 ./dist/hjh inspect --workspace /path/to/work --execution EXECUTION_ID --from-ordinal 0 --to-ordinal 20
 ./dist/hjh run --workspace /path/to/work --session SESSION_ID '前回のoutput.txtを追加編集して'
+./dist/hjh run --connect http://127.0.0.1:8765 'READMEを要約して' > summary.txt
+./dist/hjh-tui --endpoint http://127.0.0.1:8765 --session SESSION_ID
 ```
 
 flagは依頼文より前に指定する。依頼文を省略するとstdinから読む。
-stdoutは最終回答、stderrは進捗・Session ID・execution ID。Ctrl-Cで停止する。
+`history`は既定で最新Sessionの会話をテキスト表示する。`--view session`は失敗・取消・子を含む
+会話、`canonical`は採用会話のMarkdown、`detail`は保存実行証拠のNDJSON。
+detailのrecord contentはbase64で、保存されたバイナリも復元できる。
+`--session`は完全IDまたは一意な短縮ID。`--json`で採用messageのJSON配列を出す。
+最新選択はworkspace内に絞り、`--connect`省略時はローカルDBをread-onlyで読む。
+履歴を読むだけではSessionの実行・再開は行わない。
+`run`のstdoutは最終回答、stderrは進捗・Session ID・execution ID。Ctrl-Cで停止する。
 `--stream` はモデル本文を受信しながらstdoutへ表示し、tool進捗はstderrへ出す。
 最終回答を重複表示せず、停止・失敗でも表示済みの途中本文は残す。
 成功0、失敗1、取消130。失敗・取消の証拠は残し、正常完了したturnだけを再開会話へ採用する。
+`run --connect URL`は起動済みCoreへ依頼し、stderrへCore/Run/Session/Execution IDを出す。
+同じCoreのTUIでそのSessionを開くと、実行中なら接続して追加指示・取消、完了後なら続行できる。
+接続runもstdout/stderrと`--stream`の使い方は同じ。Ctrl-CはCoreへ取消を送り、終了保存を待つ。
+CLIの通信切断や強制終了ではCoreの作業は続く。workspace省略はCore既定、明示相対pathはCore基準。
+DB/config/credential-file/credential-state-dir/model-favorites-dirはCoreの起動設定を使う。
+`--session`による続行はそのSessionの保存workspaceを使う。max-steps/from-turn省略はCore既定値を使う。
 
 子Agentへ調査を委譲する場合も同じrun・TUIから依頼する。
 
@@ -87,13 +115,39 @@ run_agentを選んだroleでは、生成JSから `await api.agents.run({role: "r
 子の進捗はID付きで表示する。TUIでは親子を区別して会話順に示し、CLIの親stdoutへ子本文を混ぜない。子の実行証拠はinspectから閲覧できる。
 子の会話をSessionへ直接採用せず、親の正常完了turnだけを採用する。
 
-TUIはCoreを起動してから、別端末で接続する。
+TUIを起動すると、同じVMのCoreへ接続し、未起動なら独立したCoreを起動する。
 
 ```sh
-./dist/hjh serve --workspace /path/to/work --listen 127.0.0.1:8765
-./dist/hjh-tui --endpoint http://127.0.0.1:8765 --model deepseek/deepseek-v4.1-flash
-./dist/hjh-tui --endpoint http://127.0.0.1:8765 --session SESSION_ID
+./dist/hjh-tui --workspace /path/to/work
+./dist/hjh-tui --session SESSION_ID
 ```
+
+既定の接続先は`http://127.0.0.1:8765`。Coreが起動済みなら再利用する。
+起動するCoreの`--db`・`--config`・`--credential-file`・`--credential-state-dir`・
+`--model-favorites-dir`もTUI起動時に指定できる。新規Coreのworkspaceは現在directoryが既定。
+起動済みCoreへの接続では、TUIの`--workspace`省略時にそのCoreの既定workspaceを使う。
+Coreの起動logは実効DBと同じdirectoryの`core.log`へ追記する。
+配布物の`hjh`と`hjh-tui`を同じdirectoryに置く。別配置では`--core-binary PATH`を指定する。
+
+`--endpoint URL`を明示した場合は接続だけを行う。同じVMの別portでCoreも起動する場合は
+`--endpoint http://127.0.0.1:PORT --start-core`を指定する。
+Coreを別端末で起動する既存の`hjh serve ...`も使える。
+
+```sh
+./dist/hjh --version
+./dist/hjh-tui --version
+./dist/hjh core list
+./dist/hjh core status --core CORE_ID_PREFIX
+./dist/hjh core stop --connect http://127.0.0.1:8765
+```
+
+`core list`は同じVM・ユーザーの登録を表示し、`--workspace PATH`で絞れる。
+`status`と`stop`は`--core ID_OR_PREFIX`または`--connect URL`で選ぶ。
+対象省略時は一覧表示し、Coreを停止しない。問合せはCoreを起動しない。
+`status`は準備中を含む実行中runを表示し、`stop`は終了保存と停止を待つ。
+登録先は`$XDG_STATE_HOME/hjh/cores/`または`~/.local/state/hjh/cores/`。
+通常終了時に自身の登録を外す。異常終了の記録は到達不能として残る。
+I-15以前から稼働しているCoreは再起動後に登録・新しい状態APIが有効になる。
 
 通常画面に会話を出し、端末／tmuxのscrollbackで検索・コピーする。
 Enterで依頼、Alt／Shift／Ctrl+EnterまたはCtrl+Jで改行。Tabでコマンド補完、Escで選択表示を閉じる。
@@ -106,7 +160,8 @@ detach中も準備はCoreに残る。Coreを再起動した場合は再準備す
 `--session ID`／`/resume ID`で開くと、その実行中runへ再接続する。
 `/quit`／Ctrl+QはCoreを停止し、全runの取消と保存完了を待ってTUIも終了する。
 Coreのserve側Ctrl-C／SIGTERMでも同じ終了保存を待つ。
-DB/config/credential-file/credential-state-dirはCore側へ指定する。TUIのworkspace指定もCore上のpathを指す。
+DB/config/credential-file/credential-state-dirはCoreの起動設定で、TUI起動時の指定は新しく起動するCoreへ渡す。
+既存Coreはその起動設定を使う。TUIのworkspace指定もCore上のpathを指す。
 F4／`/sessions`でSessionを選び、`/rename 名前`で現在Sessionを命名する。
 `/new`で新規会話、`/resume ID`で履歴または実行中runを再開する。
 `/history [開始turn 終了turn]` は採用会話、`/executions` と
