@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,14 +34,7 @@ type Resolved struct {
 	Identity string
 }
 
-// Login describes a pending browser authorization. The redirect URI is also
-// used to validate a callback URL pasted from a browser on another machine.
-type Login struct {
-	AuthorizationURL string
-	RedirectURI      string
-}
-
-// Status contains displayable account state and never includes a token.
+// Status is the display projection of the selected ChatGPT account.
 type Status struct {
 	Connected        bool
 	Identity         string
@@ -62,12 +54,17 @@ type Manager struct {
 	stateDir   string
 	httpClient *http.Client
 
-	mu        sync.Mutex
-	pending   map[string]*pendingLogin
-	live      map[*pendingLogin]struct{}
-	closed    bool
-	closeDone chan struct{}
-	closeErr  error
+	mu           sync.Mutex
+	attempts     map[string]*attemptJob
+	slotAttempts map[string]string
+	closed       bool
+	closeStarted bool
+	closeDone    chan struct{}
+	closeErr     error
+	lifeCtx      context.Context
+	lifeCancel   context.CancelFunc
+	jobs         sync.WaitGroup
+	ticketTail   chan struct{}
 
 	discoveryMu sync.Mutex
 	discovery   openIDConfiguration
@@ -83,42 +80,50 @@ func NewManager(options Options) *Manager {
 	if client == nil {
 		client = http.DefaultClient
 	}
+	lifeCtx, lifeCancel := context.WithCancel(context.Background())
+	ticketTail := make(chan struct{})
+	close(ticketTail)
 	return &Manager{
-		stateDir:   options.StateDir,
-		httpClient: client,
-		pending:    make(map[string]*pendingLogin),
-		live:       make(map[*pendingLogin]struct{}),
-		closeDone:  make(chan struct{}),
+		stateDir:     options.StateDir,
+		httpClient:   client,
+		attempts:     make(map[string]*attemptJob),
+		slotAttempts: make(map[string]string),
+		closeDone:    make(chan struct{}),
+		lifeCtx:      lifeCtx,
+		lifeCancel:   lifeCancel,
+		ticketTail:   ticketTail,
 	}
 }
 
-// Close stops all loopback listeners owned by the manager and waits for their
-// Serve goroutines to exit. It is safe to call Close more than once.
-func (m *Manager) Close() error {
+// BeginClose stops accepting new credential operations and cancels pending
+// authorization work. Accepted saves remain owned by Close until they finish.
+func (m *Manager) BeginClose() {
 	m.mu.Lock()
 	if m.closed {
+		m.mu.Unlock()
+		return
+	}
+	m.closed = true
+	m.lifeCancel()
+	m.mu.Unlock()
+}
+
+// Close stops accepting operations, cancels OAuth work, and joins accepted
+// credential tickets and attempt jobs. It is safe to call more than once.
+func (m *Manager) Close() error {
+	m.BeginClose()
+	m.mu.Lock()
+	if m.closeStarted {
 		done := m.closeDone
 		m.mu.Unlock()
 		<-done
 		return m.closeErr
 	}
-	m.closed = true
-	pending := make([]*pendingLogin, 0, len(m.live))
-	for login := range m.live {
-		pending = append(pending, login)
-	}
+	m.closeStarted = true
 	m.mu.Unlock()
-
-	var closeErrors []error
-	for _, login := range pending {
-		if err := m.retirePending(login.profileName, login); err != nil {
-			closeErrors = append(closeErrors, err)
-		}
-		<-login.watcherDone
-	}
+	m.jobs.Wait()
 
 	m.mu.Lock()
-	m.closeErr = errors.Join(closeErrors...)
 	close(m.closeDone)
 	err := m.closeErr
 	m.mu.Unlock()
@@ -139,29 +144,6 @@ func (m *Manager) Resolve(ctx context.Context, kind, profileName string, profile
 	default:
 		return Resolved{}, fmt.Errorf("unsupported credential kind %q", kind)
 	}
-}
-
-// Status reports the saved ChatGPT account associated with a profile. An
-// account that has not signed in is represented by Connected=false.
-func (m *Manager) Status(ctx context.Context, profileName string, profile Profile) (Status, error) {
-	path, err := m.oauthPath(profileName, profile)
-	if err != nil {
-		return Status{}, err
-	}
-	var record oauthRecord
-	found := false
-	err = withFileLock(ctx, path, func() error {
-		var readErr error
-		record, found, readErr = readOAuthRecord(path)
-		return readErr
-	})
-	if err != nil {
-		return Status{}, err
-	}
-	if !found {
-		return Status{}, nil
-	}
-	return statusFor(record), nil
 }
 
 func resolveAPIKey(profileName string, profile Profile) (Resolved, error) {

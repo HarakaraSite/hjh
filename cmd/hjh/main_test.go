@@ -4,102 +4,75 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
-	"os"
-	"path/filepath"
-	"syscall"
+	"net"
+	"net/http"
 	"testing"
 	"time"
 )
 
-func TestRolesCommandDoesNotOpenHistoryOrRequireCredentials(t *testing.T) {
+func TestServeStopsAfterCoreShutdownRequest(t *testing.T) {
+	reserved, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := reserved.Addr().String()
+	if err := reserved.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	workspace := t.TempDir()
-	database := filepath.Join(workspace, "missing", "history.sqlite3")
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"roles", "--workspace", workspace, "--db", database}, os.Stdin, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("roles exit code = %d, stderr = %s", code, stderr.String())
-	}
-	var catalog struct {
-		DefaultRole string `json:"defaultRole"`
-		Roles       []struct {
-			Name  string   `json:"name"`
-			Tools []string `json:"tools"`
-		} `json:"roles"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &catalog); err != nil {
-		t.Fatalf("roles output is not JSON: %v; output=%s", err, stdout.String())
-	}
-	if catalog.DefaultRole == "" || len(catalog.Roles) == 0 {
-		t.Fatalf("roles output lacks default/catalog: %#v", catalog)
-	}
-	if _, err := os.Stat(database); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("roles command touched history database path: stat error = %v", err)
-	}
-}
-
-func TestInputCancellationReleasesRead(t *testing.T) {
-	reader, writer := io.Pipe()
-	defer writer.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { _, err := readInput(ctx, reader); done <- err }()
-	cancel()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
+	finished := make(chan int, 1)
+	go func() {
+		finished <- serve(ctx, workspace, "", "", "", "", "", 0, 0, address, io.Discard)
+	}()
+	client := &http.Client{Timeout: 300 * time.Millisecond, Transport: &http.Transport{Proxy: nil}}
+	defer client.CloseIdleConnections()
+	deadline := time.Now().Add(5 * time.Second)
+	coreID := ""
+	for time.Now().Before(deadline) {
+		response, requestErr := client.Get("http://" + address + "/api/v2/core")
+		if requestErr == nil {
+			var core struct {
+				CoreID string `json:"coreId"`
+			}
+			decodeErr := json.NewDecoder(response.Body).Decode(&core)
+			_ = response.Body.Close()
+			if decodeErr == nil && response.StatusCode == http.StatusOK {
+				coreID = core.CoreID
+				break
+			}
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("stdin read remained blocked after cancellation")
+		time.Sleep(10 * time.Millisecond)
 	}
-}
-
-func TestInheritedPipeCancellationBeforeEOF(t *testing.T) {
-	reader, writer, err := os.Pipe()
+	if coreID == "" {
+		t.Fatal("serve did not expose its Core")
+	}
+	body, err := json.Marshal(struct {
+		CoreID string `json:"coreId"`
+	}{CoreID: coreID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reader.Close()
-	defer writer.Close()
-	fd, err := syscall.Dup(int(reader.Fd()))
+	response, err := client.Post("http://"+address+"/api/v2/core/shutdown", "application/json", bytes.NewReader(body))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Core shutdown request: %v", err)
 	}
-	input := os.NewFile(uintptr(fd), "inherited-stdin")
-	defer input.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { _, err := readInput(ctx, input); done <- err }()
-	cancel()
+	var acknowledgment struct {
+		OK bool `json:"ok"`
+	}
+	decodeErr := json.NewDecoder(response.Body).Decode(&acknowledgment)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusAccepted || decodeErr != nil || !acknowledgment.OK {
+		t.Fatalf("Core shutdown response = %d ok=%t err=%v", response.StatusCode, acknowledgment.OK, decodeErr)
+	}
 	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
+	case code := <-finished:
+		if code != 0 {
+			t.Fatalf("serve exit code = %d", code)
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("inherited stdin remained blocked without EOF")
-	}
-}
-
-func TestLoginCallbackReadCanBeCancelledWithoutBrowserResponse(t *testing.T) {
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer reader.Close()
-	defer writer.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { _, err := readLoginLine(ctx, reader); done <- err }()
-	cancel()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("login callback read stayed blocked")
+	case <-time.After(5 * time.Second):
+		t.Fatal("serve did not close after Core shutdown")
 	}
 }

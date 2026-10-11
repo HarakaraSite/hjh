@@ -17,7 +17,7 @@ import (
 	"hjh/internal/history"
 )
 
-const apiPrefix = "/api/v1"
+const apiPrefix = "/api/v2"
 
 // Server maps public requests to the existing Service and Core run manager.
 // The caller continues to own the history store passed to Service.
@@ -25,16 +25,19 @@ type Server struct {
 	service *app.Service
 	runs    *corerun.Manager
 
-	authMu     sync.Mutex
-	authClosed bool
-	authWG     sync.WaitGroup
-	closeOnce  sync.Once
-	closeErr   error
+	shutdownOnce sync.Once
+	shutdownCh   chan struct{}
+
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func New(service *app.Service, runs *corerun.Manager) *Server {
-	return &Server{service: service, runs: runs}
+	return &Server{service: service, runs: runs, shutdownCh: make(chan struct{})}
 }
+
+// ShutdownRequested is closed after a shutdown request has been acknowledged.
+func (s *Server) ShutdownRequested() <-chan struct{} { return s.shutdownCh }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, apiPrefix), "/")
@@ -43,6 +46,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(path, "/")
+	if len(parts) == 2 && parts[0] == "core" && parts[1] == "shutdown" {
+		if !requireMethod(w, r, http.MethodPost) {
+			return
+		}
+		s.shutdown(w, r)
+		return
+	}
 	if len(parts) == 1 && parts[0] == "core" {
 		if !requireMethod(w, r, http.MethodGet) {
 			return
@@ -79,6 +89,23 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.inspect(w, r, parts[1])
 		return
 	}
+	if len(parts) == 4 && parts[0] == "executions" && parts[2] == "records" {
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		ordinal, err := strconv.ParseInt(parts[3], 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "record ordinal must be an integer")
+			return
+		}
+		record, err := s.service.Record(r.Context(), parts[1], ordinal)
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, recordDTO(record))
+		return
+	}
 	if len(parts) == 1 && parts[0] == "roles" {
 		if !requireMethod(w, r, http.MethodGet) {
 			return
@@ -100,8 +127,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.models(w, r)
 		return
 	}
-	if len(parts) == 2 && parts[0] == "auth" {
-		s.authRoute(w, r, parts[1])
+	if len(parts) == 1 && parts[0] == "model-favorites" {
+		s.modelFavorites(w, r)
+		return
+	}
+	if len(parts) == 1 && parts[0] == "selection" {
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		s.selection(w, r)
+		return
+	}
+	if len(parts) >= 2 && parts[0] == "auth" {
+		s.authRoute(w, r, parts[1:])
 		return
 	}
 	writeError(w, http.StatusNotFound, "not_found", "API route not found")
@@ -123,7 +161,7 @@ func (s *Server) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.Workspace = workspace
-	state, created, err := s.runs.Start(request)
+	state, created, err := s.runs.StartContext(r.Context(), request)
 	if err != nil {
 		writeFailure(w, err)
 		return
@@ -135,12 +173,39 @@ func (s *Server) startRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, state)
 }
 
+func (s *Server) shutdown(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		CoreID string `json:"coreId"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err := s.runs.BeginShutdown(request.CoreID); err != nil {
+		writeFailure(w, err)
+		return
+	}
+	s.service.BeginModelFavoritesClose()
+	s.service.BeginAuthClose()
+	writeJSON(w, http.StatusAccepted, struct {
+		OK bool `json:"ok"`
+	}{OK: true})
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	s.shutdownOnce.Do(func() { close(s.shutdownCh) })
+}
+
 func (s *Server) runRoute(w http.ResponseWriter, r *http.Request, parts []string) {
+	if len(parts) >= 2 && (parts[1] == "inputs" || parts[1] == "input-chain") {
+		s.runtimeInputRoute(w, r, parts)
+		return
+	}
 	if len(parts) == 1 {
 		if !requireMethod(w, r, http.MethodGet) {
 			return
 		}
-		state, err := s.runs.Get(r.URL.Query().Get("coreId"), parts[0])
+		state, err := s.runs.GetContext(r.Context(), r.URL.Query().Get("coreId"), parts[0])
 		if err != nil {
 			writeFailure(w, err)
 			return
@@ -152,7 +217,7 @@ func (s *Server) runRoute(w http.ResponseWriter, r *http.Request, parts []string
 		if !requireMethod(w, r, http.MethodPost) {
 			return
 		}
-		state, err := s.runs.Cancel(r.URL.Query().Get("coreId"), parts[0])
+		state, err := s.runs.CancelContext(r.Context(), r.URL.Query().Get("coreId"), parts[0])
 		if err != nil {
 			writeFailure(w, err)
 			return
@@ -175,7 +240,7 @@ func (s *Server) runRoute(w http.ResponseWriter, r *http.Request, parts []string
 }
 
 func (s *Server) events(w http.ResponseWriter, r *http.Request, runID string) {
-	subscription, err := s.runs.Subscribe(r.URL.Query().Get("coreId"), runID)
+	subscription, err := s.runs.SubscribeContext(r.Context(), r.URL.Query().Get("coreId"), runID)
 	if err != nil {
 		writeFailure(w, err)
 		return
@@ -191,42 +256,82 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, runID string) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	state, err := subscription.Snapshot()
+	initial, err := subscription.SnapshotContext(r.Context())
 	if err != nil {
 		writeFailure(w, err)
 		return
 	}
-	if err = writeEvent(w, flusher, "run.snapshot", state); err != nil {
+	if err = writeEvent(w, flusher, "run.snapshot", initial); err != nil {
+		subscription.ReleaseInitialSnapshot()
 		return
 	}
-	if state.Phase == "terminal" {
-		_ = writeEvent(w, flusher, "run.terminal", state)
+	initialTerminal := initial.Phase == "terminal"
+	initial = api.RunSnapshot{}
+	subscription.ReleaseInitialSnapshot()
+	if initialTerminal {
+		final, finalErr := subscription.FinalSnapshotContext(r.Context())
+		if finalErr != nil {
+			return
+		}
+		if writeEvent(w, flusher, "run.snapshot", final) != nil {
+			return
+		}
+		_ = writeEvent(w, flusher, "run.terminal", final.RunState)
 		return
 	}
+	state := initial.RunState
 	lastSeq := state.Seq
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case _, open := <-subscription.Notify:
-			state, err = subscription.Snapshot()
-			if err != nil {
+		case <-s.runs.Context().Done():
+			return
+		case <-subscription.Notify:
+			update, _, updateErr := subscription.UpdateContext(r.Context())
+			if updateErr != nil {
 				return
 			}
+			state = update.RunState
 			if state.Phase == "terminal" {
-				if writeEvent(w, flusher, "run.snapshot", state) != nil {
+				final, finalErr := subscription.FinalSnapshotContext(r.Context())
+				if finalErr != nil {
 					return
 				}
-				_ = writeEvent(w, flusher, "run.terminal", state)
+				if writeEvent(w, flusher, "run.snapshot", final) != nil {
+					return
+				}
+				_ = writeEvent(w, flusher, "run.terminal", final.RunState)
 				return
 			}
-			if !open {
-				return
-			}
-			if state.Seq == lastSeq {
+			if state.Seq == lastSeq && update.Conversation == nil {
 				continue
 			}
-			if writeEvent(w, flusher, "run.update", state) != nil {
+			if writeEvent(w, flusher, "run.update", update) != nil {
+				return
+			}
+			lastSeq = state.Seq
+		case <-subscription.ConversationNotify:
+			update, _, updateErr := subscription.UpdateContext(r.Context())
+			if updateErr != nil {
+				return
+			}
+			state = update.RunState
+			if state.Phase == "terminal" {
+				final, finalErr := subscription.FinalSnapshotContext(r.Context())
+				if finalErr != nil {
+					return
+				}
+				if writeEvent(w, flusher, "run.snapshot", final) != nil {
+					return
+				}
+				_ = writeEvent(w, flusher, "run.terminal", final.RunState)
+				return
+			}
+			if state.Seq == lastSeq && update.Conversation == nil {
+				continue
+			}
+			if writeEvent(w, flusher, "run.update", update) != nil {
 				return
 			}
 			lastSeq = state.Seq
@@ -242,7 +347,11 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	result := make([]api.Session, len(sessions))
 	for i := range sessions {
-		result[i] = sessionDTO(sessions[i])
+		result[i], err = s.sessionResponse(sessions[i])
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, result)
 }
@@ -257,7 +366,24 @@ func (s *Server) sessionRoute(w http.ResponseWriter, r *http.Request, parts []st
 			writeFailure(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, sessionDTO(session))
+		response, err := s.sessionResponse(session)
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+	if len(parts) == 4 && parts[1] == "recall" && parts[2] == "operations" {
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		result, err := s.runs.RecallOperation(r.Context(), r.URL.Query().Get("coreId"), parts[0], parts[3])
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 		return
 	}
 	if len(parts) != 2 {
@@ -265,6 +391,75 @@ func (s *Server) sessionRoute(w http.ResponseWriter, r *http.Request, parts []st
 		return
 	}
 	switch parts[1] {
+	case "context":
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		result, err := s.runs.SessionContext(r.Context(), r.URL.Query().Get("coreId"), parts[0])
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	case "recall":
+		if !requireMethod(w, r, http.MethodPost) {
+			return
+		}
+		var request api.RecallOperationRequest
+		if err := decodeJSON(r, &request); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		result, err := s.runs.Recall(r.Context(), parts[0], request)
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	case "inputs":
+		s.sessionInputs(w, r, parts[0])
+	case "rename":
+		if !requireMethod(w, r, http.MethodPost) {
+			return
+		}
+		var request struct {
+			Title string `json:"title"`
+		}
+		if err := decodeJSON(r, &request); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		session, err := s.service.RenameSession(r.Context(), parts[0], request.Title)
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		response, err := s.sessionResponse(session)
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	case "active-run":
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		state, err := s.runs.ActiveSessionRun(r.URL.Query().Get("coreId"), parts[0])
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, state)
+	case "view":
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		view, err := s.runs.SessionView(r.Context(), parts[0])
+		if err != nil {
+			writeFailure(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, view)
 	case "conversation":
 		if !requireMethod(w, r, http.MethodGet) {
 			return
@@ -298,6 +493,18 @@ func (s *Server) sessionRoute(w http.ResponseWriter, r *http.Request, parts []st
 	default:
 		writeError(w, http.StatusNotFound, "not_found", "Session route not found")
 	}
+}
+
+func (s *Server) sessionResponse(value history.Session) (api.Session, error) {
+	response := sessionDTO(value)
+	active, err := s.runs.ActiveSessionRun(s.runs.Core().CoreID, value.ID)
+	if err != nil {
+		return api.Session{}, err
+	}
+	if active != nil {
+		response.ActiveRunID = active.RunID
+	}
+	return response, nil
 }
 
 func (s *Server) inspect(w http.ResponseWriter, r *http.Request, executionID string) {
@@ -357,102 +564,42 @@ func (s *Server) models(w http.ResponseWriter, r *http.Request) {
 		writeFailure(w, err)
 		return
 	}
-	models, err := s.service.Models(r.Context(), workspace, r.URL.Query().Get("providerId"))
+	catalog, err := s.service.ModelsWithAuth(r.Context(), workspace, r.URL.Query().Get("providerId"), r.URL.Query().Get("authProfile"))
 	if err != nil {
 		writeFailure(w, err)
 		return
 	}
-	result := make([]api.ModelInfo, len(models))
-	for i := range models {
-		result[i] = modelDTO(models[i])
+	w.Header().Set("Hjh-Auth-Owner-Id", catalog.AuthOwnerID)
+	w.Header().Set("Hjh-Auth-Account-Id", catalog.AuthAccountID)
+	result := make([]api.ModelInfo, len(catalog.Models))
+	for i := range catalog.Models {
+		result[i] = modelDTO(catalog.Models[i])
 	}
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (s *Server) authRoute(w http.ResponseWriter, r *http.Request, operation string) {
-	switch operation {
-	case "status":
-		if !requireMethod(w, r, http.MethodGet) {
-			return
-		}
-		workspace, err := s.resolveWorkspace(r.Context(), r.URL.Query().Get("sessionId"), r.URL.Query().Get("workspace"))
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		status, err := s.service.LoginStatus(r.Context(), workspace, r.URL.Query().Get("providerId"))
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, statusDTO(status))
-	case "login":
-		if !requireMethod(w, r, http.MethodPost) {
-			return
-		}
-		var request authRequest
-		if err := decodeJSON(r, &request); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-			return
-		}
-		workspace, err := s.resolveWorkspace(r.Context(), request.SessionID, request.Workspace)
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		ctx, done, err := s.beginAuthOperation()
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		defer done()
-		providerID, authProfile, err := s.service.ResolveLoginTarget(ctx, workspace, request.ProviderID)
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		login, err := s.service.BeginLogin(ctx, workspace, providerID)
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, api.Login{AuthorizationURL: login.AuthorizationURL, RedirectURI: login.RedirectURI,
-			Workspace: workspace, ProviderID: providerID, AuthProfile: authProfile})
-	case "complete":
-		if !requireMethod(w, r, http.MethodPost) {
-			return
-		}
-		var request authRequest
-		if err := decodeJSON(r, &request); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-			return
-		}
-		workspace := request.Workspace
-		if workspace == "" {
-			workspace = s.runs.Core().Workspace
-		}
-		ctx, done, err := s.beginAuthOperation()
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		defer done()
-		status, err := s.service.CompleteLogin(ctx, workspace, request.ProviderID, request.CallbackURL)
-		if err != nil {
-			writeFailure(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, statusDTO(status))
-	default:
-		writeError(w, http.StatusNotFound, "not_found", "auth route not found")
+func (s *Server) selection(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	request := api.SelectionRequest{
+		SessionID: query.Get("sessionId"), Workspace: query.Get("workspace"), Role: query.Get("role"),
+		ProviderID: query.Get("providerId"), ModelID: query.Get("modelId"), Effort: query.Get("effort"),
+		AuthProfile: query.Get("authProfile"),
 	}
-}
-
-type authRequest struct {
-	SessionID   string `json:"sessionId,omitempty"`
-	Workspace   string `json:"workspace,omitempty"`
-	ProviderID  string `json:"providerId,omitempty"`
-	CallbackURL string `json:"callbackUrl,omitempty"`
+	workspace, err := s.resolveWorkspace(r.Context(), request.SessionID, request.Workspace)
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	preview, err := s.service.PreviewSelection(r.Context(), app.RunRequest{
+		SessionID: request.SessionID, Workspace: workspace, Role: request.Role,
+		ProviderID: request.ProviderID, ModelID: request.ModelID, Effort: request.Effort,
+		AuthProfile: request.AuthProfile,
+	})
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, api.SelectionPreview{Role: preview.Role, Selection: preview.Selection})
 }
 
 func (s *Server) resolveWorkspace(ctx context.Context, sessionID, requested string) (string, error) {
@@ -471,27 +618,11 @@ func (s *Server) resolveWorkspace(ctx context.Context, sessionID, requested stri
 	return s.runs.Core().Workspace, nil
 }
 
-func (s *Server) beginAuthOperation() (context.Context, func(), error) {
-	s.authMu.Lock()
-	defer s.authMu.Unlock()
-	if s.authClosed {
-		return nil, nil, &api.Error{Code: "core_closed", Message: "Core is closing"}
-	}
-	ctx := s.runs.Context()
-	if err := ctx.Err(); err != nil {
-		return nil, nil, &api.Error{Code: "core_closed", Message: "Core is closing"}
-	}
-	s.authWG.Add(1)
-	return ctx, s.authWG.Done, nil
-}
-
 func (s *Server) Close() error {
 	s.closeOnce.Do(func() {
-		s.authMu.Lock()
-		s.authClosed = true
-		s.authMu.Unlock()
+		s.service.BeginModelFavoritesClose()
+		s.service.BeginAuthClose()
 		_ = s.runs.Close()
-		s.authWG.Wait()
 		s.closeErr = s.service.Close()
 	})
 	return s.closeErr
@@ -523,8 +654,9 @@ func queryInt64(r *http.Request, name string, fallback int64) (int64, error) {
 	return parsed, nil
 }
 
-func writeEvent(w http.ResponseWriter, flusher http.Flusher, name string, state api.RunState) error {
-	data, err := json.Marshal(state)
+func writeEvent(w http.ResponseWriter, flusher http.Flusher, name string, payload any) error {
+	state := eventRunState(payload)
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
@@ -533,6 +665,19 @@ func writeEvent(w http.ResponseWriter, flusher http.Flusher, name string, state 
 	}
 	flusher.Flush()
 	return nil
+}
+
+func eventRunState(payload any) api.RunState {
+	switch value := payload.(type) {
+	case api.RunState:
+		return value
+	case api.RunSnapshot:
+		return value.RunState
+	case api.RunUpdate:
+		return value.RunState
+	default:
+		return api.RunState{}
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -550,10 +695,12 @@ func writeFailure(w http.ResponseWriter, err error) {
 	if errors.As(err, &coded) {
 		status := http.StatusInternalServerError
 		switch coded.Code {
-		case "run_not_found":
-			status = http.StatusNotFound
-		case "core_changed", "run_id_conflict", "session_busy":
+		case "invalid_input_kind", "invalid_request":
+			status = http.StatusBadRequest
+		case "core_changed", "run_id_conflict", "session_busy", "input_id_conflict", "run_not_accepting_input", "command_id_conflict", "recall_ambiguous":
 			status = http.StatusConflict
+		case "run_not_found", "input_not_found", "recall_not_found", "recall_operation_not_found":
+			status = http.StatusNotFound
 		case "core_closed", "core_closing":
 			status = http.StatusServiceUnavailable
 		}

@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 
 	"hjh/internal/agent"
 	"hjh/internal/contracts"
+	"hjh/internal/executiondata"
 	"hjh/internal/extensions"
 	"hjh/internal/history"
 	"hjh/internal/jsruntime"
+	"hjh/internal/recall"
 )
 
 // executionControl belongs to one root run and is shared by its descendants.
@@ -62,14 +65,18 @@ type executionInput struct {
 	execution                            history.Execution
 	snapshot                             extensions.Snapshot
 	workspace, configPath, rootSessionID string
+	rootExecutionID                      string
 	model                                contracts.ModelSelection
 	maxSteps                             int
+	recall                               *contracts.RecallReference
 	session                              *history.Session // root only; children start with independent messages
 	previousModel                        contracts.ModelSelection
 	fromTurn                             int64
 	spawnRecordID                        string
 	connections                          *connectionFactory
 	injectedProvider                     bool
+	executionDataOwner                   *executiondata.Owner
+	steering                             contracts.SteeringSource
 }
 
 type guardedExecutor struct {
@@ -94,12 +101,28 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	control *executionControl, progress *progressSink) (result agent.Result, err error) {
 	persist := context.WithoutCancel(ctx)
 	execution := input.execution
-	j := newJournal(persist, store, execution.ID, progress.observe)
+	owner := input.executionDataOwner
+	if owner == nil {
+		owner = executiondata.NewOwner()
+	}
+	j := newJournal(persist, store, execution.ID, input.rootExecutionID, execution.Task, owner, progress.observe)
 	j.parentExecutionID, j.control = execution.ParentExecutionID, control
+	j.spawnCallID = execution.SpawnCallID
+	result = agent.Result{Task: execution.Task, Outcome: "contract_failure", StopReason: "contract_failure"}
+	var additional *steeringAdapter
+	if execution.ParentExecutionID == "" && input.steering != nil {
+		additional = &steeringAdapter{store: store, journal: j, source: input.steering}
+		defer func() {
+			err = errors.Join(err, additional.Close(steeringCloseReason(ctx, result, err)))
+		}()
+	}
+	j.rootExecutionOrdinal, err = store.ExecutionDisplayOrdinal(persist, input.rootExecutionID)
+	if err != nil {
+		return result, control.storage(err)
+	}
 	if input.spawnRecordID != "" {
 		j.link(execution.ID, history.Relation{Relation: "parent_call", TargetRecordID: input.spawnRecordID, Mandatory: true})
 	}
-	result = agent.Result{Task: execution.Task, Outcome: "contract_failure", StopReason: "contract_failure"}
 	var worker *jsruntime.Worker
 	stopWatcher, watched := make(chan struct{}), make(chan struct{})
 	go func() {
@@ -136,7 +159,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			result.OK = false
 			result.Error = err.Error()
 		}
-		settleErr := control.storage(store.EndExecution(persist, execution.ID, outcome, contracts.JSON(result), ""))
+		settleErr := j.end(outcome, result)
 		err = errors.Join(err, settleErr)
 		if outcome == history.OutcomeCompleted && settleErr == nil && execution.ParentExecutionID == "" {
 			err = errors.Join(err, control.storage(store.AdoptCanonical(persist, execution.ID, "")))
@@ -159,6 +182,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		}
 	}
 	var messages []contracts.Message
+	var recallSource *recallAttribution
 	if input.session != nil {
 		stored, e := store.Conversation(ctx, input.rootSessionID, input.fromTurn, -1)
 		if e != nil {
@@ -175,29 +199,56 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			messages = append(messages, m)
 		}
 	}
+	if input.recall != nil {
+		evidence, e := store.RecallEvidence(ctx, input.recall.SourceExecutionID)
+		if e != nil {
+			return result, e
+		}
+		var selection contracts.ModelSelection
+		if e = json.Unmarshal(evidence.Execution.Model, &selection); e != nil {
+			return result, fmt.Errorf("app recall: decode source model selection: %w", e)
+		}
+		source := recall.Evidence{Execution: recall.Execution{ExecutionID: evidence.Execution.ID,
+			SessionID: evidence.Execution.SessionCorrelation, ParentExecutionID: evidence.Execution.ParentExecutionID,
+			Turn: evidence.Execution.Turn, AgentName: evidence.Execution.AgentName, Selection: selection,
+			Lifecycle: evidence.Execution.Lifecycle, Outcome: evidence.Execution.Outcome, Task: evidence.Execution.Task}}
+		for _, message := range evidence.Messages {
+			source.Messages = append(source.Messages, recall.Message{ExecutionID: message.ExecutionID,
+				Ordinal: message.Ordinal, JSON: message.JSON})
+		}
+		for _, record := range evidence.Records {
+			source.Records = append(source.Records, recall.Record{ID: record.ID, ExecutionID: record.ExecutionID,
+				Ordinal: record.Ordinal, Kind: record.Kind, Payload: record.Payload, Conversation: record.Conversation})
+		}
+		projection, e := recall.Project(source)
+		if e != nil {
+			return result, e
+		}
+		message, attribution, e := recallMessage(projection, *input.recall, execution.ID, execution.RecallRecordID)
+		if e != nil {
+			return result, e
+		}
+		if _, e = j.appendMessageOrdinal(message); e != nil {
+			return result, e
+		}
+		recallSource = &attribution
+		messages = append(messages, message)
+	}
 	runner := &delegation{store: store, provider: provider, input: input, journal: j, control: control, progress: progress}
 	worker, err = jsruntime.New(ctx, jsruntime.Options{Snapshot: input.snapshot, Workspace: input.workspace, Observer: j.observe,
 		ObserverParent: execution.ID, Agents: runner})
 	if err != nil {
 		return result, err
 	}
-	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID}
+	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource}
+	var additionalInput agent.AdditionalInput
+	if additional != nil {
+		additionalInput = additional
+	}
 	result, err = agent.Run(ctx, agent.Input{Task: execution.Task, Model: input.model, Instruction: input.snapshot.SystemInstruction,
-		History: messages, Tools: worker.Definitions(), MaxSteps: input.maxSteps}, provider, guardedExecutor{worker, control},
+		History: messages, Tools: worker.Definitions(), MaxSteps: input.maxSteps, AdditionalInput: additionalInput}, provider, guardedExecutor{worker, control},
 		func(m contracts.Message) error {
-			b, e := contracts.EncodeJSON(m)
-			if e != nil {
-				return e
-			}
-			if _, e = store.AppendMessage(persist, execution.ID, b); e != nil {
-				return control.storage(e)
-			}
-			kind := m.Role + "_message"
-			if m.Role == "tool" {
-				kind = "tool_result"
-			}
-			_, e = store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{Kind: kind, Payload: b, Content: b})
-			return control.storage(e)
+			return j.appendMessage(m)
 		}, j.observe, func(step int, req contracts.ModelRequest) error {
 			if e := control.failure(); e != nil {
 				return &contracts.ExecutionError{Err: e}

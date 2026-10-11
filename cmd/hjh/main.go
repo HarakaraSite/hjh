@@ -15,6 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/google/uuid"
+	"hjh/internal/api"
 
 	"hjh/internal/app"
 	"hjh/internal/corerun"
@@ -53,6 +57,8 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	effort := f.String("effort", "", "reasoning effort (default: auto)")
 	configPath := f.String("config", "", "extension config JSON (default: WORKSPACE/.hjh/extensions/config.json)")
 	credentialFile := f.String("credential-file", "", "override API key file for the selected credential profile")
+	credentialStateDir := f.String("credential-state-dir", "", "credential state root (default: XDG_STATE_HOME/hjh or ~/.local/state/hjh)")
+	modelFavoritesDir := f.String("model-favorites-dir", "", "favorite state directory (default: XDG_STATE_HOME/hjh/model-favorites or ~/.local/state/hjh/model-favorites)")
 	maxSteps := f.Int("max-steps", 0, "model step limit; 0 is unlimited")
 	stream := f.Bool("stream", false, "display assistant text on stdout as it arrives")
 	fromTurn := f.Int64("from-turn", 0, "first complete conversation turn (inclusive)")
@@ -91,9 +97,10 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		return 0
 	}
 	options := app.RunOptions{Workspace: *workspace, ConfigPath: *configPath, CredentialFile: *credentialFile,
+		ModelFavoritesDir: *modelFavoritesDir, CredentialStateDir: *credentialStateDir,
 		MaxSteps: *maxSteps, FromTurn: *fromTurn}
 	if args[0] == "serve" {
-		return serve(ctx, *workspace, *dbPath, *configPath, *credentialFile, *maxSteps, *fromTurn, *listen, stderr)
+		return serve(ctx, *workspace, *dbPath, *configPath, *credentialFile, *modelFavoritesDir, *credentialStateDir, *maxSteps, *fromTurn, *listen, stderr)
 	}
 	if args[0] == "providers" || args[0] == "models" || args[0] == "auth" {
 		service := app.NewService(nil, nil, options)
@@ -107,7 +114,7 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 			}
 		case "models":
 			var value any
-			value, err = service.Models(ctx, *workspace, *providerID)
+			value, err = service.Models(ctx, *workspace, *providerID, *authProfile)
 			if err == nil {
 				err = writeJSON(value)
 			}
@@ -119,12 +126,12 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 			switch operation {
 			case "status":
 				var value any
-				value, err = service.LoginStatus(ctx, *workspace, *providerID)
+				value, err = service.AuthStatus(ctx, *workspace, *providerID, *authProfile)
 				if err == nil {
 					err = writeJSON(value)
 				}
 			case "login":
-				value, loginErr := loginWithChatGPT(ctx, service, *workspace, *providerID, stdin, stderr)
+				value, loginErr := loginWithChatGPT(ctx, service, *workspace, *providerID, *authProfile, stdin, stderr)
 				err = loginErr
 				if err == nil {
 					err = writeJSON(value)
@@ -231,7 +238,7 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile string, maxSteps int, fromTurn int64, listen string, stderr io.Writer) int {
+func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile, modelFavoritesDir, credentialStateDir string, maxSteps int, fromTurn int64, listen string, stderr io.Writer) int {
 	if dbPath == "" {
 		dbPath = filepath.Join(workspace, ".hjh", "history.sqlite3")
 	}
@@ -252,7 +259,7 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile st
 	}
 	defer store.Close()
 	service := app.NewService(store, nil, app.RunOptions{Workspace: workspace, ConfigPath: configPath,
-		CredentialFile: credentialFile, MaxSteps: maxSteps, FromTurn: fromTurn})
+		CredentialFile: credentialFile, ModelFavoritesDir: modelFavoritesDir, CredentialStateDir: credentialStateDir, MaxSteps: maxSteps, FromTurn: fromTurn})
 	manager := corerun.New(service, workspace)
 	apiServer := httpapi.New(service, manager)
 	defer apiServer.Close()
@@ -265,7 +272,7 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile st
 	server := &http.Server{Handler: apiServer}
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- server.Serve(listener) }()
-	fmt.Fprintf(stderr, "Core API listening at http://%s/api/v1\n", listener.Addr())
+	fmt.Fprintf(stderr, "Core API listening at http://%s/api/v2\n", listener.Addr())
 
 	select {
 	case err = <-serveDone:
@@ -274,9 +281,24 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile st
 			return 1
 		}
 		return 0
-	case <-ctx.Done():
+	case <-apiServer.ShutdownRequested():
+		closeErr := apiServer.Close()
 		_ = server.Close()
 		<-serveDone
+		if closeErr != nil {
+			fmt.Fprintln(stderr, closeErr)
+			return 1
+		}
+		return 0
+	case <-ctx.Done():
+		_ = manager.BeginShutdown(manager.Core().CoreID)
+		closeErr := apiServer.Close()
+		_ = server.Close()
+		<-serveDone
+		if closeErr != nil {
+			fmt.Fprintln(stderr, closeErr)
+			return 1
+		}
 		return 0
 	}
 }
@@ -358,23 +380,112 @@ func pollableInput(input io.ReadCloser) (io.ReadCloser, func(), error) {
 	return input, func() {}, nil
 }
 
-func loginWithChatGPT(ctx context.Context, service *app.Service, workspace, providerID string, input io.ReadCloser, output io.Writer) (credentials.Status, error) {
+func loginWithChatGPT(ctx context.Context, service *app.Service, workspace, providerID, profile string, input io.ReadCloser, output io.Writer) (credentials.Status, error) {
+	profiles, err := service.AuthProfiles(ctx, api.SelectionRequest{Workspace: workspace, ProviderID: providerID, AuthProfile: profile})
+	if err != nil {
+		return credentials.Status{}, err
+	}
+	target := profiles.Target
+	accounts, err := service.AuthAccounts(ctx, workspace, target.ProviderID, target.AuthProfile)
+	if err != nil {
+		return credentials.Status{}, err
+	}
+	request := api.AuthRequest{CoreID: "cli:" + uuid.NewString(), Workspace: workspace, ProviderID: target.ProviderID,
+		AuthProfile: target.AuthProfile, AccountID: accounts.SelectedAccountID, AttemptID: uuid.NewString()}
+	attempt, err := service.BeginAuthAttempt(ctx, request)
+	if err != nil {
+		return credentials.Status{}, err
+	}
+	request.AttemptID = attempt.AttemptID
+	defer func() { _, _ = service.CancelAuthAttempt(context.Background(), request) }()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	printed := false
+	var callbackDone chan struct {
+		value string
+		err   error
+	}
+	var readCancel context.CancelFunc
+	defer func() {
+		if readCancel != nil {
+			readCancel()
+		}
+	}()
 	for {
-		login, err := service.BeginLogin(ctx, workspace, providerID)
-		if err != nil {
-			return credentials.Status{}, err
+		if attempt.Terminal() {
+			if attempt.Phase == "completed" {
+				_ = service.DeleteAuthAttempt(context.Background(), request.CoreID, request.AttemptID)
+				return service.AuthStatus(ctx, workspace, target.ProviderID, target.AuthProfile)
+			}
+			if attempt.Error != nil {
+				if attempt.Error.Code == "authorization_code_invalid_grant" {
+					fmt.Fprintln(output, attempt.Error)
+					if readCancel != nil {
+						readCancel()
+					}
+					_ = service.DeleteAuthAttempt(ctx, request.CoreID, request.AttemptID)
+					request.AttemptID = uuid.NewString()
+					request.CallbackURL = ""
+					attempt, err = service.BeginAuthAttempt(ctx, request)
+					if err != nil {
+						return credentials.Status{}, err
+					}
+					request.AttemptID = attempt.AttemptID
+					printed = false
+					callbackDone = nil
+					continue
+				}
+				return credentials.Status{}, attempt.Error
+			}
+			return credentials.Status{}, fmt.Errorf("ChatGPT authorization %s", attempt.Phase)
 		}
-		fmt.Fprintf(output, "Continue with ChatGPT:\n%s\nPaste the browser callback URL, or press Enter after an automatic callback:\n", login.AuthorizationURL)
-		callback, err := readLoginLine(ctx, input)
-		if err != nil {
-			return credentials.Status{}, err
+		if printed && callbackDone == nil && attempt.Phase == "ready" && attempt.Error != nil {
+			fmt.Fprintln(output, attempt.Error)
+			printed = false
 		}
-		status, err := service.CompleteLogin(ctx, workspace, providerID, callback)
-		var invalidGrant *credentials.AuthorizationCodeInvalidGrantError
-		if errors.As(err, &invalidGrant) {
-			fmt.Fprintln(output, err)
-			continue
+		if !printed && (attempt.Phase == "ready" || attempt.Phase == "waiting_callback") {
+			printed = true
+			fmt.Fprintf(output, "Continue with ChatGPT:\n%s\nPaste the browser callback URL, or press Enter after an automatic callback:\n", attempt.AuthorizationURL)
+			callbackDone = make(chan struct {
+				value string
+				err   error
+			}, 1)
+			readCtx, cancelRead := context.WithCancel(ctx)
+			readCancel = cancelRead
+			readResults := callbackDone
+			go func() {
+				defer cancelRead()
+				value, err := readLoginLine(readCtx, input)
+				readResults <- struct {
+					value string
+					err   error
+				}{value, err}
+			}()
 		}
-		return status, err
+		select {
+		case <-ctx.Done():
+			return credentials.Status{}, ctx.Err()
+		case callback := <-callbackDone:
+			callbackDone = nil
+			if readCancel != nil {
+				readCancel()
+				readCancel = nil
+			}
+			if callback.err != nil {
+				return credentials.Status{}, callback.err
+			}
+			request.CallbackURL = callback.value
+			attempt, err = service.CompleteAuthAttempt(ctx, request)
+			if err != nil {
+				fmt.Fprintln(output, err)
+				printed = false
+				continue
+			}
+		case <-ticker.C:
+			attempt, err = service.AuthAttempt(ctx, request.CoreID, request.AttemptID)
+			if err != nil {
+				return credentials.Status{}, err
+			}
+		}
 	}
 }

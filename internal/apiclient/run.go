@@ -19,9 +19,11 @@ import (
 // RunEvent is a client-side notification. State is a complete display
 // projection; snapshot and update consumers can coalesce by the DTO identities.
 type RunEvent struct {
-	Kind  string
-	State api.RunState
-	Err   error
+	Kind         string
+	State        api.RunState
+	Conversation *api.ConversationSnapshot
+	Update       *api.ConversationUpdate
+	Err          error
 }
 
 // RunHandle is the client-side control surface for one Core-owned run.
@@ -43,19 +45,25 @@ type runHandle struct {
 	client   *Client
 	request  api.StartRunRequest
 	observer func(RunEvent)
+	attach   bool
 
-	mu             sync.Mutex
-	state          api.RunState
-	hasState       bool
-	streamTerminal *api.RunState
-	accepted       chan struct{}
-	acceptOnce     sync.Once
-	acceptErr      error
-	done           chan struct{}
-	finishOnce     sync.Once
-	result         api.RunState
-	err            error
-	cancelAttempt  *cancelAttempt
+	mu                    sync.Mutex
+	state                 api.RunState
+	hasState              bool
+	conversationViewID    string
+	conversationRevision  uint64
+	initialSnapshotSeen   bool
+	initialWasTerminal    bool
+	terminalSnapshotCount int
+	streamTerminal        *api.RunState
+	accepted              chan struct{}
+	acceptOnce            sync.Once
+	acceptErr             error
+	done                  chan struct{}
+	finishOnce            sync.Once
+	result                api.RunState
+	err                   error
+	cancelAttempt         *cancelAttempt
 }
 
 // StartRun creates a client run identity before starting its POST and returns
@@ -67,6 +75,18 @@ func (c *Client) StartRun(request api.StartRunRequest, observer func(RunEvent)) 
 	}
 	handle := &runHandle{
 		client: c, request: request, observer: observer,
+		accepted: make(chan struct{}), done: make(chan struct{}),
+	}
+	go handle.run()
+	return handle
+}
+
+// AttachRun subscribes to an existing Core-owned run. Registration is a GET;
+// it never replays the task or sends a start request.
+func (c *Client) AttachRun(coreID, runID string, observer func(RunEvent)) RunHandle {
+	handle := &runHandle{
+		client: c, request: api.StartRunRequest{CoreID: coreID, RunID: runID},
+		observer: observer, attach: true,
 		accepted: make(chan struct{}), done: make(chan struct{}),
 	}
 	go handle.run()
@@ -174,7 +194,6 @@ func (h *runHandle) run() {
 	defer h.finishOnce.Do(func() { close(h.done) })
 	state := api.RunState{
 		CoreID: h.request.CoreID, RunID: h.request.RunID,
-		Texts: []api.TextState{}, Operations: []api.OperationState{}, Executions: []api.ExecutionState{},
 	}
 	announcedDisconnect := false
 	for {
@@ -218,14 +237,10 @@ func (h *runHandle) run() {
 			return
 		}
 		h.mu.Unlock()
-		latest, getErr := h.client.GetRun(h.client.ctx, h.request.CoreID, h.request.RunID)
+		_, getErr := h.client.GetRun(h.client.ctx, h.request.CoreID, h.request.RunID)
 		if getErr == nil {
-			if latest.Phase == "terminal" && latest.Result != nil {
-				h.finish(latest, nil)
-				return
-			}
-			h.publish(RunEvent{Kind: "run.snapshot", State: latest})
-			state = latest
+			// GET reports run completion. A conversation subscriber completes
+			// only after the final snapshot and run.terminal arrive over SSE.
 		} else if isRunNotFound(getErr) || isCoreChanged(getErr) {
 			h.finish(state, errors.Join(streamErr, getErr))
 			return
@@ -253,6 +268,10 @@ func (h *runHandle) setAccepted(state api.RunState, err error) {
 // unconfirmed. Retrying uses the original request and RunID, so the Core can
 // return the existing run if the lost POST was already accepted.
 func (h *runHandle) register() (api.RunState, error, bool) {
+	if h.attach {
+		state, err := h.client.GetRun(h.client.ctx, h.request.CoreID, h.request.RunID)
+		return state, err, err != nil && !isAPIError(err) && h.client.ctx.Err() == nil
+	}
 	state, err := h.client.postRun(h.client.ctx, h.request)
 	if err == nil {
 		return state, nil, false
@@ -295,29 +314,72 @@ func (c *Client) postRun(ctx context.Context, request api.StartRunRequest) (api.
 	return state, err
 }
 
-func (h *runHandle) publish(event RunEvent) {
+func (h *runHandle) publish(event RunEvent) bool {
 	state := event.State
 	if state.CoreID != "" && state.CoreID != h.request.CoreID || state.RunID != "" && state.RunID != h.request.RunID {
-		return
+		return false
 	}
 	h.mu.Lock()
-	if h.hasState && state.Seq < h.state.Seq {
-		h.mu.Unlock()
-		return
+	updateState := !h.hasState || state.Seq >= h.state.Seq
+	conversationEvent := event
+	reconnect := false
+	snapshotAccepted := true
+	if event.Kind == "run.snapshot" || event.Kind == "run.terminal" {
+		if event.Conversation != nil {
+			if h.conversationViewID == event.Conversation.ViewID {
+				if event.Conversation.Revision < h.conversationRevision {
+					conversationEvent.Conversation = nil
+					snapshotAccepted = false
+				} else {
+					h.conversationRevision = event.Conversation.Revision
+				}
+			} else {
+				h.conversationViewID = event.Conversation.ViewID
+				h.conversationRevision = event.Conversation.Revision
+			}
+			if event.Kind == "run.snapshot" && event.Conversation != nil && snapshotAccepted {
+				if !h.initialSnapshotSeen {
+					h.initialSnapshotSeen = true
+					h.initialWasTerminal = state.Phase == "terminal"
+				}
+				if state.Phase == "terminal" {
+					h.terminalSnapshotCount++
+				}
+			}
+		}
+	} else if event.Kind == "run.update" && event.Update != nil {
+		if event.Update.ViewID != h.conversationViewID {
+			reconnect = true
+			conversationEvent.Update = nil
+		} else if event.Update.Revision > h.conversationRevision {
+			if event.Update.BaseRevision != h.conversationRevision {
+				reconnect = true
+				conversationEvent.Update = nil
+			} else {
+				h.conversationRevision = event.Update.Revision
+			}
+		} else {
+			conversationEvent.Update = nil
+		}
 	}
-	if event.Kind == "run.update" && h.hasState && state.Seq == h.state.Seq {
-		h.mu.Unlock()
-		return
+	if updateState {
+		h.state, h.hasState = state, true
 	}
-	h.state, h.hasState = state, true
-	if (event.Kind == "run.snapshot" || event.Kind == "run.terminal") && state.Phase == "terminal" && state.Result != nil {
+	if event.Kind == "run.terminal" && state.Phase == "terminal" && state.Result != nil &&
+		h.initialSnapshotSeen && (!h.initialWasTerminal || h.terminalSnapshotCount >= 2) {
 		terminalCopy := state
 		h.streamTerminal = &terminalCopy
+	} else if event.Kind == "run.terminal" {
+		reconnect = true
 	}
 	h.mu.Unlock()
-	if h.observer != nil {
-		h.observer(event)
+	if event.Kind == "run.terminal" && reconnect {
+		return false
 	}
+	if h.observer != nil {
+		h.observer(conversationEvent)
+	}
+	return !reconnect && event.Kind != "run.terminal"
 }
 
 func (h *runHandle) finish(state api.RunState, err error) {
@@ -329,7 +391,7 @@ func (h *runHandle) finish(state api.RunState, err error) {
 	})
 }
 
-func (c *Client) readRunEvents(ctx context.Context, coreID, runID string, receive func(RunEvent)) error {
+func (c *Client) readRunEvents(ctx context.Context, coreID, runID string, receive func(RunEvent) bool) error {
 	query := url.Values{}
 	query.Set("coreId", coreID)
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet,
@@ -350,16 +412,36 @@ func (c *Client) readRunEvents(ctx context.Context, coreID, runID string, receiv
 		if data == "" {
 			return true
 		}
-		var state api.RunState
-		if err := json.Unmarshal([]byte(data), &state); err != nil {
-			return false
-		}
 		kind := event
 		if kind == "" || kind == "message" {
 			kind = "run.update"
 		}
-		receive(RunEvent{Kind: kind, State: state})
-		return kind != "run.terminal"
+		received := RunEvent{Kind: kind}
+		switch kind {
+		case "run.snapshot":
+			var snapshot api.RunSnapshot
+			if err := json.Unmarshal([]byte(data), &snapshot); err != nil {
+				return false
+			}
+			received.State = snapshot.RunState
+			received.Conversation = &snapshot.Conversation
+		case "run.terminal":
+			if err := json.Unmarshal([]byte(data), &received.State); err != nil {
+				return false
+			}
+		case "run.update":
+			var update api.RunUpdate
+			if err := json.Unmarshal([]byte(data), &update); err != nil {
+				return false
+			}
+			received.State = update.RunState
+			received.Update = update.Conversation
+		default:
+			if err := json.Unmarshal([]byte(data), &received.State); err != nil {
+				return false
+			}
+		}
+		return receive(received)
 	})
 }
 

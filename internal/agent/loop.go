@@ -10,12 +10,13 @@ import (
 )
 
 type Input struct {
-	Task        string
-	Model       contracts.ModelSelection
-	Instruction string
-	History     []contracts.Message
-	Tools       []contracts.ToolDefinition
-	MaxSteps    int
+	Task            string
+	Model           contracts.ModelSelection
+	Instruction     string
+	History         []contracts.Message
+	Tools           []contracts.ToolDefinition
+	MaxSteps        int
+	AdditionalInput AdditionalInput
 }
 type Result struct {
 	OK         bool   `json:"ok"`
@@ -28,12 +29,34 @@ type Result struct {
 type AppendMessage func(contracts.Message) error
 type BeforeRequest func(int, contracts.ModelRequest) error
 
+// AdditionalInput lets the host apply typed user messages at parent-loop
+// boundaries without giving the agent package access to persistence.
+type AdditionalInput interface {
+	Apply(context.Context, bool) ([]contracts.Message, error)
+	Close(string) error
+}
+
 func Run(ctx context.Context, input Input, provider contracts.Provider, executor contracts.ToolExecutor,
 	appendMessage AppendMessage, observe contracts.Observer, before BeforeRequest) (result Result, err error) {
 	result.Task = input.Task
 	result.Outcome = "contract_failure"
 	result.StopReason = "contract_failure"
+	closeReason := ""
 	defer func() {
+		if input.AdditionalInput != nil {
+			reason := closeReason
+			if reason == "" {
+				reason = additionalInputCloseReason(ctx, result, err)
+			}
+			if closeErr := input.AdditionalInput.Close(reason); closeErr != nil {
+				err = errors.Join(err, closeErr)
+				if result.OK {
+					result.OK = false
+					result.Outcome = "failed"
+					result.StopReason = "failed"
+				}
+			}
+		}
 		if err != nil {
 			result.Error = err.Error()
 			if errors.Is(err, context.Canceled) {
@@ -43,10 +66,23 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 		}
 	}()
 	user := contracts.User(input.Task)
+	user.ExecutionFact = &contracts.ExecutionFact{Kind: "user_message", Role: "user", Text: input.Task,
+		Conversation: contracts.ConversationMetadata{EntityKind: "task", LocalKey: "task"}}
 	if err = appendMessage(user); err != nil {
 		return result, err
 	}
 	messages := append(append([]contracts.Message(nil), input.History...), user)
+	applyInput := func(final bool) error {
+		if input.AdditionalInput == nil {
+			return nil
+		}
+		additional, applyErr := input.AdditionalInput.Apply(ctx, final)
+		if applyErr != nil {
+			return applyErr
+		}
+		messages = append(messages, additional...)
+		return nil
+	}
 	for step := 1; ; step++ {
 		if err = ctx.Err(); err != nil {
 			return result, err
@@ -55,6 +91,9 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 			result.StopReason = "max_steps"
 			result.Outcome = "max_steps"
 			return result, fmt.Errorf("model step limit reached (%d)", input.MaxSteps)
+		}
+		if err = applyInput(false); err != nil {
+			return result, err
 		}
 		req := contracts.ModelRequest{Model: input.Model, Instruction: input.Instruction, Messages: messages, Tools: input.Tools}
 		req.WireBody, err = provider.Prepare(req)
@@ -81,15 +120,39 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 		if response.FinishReason == "length" {
 			// Preserve the observed answer without adopting an unfinished turn or
 			// executing partially generated tool arguments.
-			if err = appendMessage(contracts.Assistant(response.Text, response.ProviderState)); err != nil {
+			message := contracts.Assistant(response.Text, response.ProviderState)
+			message.ExecutionFact = assistantFact(response, step, "incomplete")
+			if err = appendMessage(message); err != nil {
 				return result, err
 			}
 			result.FinalText = response.Text
 			return result, fmt.Errorf("model response incomplete: finish_reason=%s", response.FinishReason)
 		}
 		if len(response.Calls) == 0 {
-			if err = appendMessage(contracts.Assistant(response.Text, response.ProviderState)); err != nil {
+			message := contracts.Assistant(response.Text, response.ProviderState)
+			message.ExecutionFact = assistantFact(response, step, "completed")
+			if err = appendMessage(message); err != nil {
 				return result, err
+			}
+			messages = append(messages, message)
+			if input.AdditionalInput != nil {
+				if input.MaxSteps > 0 && step >= input.MaxSteps {
+					closeReason = "max_steps"
+				} else {
+					var additional []contracts.Message
+					additional, err = input.AdditionalInput.Apply(ctx, true)
+					if err != nil {
+						return result, err
+					}
+					if len(additional) > 0 {
+						messages = append(messages, additional...)
+						result.OK = false
+						result.Outcome = "contract_failure"
+						result.StopReason = "contract_failure"
+						result.FinalText = ""
+						continue
+					}
+				}
 			}
 			result.OK = true
 			result.Outcome = "final"
@@ -98,6 +161,7 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 			return result, nil
 		}
 		assistant := contracts.AssistantCalls(response.Calls, response.Text, response.ProviderState)
+		assistant.ExecutionFact = assistantFact(response, step, "completed")
 		if err = appendMessage(assistant); err != nil {
 			return result, err
 		}
@@ -111,7 +175,7 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 					return result, err
 				}
 			}
-			value, callErr := executor.Call(contracts.WithCallParent(ctx, call.CallID), call.Name, call.Arguments)
+			value, callErr := executor.Call(contracts.WithModelToolCall(ctx, call.CallID), call.Name, call.Arguments)
 			var executionErr *contracts.ExecutionError
 			if errors.As(callErr, &executionErr) {
 				return result, callErr
@@ -135,6 +199,14 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 			// Persist each completed tool result before starting another call, so
 			// cancellation preserves results already returned to this execution.
 			message := contracts.ToolResults([]contracts.ToolResult{toolResult})
+			message.ExecutionFact = &contracts.ExecutionFact{Kind: "tool_result", Role: "tool", Name: call.Name,
+				CallID: call.CallID, Outcome: toolResult.Outcome, Error: func() string {
+					if callErr != nil {
+						return callErr.Error()
+					}
+					return ""
+				}(), Request: contracts.RequestIdentity{Lane: "parent", RequestOrdinal: step, ModelStep: step},
+				Conversation: contracts.ConversationMetadata{EntityKind: "tool", LocalKey: call.CallID}}
 			if err = appendMessage(message); err != nil {
 				return result, err
 			}
@@ -144,4 +216,25 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 			}
 		}
 	}
+}
+
+func additionalInputCloseReason(ctx context.Context, result Result, runErr error) string {
+	if ctx.Err() != nil || errors.Is(runErr, context.Canceled) || result.StopReason == "cancelled" {
+		return "cancelled"
+	}
+	if result.StopReason == "max_steps" {
+		return "max_steps"
+	}
+	if runErr != nil || !result.OK {
+		return "run_failed"
+	}
+	return "completed"
+}
+
+func assistantFact(response contracts.ModelResult, step int, phase string) *contracts.ExecutionFact {
+	request := contracts.RequestIdentity{Lane: "parent", RequestOrdinal: step, ModelStep: step,
+		PhysicalRequestID: response.PhysicalRequestID}
+	return &contracts.ExecutionFact{Kind: "assistant_message", Phase: phase, Role: "assistant", Text: response.Text,
+		Request: request, Thinking: append([]contracts.ThinkingItem(nil), response.Thinking...),
+		Conversation: contracts.ConversationMetadata{EntityKind: "assistant", LocalKey: "parent/" + fmt.Sprint(step) + "/answer"}}
 }

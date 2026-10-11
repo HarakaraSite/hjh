@@ -243,12 +243,12 @@ func capture(root, configPath, selectedRole string) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 
-	roleName := selectedRole
-	if roleName == "" {
-		roleName = cfg.DefaultRole
+	roleName, err := selectedRoleName(cfg, configPath, selectedRole)
+	if err != nil {
+		return Snapshot{}, err
 	}
 	role, ok := cfg.Roles[roleName]
-	if !ok {
+	if !ok { // selectedRoleName validates this before resource resolution.
 		return Snapshot{}, fmt.Errorf("extension role %q is not defined", roleName)
 	}
 	selectedTools, err := resolveTools(cfg, roleName, role)
@@ -291,6 +291,34 @@ func capture(root, configPath, selectedRole string) (Snapshot, error) {
 	}
 	snapshot.SystemInstruction = assembleInstruction(cfg.SystemInstruction, role, roleName, selectedTools, catalog.Roles)
 	return snapshot, nil
+}
+
+// EmbeddedConfig returns the built-in configuration bytes without installing
+// editable files into a workspace. Metadata-only previews use this when a new
+// workspace has not been initialized by a run yet.
+func EmbeddedConfig() ([]byte, error) {
+	return defaultAssets.ReadFile("assets/config.json")
+}
+
+// ResolveRole selects and validates a role from configuration metadata only.
+// It does not read or capture tool and hook resources.
+func ResolveRole(data []byte, configPath, selectedRole string) (string, error) {
+	cfg, err := decodeConfig(data, configPath)
+	if err != nil {
+		return "", err
+	}
+	return selectedRoleName(cfg, configPath, selectedRole)
+}
+
+func selectedRoleName(cfg Config, configPath, selectedRole string) (string, error) {
+	roleName := selectedRole
+	if roleName == "" {
+		roleName = cfg.DefaultRole
+	}
+	if _, ok := cfg.Roles[roleName]; !ok {
+		return "", fmt.Errorf("extension config %s role %q is not defined", configPath, roleName)
+	}
+	return roleName, nil
 }
 
 // LoadCatalog reads role names and descriptions without resolving a selected

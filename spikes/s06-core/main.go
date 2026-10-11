@@ -42,8 +42,12 @@ type report struct {
 	CoreCloseMS           float64 `json:"coreCloseMs"`
 	PersistedObservations int     `json:"persistedObservations"`
 	ObservationBytes      int     `json:"observationPayloadBytes"`
+	SemanticPayloadBytes  int     `json:"semanticPayloadBytes"`
+	AssistantRecords      int     `json:"permanentAssistantRecords"`
 	SSEBlockedAtTerminal  bool    `json:"sseBlockedAtTerminal"`
 	TerminalAfterRelease  bool    `json:"terminalReceivedAfterRelease"`
+	SSEBlockedAtShutdown  bool    `json:"sseBlockedAtShutdown"`
+	ShutdownStreamExited  bool    `json:"shutdownStreamExitedAfterRelease"`
 	Cost                  *cost   `json:"cost,omitempty"`
 }
 
@@ -52,6 +56,8 @@ type report struct {
 type cost struct {
 	DatabaseBytes        int64   `json:"databaseBytes"`
 	StreamAllocBytes     uint64  `json:"streamAllocBytes"`
+	ColdReplayAllocBytes uint64  `json:"coldSessionReplayAllocBytes"`
+	ColdReplayMS         float64 `json:"coldSessionReplayMs"`
 	RestoreAllocBytes    uint64  `json:"restoreAllocBytes"`
 	RepeatedRestoreBytes uint64  `json:"repeatedRestoreAllocBytes"`
 	RepeatedRestoreMS    float64 `json:"repeatedRestoreMs"`
@@ -87,13 +93,14 @@ func peakRSS() (uint64, error) {
 }
 
 type provider struct {
-	updates int
-	ready   chan struct{}
-	start   chan struct{}
-	emitted chan struct{}
-	finish  chan struct{}
-	samples []time.Duration // written before emitted closes; read afterward
-	text    string
+	updates    int
+	finalBytes int
+	ready      chan struct{}
+	start      chan struct{}
+	emitted    chan struct{}
+	finish     chan struct{}
+	samples    []time.Duration // written before emitted closes; read afterward
+	text       string
 }
 
 func (p *provider) Prepare(r contracts.ModelRequest) ([]byte, error) {
@@ -112,10 +119,21 @@ func (p *provider) Generate(ctx context.Context, r contracts.ModelRequest, obser
 	case <-ctx.Done():
 		return contracts.ModelResult{}, ctx.Err()
 	}
+	if err := observe(contracts.Observation{ID: "stream-request", Kind: "model_request", Phase: "start", PhysicalRequestID: "stream-request"}); err != nil {
+		return contracts.ModelResult{}, err
+	}
+	var fixed string
+	if p.finalBytes > 0 {
+		fixed = strings.Repeat("x", p.finalBytes)
+	}
 	for i := 0; i < p.updates; i++ {
-		p.text += strings.Repeat("x", 128)
+		if p.finalBytes > 0 {
+			p.text = fixed[:(i+1)*p.finalBytes/p.updates]
+		} else {
+			p.text += strings.Repeat("x", 128)
+		}
 		begin := time.Now()
-		err := observe(contracts.Observation{ID: "stream", Kind: "assistant_text", Phase: "delta", Result: contracts.JSON(map[string]string{"text": p.text})})
+		err := observe(contracts.Observation{ID: "stream", Parent: "stream-request", Kind: "assistant_text", Phase: "delta", Text: p.text, PhysicalRequestID: "stream-request"})
 		p.samples = append(p.samples, time.Since(begin))
 		if err != nil {
 			return contracts.ModelResult{}, err
@@ -124,6 +142,10 @@ func (p *provider) Generate(ctx context.Context, r contracts.ModelRequest, obser
 	close(p.emitted)
 	select {
 	case <-p.finish:
+		if err := observe(contracts.Observation{ID: "stream-request-result", Parent: "stream-request", Kind: "model_result", Phase: "end", Text: p.text,
+			PhysicalRequestID: "stream-request", Result: contracts.JSON(map[string]any{"text": p.text, "calls": []contracts.ToolCall{}})}); err != nil {
+			return contracts.ModelResult{}, err
+		}
 		return contracts.ModelResult{Text: p.text, FinishReason: "stop"}, nil
 	case <-ctx.Done():
 		return contracts.ModelResult{}, ctx.Err()
@@ -175,6 +197,10 @@ func terminal(ctx context.Context, m *corerun.Manager, id string) (api.RunState,
 }
 
 func experiment(updates int, cancelRun, measureCost bool) (out report, err error) {
+	return experimentWithBody(updates, cancelRun, measureCost, 0)
+}
+
+func experimentWithBody(updates int, cancelRun, measureCost bool, finalBytes int) (out report, err error) {
 	out.Updates, out.Cancelled = updates, cancelRun
 	workspace, err := os.MkdirTemp("", "hjh-s06-core-")
 	if err != nil {
@@ -186,7 +212,7 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 		return out, err
 	}
 	defer store.Close()
-	p := &provider{updates: updates, ready: make(chan struct{}), start: make(chan struct{}), emitted: make(chan struct{}), finish: make(chan struct{})}
+	p := &provider{updates: updates, finalBytes: finalBytes, ready: make(chan struct{}), start: make(chan struct{}), emitted: make(chan struct{}), finish: make(chan struct{})}
 	service := app.NewService(store, p, app.RunOptions{Workspace: workspace})
 	manager := corerun.New(service, workspace)
 	server := httpapi.New(service, manager)
@@ -206,7 +232,7 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 	handlerDone := make(chan struct{})
 	go func() {
 		defer close(handlerDone)
-		url := "/api/v1/runs/stream/events?coreId=" + request.CoreID
+		url := "/api/v2/runs/stream/events?coreId=" + request.CoreID
 		server.ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil).WithContext(ctx))
 	}()
 	defer func() { release(); _ = wait(ctx, handlerDone) }()
@@ -226,7 +252,7 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 	body, _ := json.Marshal(independent)
 	response := httptest.NewRecorder()
 	begin := time.Now()
-	server.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v1/runs", bytes.NewReader(body)))
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/api/v2/runs", bytes.NewReader(body)))
 	out.IndependentStartMS = milliseconds(time.Since(begin))
 	if response.Code != http.StatusAccepted {
 		return out, fmt.Errorf("independent admission: %s", response.Body.String())
@@ -249,7 +275,7 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 	begin = time.Now()
 	if cancelRun {
 		cancelResponse := httptest.NewRecorder()
-		server.ServeHTTP(cancelResponse, httptest.NewRequest(http.MethodPost, "/api/v1/runs/stream/cancel?coreId="+request.CoreID, nil))
+		server.ServeHTTP(cancelResponse, httptest.NewRequest(http.MethodPost, "/api/v2/runs/stream/cancel?coreId="+request.CoreID, nil))
 		out.CancelRequestMS = milliseconds(time.Since(begin))
 		if cancelResponse.Code != http.StatusAccepted {
 			return out, fmt.Errorf("cancel: %s", cancelResponse.Body.String())
@@ -281,14 +307,18 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 		return out, fmt.Errorf("terminal was not persisted: %v", err)
 	}
 	for _, record := range inspection.Records {
+		out.SemanticPayloadBytes += len(record.Payload)
+		if record.Kind == "assistant_message" {
+			out.AssistantRecords++
+		}
 		var o contracts.Observation
 		if json.Unmarshal(record.Payload, &o) == nil && o.Kind == "assistant_text" && o.ExecutionID == state.ExecutionID {
 			out.PersistedObservations++
 			out.ObservationBytes += len(record.Payload)
 		}
 	}
-	if out.PersistedObservations != updates {
-		return out, fmt.Errorf("persisted %d of %d text observations", out.PersistedObservations, updates)
+	if out.PersistedObservations != 0 {
+		return out, fmt.Errorf("permanent cumulative text observations remain: %d", out.PersistedObservations)
 	}
 	late, err := manager.Subscribe(request.CoreID, request.RunID)
 	if err != nil {
@@ -302,10 +332,10 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 	begin = time.Now()
 	snapshot, err := late.Snapshot()
 	out.RestoreMS = milliseconds(time.Since(begin))
-	if err != nil || len(snapshot.Texts) != 1 || snapshot.Texts[0].Text != p.text {
+	if err != nil || assistantText(snapshot.Conversation) != p.text {
 		return out, fmt.Errorf("snapshot did not restore latest text: %v", err)
 	}
-	out.FinalTextBytes = len(snapshot.Texts[0].Text)
+	out.FinalTextBytes = len(assistantText(snapshot.Conversation))
 	if measureCost {
 		stats := memory(false)
 		out.Cost.RestoreAllocBytes = stats.TotalAlloc - restoreMemory.TotalAlloc
@@ -315,7 +345,7 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 		repeated, repeatErr := late.Snapshot()
 		out.Cost.RepeatedRestoreMS = milliseconds(time.Since(begin))
 		out.Cost.RepeatedRestoreBytes = memory(false).TotalAlloc - stats.TotalAlloc
-		if repeatErr != nil || len(repeated.Texts) != 1 || repeated.Texts[0].Text != p.text {
+		if repeatErr != nil || assistantText(repeated.Conversation) != p.text {
 			return out, fmt.Errorf("repeated snapshot lost text: %v", repeatErr)
 		}
 		out.Cost.HeapAfterRestore = memory(true).HeapAlloc
@@ -325,8 +355,43 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 		}
 		out.Cost.DatabaseBytes = file.Size()
 	}
-	// Core resource shutdown must also be independent of a display write/ACK.
-	// The test caller still owns Store, so late terminal restoration can read it.
+	// A live Core must deliver the final snapshot and terminal when the
+	// stopped writer resumes. Core shutdown is a distinct stream-close path.
+	release()
+	if err = wait(ctx, handlerDone); err != nil {
+		return out, err
+	}
+	out.TerminalAfterRelease = strings.Contains(w.body.String(), "event: run.terminal\n")
+	if !out.TerminalAfterRelease {
+		return out, errors.New("terminal missing after writer release")
+	}
+	late.Close()
+	if measureCost {
+		before := memory(true)
+		begin = time.Now()
+		replayed, replayErr := manager.SessionView(ctx, state.SessionID)
+		out.Cost.ColdReplayMS = milliseconds(time.Since(begin))
+		out.Cost.ColdReplayAllocBytes = memory(false).TotalAlloc - before.TotalAlloc
+		if replayErr != nil || assistantText(replayed) != p.text {
+			return out, fmt.Errorf("cold Session replay lost text: %v", replayErr)
+		}
+	}
+	shutdownWriter := &stalledWriter{header: make(http.Header), entered: make(chan struct{}), release: make(chan struct{})}
+	shutdownHandlerDone := make(chan struct{})
+	go func() {
+		defer close(shutdownHandlerDone)
+		server.ServeHTTP(shutdownWriter, httptest.NewRequest(http.MethodGet,
+			"/api/v2/runs/stream/events?coreId="+request.CoreID, nil).WithContext(ctx))
+	}()
+	var shutdownReleaseOnce sync.Once
+	shutdownRelease := func() { shutdownReleaseOnce.Do(func() { close(shutdownWriter.release) }) }
+	defer func() { shutdownRelease(); _ = wait(ctx, shutdownHandlerDone) }()
+	if err = wait(ctx, shutdownWriter.entered); err != nil {
+		return out, err
+	}
+	out.SSEBlockedAtShutdown = true
+	// The synthetic writer ignores context until released. The API resource
+	// close must still return without waiting for the writer's acknowledgement.
 	begin = time.Now()
 	closeDone := make(chan struct{})
 	var closeErr error
@@ -338,30 +403,37 @@ func experiment(updates int, cancelRun, measureCost bool) (out report, err error
 		return out, closeErr
 	}
 	out.CoreCloseMS = milliseconds(time.Since(begin))
-	// Release the client after persistence and cancellation/completion finished.
-	release()
-	if err = wait(ctx, handlerDone); err != nil {
+	shutdownRelease()
+	if err = wait(ctx, shutdownHandlerDone); err != nil {
 		return out, err
 	}
-	out.TerminalAfterRelease = strings.Contains(w.body.String(), "event: run.terminal\n")
-	if !out.TerminalAfterRelease {
-		return out, errors.New("terminal missing after writer release")
-	}
+	out.ShutdownStreamExited = true
 	return out, nil
 }
 
 func milliseconds(d time.Duration) float64 { return float64(d) / float64(time.Millisecond) }
 
+func assistantText(snapshot api.ConversationSnapshot) string {
+	var text string
+	for _, id := range snapshot.Order {
+		if entity := snapshot.Entities[id]; entity.Kind == "assistant" && entity.ParentExecutionID == "" {
+			text = entity.Text
+		}
+	}
+	return text
+}
+
 func main() {
 	updates := flag.Int("updates", 128, "simulated cumulative text updates (128 bytes each)")
 	cancelRun := flag.Bool("cancel", false, "cancel after streaming instead of completing")
 	measureCost := flag.Bool("measure-cost", false, "measure DB size, allocations, retained heap and repeated snapshot replay")
+	finalBytes := flag.Int("final-bytes", 0, "fixed final body bytes for comparisons with different update counts; 0 means 128 bytes/update")
 	flag.Parse()
 	if *updates < 1 {
 		fmt.Fprintln(os.Stderr, "updates must be positive for this experiment")
 		os.Exit(1)
 	}
-	r, err := experiment(*updates, *cancelRun, *measureCost)
+	r, err := experimentWithBody(*updates, *cancelRun, *measureCost, *finalBytes)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -2,102 +2,180 @@ package corerun
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 
 	"hjh/internal/api"
-	"hjh/internal/contracts"
+	"hjh/internal/conversation"
 )
 
-// Subscription is an independent, coalescing notification of display changes.
-// Registration and the initial snapshot boundary use the same manager lock.
+type runStateSubscriber struct {
+	notify chan struct{}
+}
+
+// Subscription joins lightweight run-state notifications with one independent
+// conversation subscriber. It never holds the manager or execution-data lock
+// while serializing a snapshot or writing an HTTP frame.
 type Subscription struct {
-	Notify  <-chan struct{}
-	manager *Manager
-	runID   string
-	once    sync.Once
+	Notify             <-chan struct{}
+	ConversationNotify <-chan struct{}
+
+	manager      *Manager
+	runID        string
+	run          *managedRun
+	state        *runStateSubscriber
+	view         *conversation.View
+	viewSub      *conversation.Subscription
+	initialState api.RunState
+	initial      api.ConversationSnapshot
+	initialMu    sync.Mutex
+	once         sync.Once
 }
 
 func (m *Manager) Subscribe(coreID, runID string) (*Subscription, error) {
+	return m.SubscribeContext(context.Background(), coreID, runID)
+}
+
+func (m *Manager) SubscribeContext(ctx context.Context, coreID, runID string) (*Subscription, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	r, err := m.findLocked(coreID, runID)
+	run, err := m.findLocked(coreID, runID)
 	if err != nil {
+		m.mu.Unlock()
 		return nil, err
 	}
-	notify := make(chan struct{}, 1)
-	s := &Subscription{Notify: notify, manager: m, runID: runID}
-	r.subscribers[s] = notify
-	return s, nil
+	state := &runStateSubscriber{notify: make(chan struct{}, 1)}
+	run.subscribers[state] = state.notify
+	run.viewConsumers++
+	initialState := m.stateLocked(run)
+	m.mu.Unlock()
+
+	view, err := m.ensureRunView(ctx, runID, run)
+	if err != nil {
+		m.removeFailedConsumer(run, state)
+		return nil, err
+	}
+	initial, viewSub, err := view.SubscribeSnapshot(ctx)
+	if err != nil {
+		m.removeFailedConsumer(run, state)
+		return nil, err
+	}
+	if initialState.Phase == "terminal" {
+		initialState, err = m.resolveTerminal(ctx, run, initialState)
+		if err != nil {
+			viewSub.Close()
+			m.removeFailedConsumer(run, state)
+			return nil, err
+		}
+	}
+	return &Subscription{Notify: state.notify, ConversationNotify: viewSub.Notify,
+		manager: m, runID: runID, run: run, state: state, view: view, viewSub: viewSub,
+		initialState: initialState, initial: initial}, nil
+}
+
+func (m *Manager) removeFailedConsumer(run *managedRun, state *runStateSubscriber) {
+	m.mu.Lock()
+	delete(run.subscribers, state)
+	run.viewConsumers--
+	release := run.viewConsumers == 0
+	m.mu.Unlock()
+	if release {
+		m.releaseViewIfUnused(run)
+	}
+}
+
+func (s *Subscription) Snapshot() (api.RunSnapshot, error) {
+	return s.SnapshotContext(context.Background())
+}
+
+func (s *Subscription) SnapshotContext(ctx context.Context) (api.RunSnapshot, error) {
+	select {
+	case <-ctx.Done():
+		return api.RunSnapshot{}, ctx.Err()
+	default:
+	}
+	s.initialMu.Lock()
+	conversation := s.initial
+	state := cloneRunState(s.initialState)
+	s.initialMu.Unlock()
+	return api.RunSnapshot{RunState: state, Conversation: conversation}, nil
+}
+
+// ReleaseInitialSnapshot drops the captured initial cut after its frame has
+// been written. A long-lived SSE subscription then keeps only its live view.
+func (s *Subscription) ReleaseInitialSnapshot() {
+	s.initialMu.Lock()
+	s.initial = api.ConversationSnapshot{}
+	s.initialState = api.RunState{}
+	s.initialMu.Unlock()
+}
+
+// FinalSnapshotContext resolves current terminal state and waits for the
+// durable conversation prefix before taking the terminal snapshot.
+func (s *Subscription) FinalSnapshotContext(ctx context.Context) (api.RunSnapshot, error) {
+	state, err := s.manager.GetContext(ctx, s.manager.core.CoreID, s.runID)
+	if err != nil {
+		return api.RunSnapshot{}, err
+	}
+	if state.Phase == "terminal" {
+		if err := s.manager.waitForFinalConversation(ctx, s.run, s.view); err != nil {
+			return api.RunSnapshot{}, err
+		}
+	}
+	snapshot, err := s.view.Snapshot(ctx)
+	if err != nil {
+		return api.RunSnapshot{}, err
+	}
+	return api.RunSnapshot{RunState: state, Conversation: snapshot}, nil
+}
+
+func (s *Subscription) UpdateContext(ctx context.Context) (api.RunUpdate, bool, error) {
+	state, err := s.manager.GetContext(ctx, s.manager.core.CoreID, s.runID)
+	if err != nil {
+		return api.RunUpdate{}, false, err
+	}
+	var update *api.ConversationUpdate
+	if value, ok := s.viewSub.TakeUpdate(); ok {
+		update = &value
+	}
+	return api.RunUpdate{RunState: state, Conversation: update}, update != nil, nil
 }
 
 func (s *Subscription) Close() {
 	s.once.Do(func() {
-		s.manager.mu.Lock()
-		defer s.manager.mu.Unlock()
-		delete(s.manager.runs[s.runID].subscribers, s)
+		if s.viewSub != nil {
+			s.viewSub.Close()
+		}
+		m := s.manager
+		m.mu.Lock()
+		delete(s.run.subscribers, s.state)
+		s.run.viewConsumers--
+		release := s.run.viewConsumers == 0
+		m.mu.Unlock()
+		if release {
+			m.releaseViewIfUnused(s.run)
+		}
+		s.ReleaseInitialSnapshot()
+		s.view = nil
+		s.viewSub = nil
 	})
 }
 
-func (s *Subscription) Snapshot() (api.RunState, error) {
-	m := s.manager
-	state, err := m.Get(m.core.CoreID, s.runID)
-	if err != nil {
-		return state, err
+func cloneRunState(state api.RunState) api.RunState {
+	copy := state
+	if state.ActualSelection != nil {
+		selection := *state.ActualSelection
+		copy.ActualSelection = &selection
 	}
-	if state.Phase == "terminal" && state.ExecutionID != "" {
-		// The retained result is available through Get even if evidence loading fails.
-		err = m.restore(context.Background(), &state)
+	if state.Result != nil {
+		result := *state.Result
+		copy.Result = &result
+		if result.AgentResult != nil {
+			agentResult := *result.AgentResult
+			copy.Result.AgentResult = &agentResult
+		}
+		if result.Error != nil {
+			apiError := *result.Error
+			copy.Result.Error = &apiError
+		}
 	}
-	return state, err
-}
-
-func (m *Manager) restore(ctx context.Context, state *api.RunState) error {
-	p := newProjection()
-	var load func(string) error
-	load = func(id string) error {
-		inspection, err := m.service.Inspect(ctx, id, 0, -1)
-		if err != nil {
-			return err
-		}
-		for _, r := range inspection.Records {
-			var o contracts.Observation
-			// journal.observe stamps every Observation with its execution ID.
-			// Other evidence payloads also have "kind" but are not progress facts.
-			if json.Unmarshal(r.Payload, &o) == nil && o.Kind != "" && o.ExecutionID == r.ExecutionID {
-				p.observe(state, o)
-			}
-		}
-		e := inspection.Execution
-		if v, ok := p.executions[id]; ok {
-			v.Phase = "terminal"
-			v.Outcome = e.Outcome
-			p.executions[id] = v
-		}
-		for _, child := range inspection.Children {
-			if err := load(child.ID); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := load(state.ExecutionID); err != nil {
-		return err
-	}
-	if state.Result != nil && state.Result.AgentResult != nil && state.Result.AgentResult.FinalText != "" {
-		step := 1
-		for _, v := range p.texts {
-			if v.ExecutionID == state.ExecutionID && v.ModelStep > step {
-				step = v.ModelStep
-			}
-		}
-		for _, v := range p.operations {
-			if v.ExecutionID == state.ExecutionID && v.ModelStep > step {
-				step = v.ModelStep
-			}
-		}
-		p.setText(api.TextState{ExecutionID: state.ExecutionID, ModelStep: step, Text: state.Result.AgentResult.FinalText})
-	}
-	p.fill(state)
-	return nil
+	return copy
 }

@@ -127,6 +127,13 @@ func withFileLock(ctx context.Context, path string, action func() error) error {
 	return action()
 }
 
+// withAccountMetadataLock serializes access to the account metadata file at
+// basePath + ".accounts.json" using its contract lock path,
+// basePath + ".accounts.lock".
+func withAccountMetadataLock(ctx context.Context, basePath string, action func() error) error {
+	return withFileLock(ctx, basePath+".accounts", action)
+}
+
 func readOAuthRecord(path string) (oauthRecord, bool, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {

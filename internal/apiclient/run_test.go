@@ -21,10 +21,10 @@ func TestCancelBeforePostResponseIsSentAfterRegistrationAndWaitsForTerminal(t *t
 	var cancelOnce sync.Once
 	var mu sync.Mutex
 	registered := false
-	state := api.RunState{CoreID: "core-1", RunID: "run-1", Seq: 0, Phase: "preparing", Texts: []api.TextState{}, Operations: []api.OperationState{}, Executions: []api.ExecutionState{}}
+	state := api.RunState{CoreID: "core-1", RunID: "run-1", Seq: 0, Phase: "preparing"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs":
 			var request api.StartRunRequest
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				t.Errorf("decode start request: %v", err)
@@ -40,7 +40,7 @@ func TestCancelBeforePostResponseIsSentAfterRegistrationAndWaitsForTerminal(t *t
 			registered = true
 			mu.Unlock()
 			writeJSONForTest(w, http.StatusAccepted, state)
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs/run-1/cancel":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs/run-1/cancel":
 			if r.URL.Query().Get("coreId") != "core-1" {
 				t.Errorf("cancel coreId query = %q", r.URL.Query().Get("coreId"))
 			}
@@ -55,7 +55,7 @@ func TestCancelBeforePostResponseIsSentAfterRegistrationAndWaitsForTerminal(t *t
 			}
 			cancelOnce.Do(func() { close(cancelReceived) })
 			writeJSONForTest(w, http.StatusAccepted, cancelState)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-1/events":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-1/events":
 			if r.URL.Query().Get("coreId") != "core-1" {
 				t.Errorf("events coreId query = %q", r.URL.Query().Get("coreId"))
 			}
@@ -74,7 +74,7 @@ func TestCancelBeforePostResponseIsSentAfterRegistrationAndWaitsForTerminal(t *t
 			mu.Unlock()
 			writeSSEForTest(w, flusher, "run.snapshot", terminal)
 			writeSSEForTest(w, flusher, "run.terminal", terminal)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-1":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-1":
 			mu.Lock()
 			current := state
 			mu.Unlock()
@@ -146,6 +146,159 @@ func TestCancelBeforePostResponseIsSentAfterRegistrationAndWaitsForTerminal(t *t
 	}
 }
 
+func TestWaitRequiresFinalConversationSnapshotBeforeRunTerminal(t *testing.T) {
+	allowFinal := make(chan struct{})
+	allowTerminal := make(chan struct{})
+	initialSent := make(chan struct{})
+	finalSent := make(chan struct{})
+	var finalOnce, terminalOnce sync.Once
+	defer finalOnce.Do(func() { close(allowFinal) })
+	defer terminalOnce.Do(func() { close(allowTerminal) })
+
+	terminal := api.RunState{CoreID: "core-cut", RunID: "run-cut", Seq: 5, Phase: "terminal",
+		Result: &api.RunResult{OK: true, AgentResult: &api.AgentResult{OK: true, Outcome: "completed", FinalText: "result"}}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs":
+			writeJSONForTest(w, http.StatusAccepted, terminal)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-cut/events":
+			w.Header().Set("Content-Type", "text/event-stream")
+			flusher := w.(http.Flusher)
+			oldCut := api.ConversationSnapshot{ScopeID: "run-cut", ViewID: "view-cut", Revision: 4,
+				ThroughSequence: uint64Pointer(4), Order: []string{"cv:assistant"},
+				Entities: map[string]api.ConversationEntity{"cv:assistant": {ID: "cv:assistant", Kind: "assistant", Text: "途中", Status: "incomplete"}}}
+			writeRunSnapshotForTest(w, flusher, terminal, oldCut)
+			close(initialSent)
+			<-allowFinal
+			finalCut := oldCut
+			finalCut.Revision = 5
+			finalCut.ThroughSequence = uint64Pointer(5)
+			entity := finalCut.Entities["cv:assistant"]
+			entity.Text = "最終本文"
+			entity.Status = "completed"
+			finalCut.Entities[entity.ID] = entity
+			writeRunSnapshotForTest(w, flusher, terminal, finalCut)
+			close(finalSent)
+			<-allowTerminal
+			writeSSEForTest(w, flusher, "run.terminal", terminal)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.String())
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, err := New(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	events := make(chan RunEvent, 8)
+	handle := client.StartRun(api.StartRunRequest{CoreID: "core-cut", RunID: "run-cut", Task: "task"}, func(event RunEvent) {
+		events <- event
+	})
+	select {
+	case <-initialSent:
+	case <-time.After(2 * time.Second):
+		t.Fatal("initial terminal cut was not sent")
+	}
+	first := receiveRunEvent(t, events, "run.snapshot")
+	if first.State.Phase != "terminal" || first.Conversation == nil || first.Conversation.Revision != 4 {
+		t.Fatalf("initial fixed cut did not preserve terminal phase and old revision: %+v", first)
+	}
+
+	waitDone := make(chan struct{})
+	var result api.RunState
+	var waitErr error
+	go func() {
+		result, waitErr = handle.Wait()
+		close(waitDone)
+	}()
+	assertWaitBlocked(t, waitDone, "initial terminal phase completed Wait before final snapshot")
+
+	finalOnce.Do(func() { close(allowFinal) })
+	select {
+	case <-finalSent:
+	case <-time.After(2 * time.Second):
+		t.Fatal("final durable conversation cut was not sent")
+	}
+	final := receiveRunEvent(t, events, "run.snapshot")
+	if final.State.Seq != first.State.Seq || final.Conversation == nil || final.Conversation.Revision != 5 || final.Conversation.Entities["cv:assistant"].Text != "最終本文" {
+		t.Fatalf("same run seq did not accept newer final conversation revision: %+v", final)
+	}
+	assertWaitBlocked(t, waitDone, "final snapshot alone completed Wait before run.terminal")
+
+	terminalOnce.Do(func() { close(allowTerminal) })
+	select {
+	case <-waitDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Wait did not complete after final snapshot followed by run.terminal")
+	}
+	if waitErr != nil || result.Phase != "terminal" || result.Result == nil || result.Result.AgentResult == nil || result.Result.AgentResult.FinalText != "result" {
+		t.Fatalf("terminal wait result = %+v, %v", result, waitErr)
+	}
+	terminalEvent := receiveRunEvent(t, events, "run.terminal")
+	if terminalEvent.Conversation != nil || terminalEvent.State.Result == nil {
+		t.Fatalf("run.terminal was not the light terminal result after the final snapshot: %+v", terminalEvent)
+	}
+}
+
+func TestRunUpdateAppliesNewConversationRevisionAtSameRunSequence(t *testing.T) {
+	var received []RunEvent
+	handle := &runHandle{request: api.StartRunRequest{CoreID: "core-seq", RunID: "run-seq"}, observer: func(event RunEvent) {
+		received = append(received, event)
+	}}
+	state := api.RunState{CoreID: "core-seq", RunID: "run-seq", Seq: 12, Phase: "running"}
+	if !handle.publish(RunEvent{Kind: "run.snapshot", State: state, Conversation: &api.ConversationSnapshot{
+		ScopeID: "run-seq", ViewID: "view-1", Revision: 3, Order: []string{}, Entities: map[string]api.ConversationEntity{},
+	}}) {
+		t.Fatal("initial run snapshot unexpectedly disconnected")
+	}
+	entity := api.ConversationEntity{ID: "cv:answer", Kind: "assistant", Text: "最新本文", Status: "streaming"}
+	if !handle.publish(RunEvent{Kind: "run.update", State: state, Update: &api.ConversationUpdate{
+		ScopeID: "run-seq", ViewID: "view-1", BaseRevision: 3, Revision: 4, Upserts: []api.ConversationEntity{entity},
+	}}) {
+		t.Fatal("same-sequence conversation update unexpectedly disconnected")
+	}
+	if handle.state.Seq != 12 || handle.conversationRevision != 4 || len(received) != 2 || received[1].Update == nil || received[1].Update.Upserts[0].Text != "最新本文" {
+		t.Fatalf("run seq gate discarded an independent conversation revision: state=%+v revision=%d events=%+v", handle.state, handle.conversationRevision, received)
+	}
+}
+
+func assertWaitBlocked(t *testing.T, done <-chan struct{}, message string) {
+	t.Helper()
+	select {
+	case <-done:
+		t.Fatal(message)
+	default:
+	}
+}
+
+func receiveRunEvent(t *testing.T, events <-chan RunEvent, kind string) RunEvent {
+	t.Helper()
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
+	for {
+		select {
+		case event := <-events:
+			if event.Kind == kind {
+				return event
+			}
+		case <-deadline.C:
+			t.Fatalf("did not receive %s event", kind)
+			return RunEvent{}
+		}
+	}
+}
+
+func writeRunSnapshotForTest(w http.ResponseWriter, flusher http.Flusher, state api.RunState, conversation api.ConversationSnapshot) {
+	data, _ := json.Marshal(api.RunSnapshot{RunState: state, Conversation: conversation})
+	_, _ = fmt.Fprintf(w, "event: run.snapshot\nid: %s/%s/%d\ndata: %s\n\n", state.CoreID, state.RunID, state.Seq, data)
+	flusher.Flush()
+}
+
+func uint64Pointer(value uint64) *uint64 { return &value }
+
 func TestCancelCanBeRetriedAfterCoreStillReportsRunRunning(t *testing.T) {
 	streamConnected := make(chan struct{})
 	terminalRequested := make(chan struct{})
@@ -160,13 +313,12 @@ func TestCancelCanBeRetriedAfterCoreStillReportsRunRunning(t *testing.T) {
 	stateReadCount := 0
 	state := api.RunState{
 		CoreID: "core-retry", RunID: "run-retry", Seq: 0, Phase: "running",
-		Texts: []api.TextState{}, Operations: []api.OperationState{}, Executions: []api.ExecutionState{},
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs":
 			writeJSONForTest(w, http.StatusAccepted, state)
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs/run-retry/cancel":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs/run-retry/cancel":
 			mu.Lock()
 			cancelCount++
 			currentAttempt := cancelCount
@@ -186,13 +338,13 @@ func TestCancelCanBeRetriedAfterCoreStillReportsRunRunning(t *testing.T) {
 			}
 			terminalOnce.Do(func() { close(terminalRequested) })
 			writeJSONForTest(w, http.StatusAccepted, cancelState)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-retry":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-retry":
 			mu.Lock()
 			stateReadCount++
 			current := state
 			mu.Unlock()
 			writeJSONForTest(w, http.StatusOK, current)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-retry/events":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-retry/events":
 			w.Header().Set("Content-Type", "text/event-stream")
 			flusher := w.(http.Flusher)
 			mu.Lock()
@@ -283,12 +435,11 @@ func TestLostStartResponseLooksUpSameRunIDWithoutDuplicatePost(t *testing.T) {
 	postCount := 0
 	terminal := api.RunState{
 		CoreID: "core-2", RunID: "run-stable", Seq: 4, Phase: "terminal",
-		Texts: []api.TextState{}, Operations: []api.OperationState{}, Executions: []api.ExecutionState{},
 		Result: &api.RunResult{OK: true, AgentResult: &api.AgentResult{OK: true, Outcome: "final", FinalText: "done"}},
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs":
 			mu.Lock()
 			postCount++
 			mu.Unlock()
@@ -298,10 +449,11 @@ func TestLostStartResponseLooksUpSameRunIDWithoutDuplicatePost(t *testing.T) {
 				return
 			}
 			_ = connection.Close()
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-stable":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-stable":
 			writeJSONForTest(w, http.StatusOK, terminal)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-stable/events":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-stable/events":
 			w.Header().Set("Content-Type", "text/event-stream")
+			writeSSEForTest(w, w.(http.Flusher), "run.snapshot", terminal)
 			writeSSEForTest(w, w.(http.Flusher), "run.snapshot", terminal)
 			writeSSEForTest(w, w.(http.Flusher), "run.terminal", terminal)
 		default:
@@ -341,7 +493,6 @@ func TestUnconfirmedStartRecoversSameRunHandleAndCanCancel(t *testing.T) {
 	getCount := 0
 	state := api.RunState{
 		CoreID: "core-recover", RunID: runID, Seq: 0, Phase: "running",
-		Texts: []api.TextState{}, Operations: []api.OperationState{}, Executions: []api.ExecutionState{},
 	}
 	disconnected := make(chan RunEvent, 8)
 	recoveredSnapshot := make(chan struct{}, 1)
@@ -349,7 +500,7 @@ func TestUnconfirmedStartRecoversSameRunHandleAndCanCancel(t *testing.T) {
 	var terminalOnce sync.Once
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs":
 			var request api.StartRunRequest
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				t.Errorf("decode start request: %v", err)
@@ -367,7 +518,7 @@ func TestUnconfirmedStartRecoversSameRunHandleAndCanCancel(t *testing.T) {
 				return
 			}
 			writeJSONForTest(w, http.StatusOK, current)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/"+runID:
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/"+runID:
 			mu.Lock()
 			getCount++
 			canReach := online
@@ -378,7 +529,7 @@ func TestUnconfirmedStartRecoversSameRunHandleAndCanCancel(t *testing.T) {
 				return
 			}
 			writeJSONForTest(w, http.StatusOK, current)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/"+runID+"/events":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/"+runID+"/events":
 			mu.Lock()
 			current := state
 			mu.Unlock()
@@ -395,7 +546,7 @@ func TestUnconfirmedStartRecoversSameRunHandleAndCanCancel(t *testing.T) {
 			mu.Unlock()
 			writeSSEForTest(w, flusher, "run.snapshot", terminal)
 			writeSSEForTest(w, flusher, "run.terminal", terminal)
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs/"+runID+"/cancel":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs/"+runID+"/cancel":
 			if r.URL.Query().Get("coreId") != "core-recover" {
 				t.Errorf("cancel coreId = %q", r.URL.Query().Get("coreId"))
 			}
@@ -470,9 +621,9 @@ func TestClientCloseStopsUnconfirmedRunLoopAndWaitJoinsIt(t *testing.T) {
 	disconnected := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runs":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v2/runs":
 			dropHTTPResponse(t, w)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runs/run-close":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/runs/run-close":
 			dropHTTPResponse(t, w)
 		default:
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.String())
@@ -531,7 +682,13 @@ func dropHTTPResponse(t *testing.T, w http.ResponseWriter) {
 }
 
 func writeSSEForTest(w http.ResponseWriter, flusher http.Flusher, event string, state api.RunState) {
-	data, _ := json.Marshal(state)
+	conversation := api.ConversationSnapshot{ScopeID: "run", ViewID: "view-1", Order: []string{}, Entities: map[string]api.ConversationEntity{}}
+	var data []byte
+	if event == "run.terminal" {
+		data, _ = json.Marshal(state)
+	} else {
+		data, _ = json.Marshal(api.RunSnapshot{RunState: state, Conversation: conversation})
+	}
 	_, _ = fmt.Fprintf(w, "event: %s\nid: %s/%s/%d\ndata: %s\n\n", event, state.CoreID, state.RunID, state.Seq, data)
 	flusher.Flush()
 }

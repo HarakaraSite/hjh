@@ -20,9 +20,28 @@ Coreからコンテナ・OS仮想マシンへAgentを配置する案は[将来�
 I-05は「コアとTUIの分離」。`hjh serve`と独立した`hjh-tui`を実装し、HTTP＋JSON＋SSEで通信する。
 [計画](docs/plans/i05-core-tui-separation.md)と[HTTP API契約](docs/design/http-api.md)に対応し、実provider・独立TUI・Linux配布物の確認と通常/批判的reviewを完了した。
 [実装・確認・reviewの結果](docs/results/i05-core-tui-separation.md)を参照する。
-I-06は旧Henjiの操作・表示に沿った会話画面と、それを支えるCore会話経路の拡張を計画中。
+I-06で通常画面の会話TUIと、それを支えるCore会話経路を実装し、実provider・private tmux・通常／批判的reviewを確認した。
+HTTP契約は`/api/v2`へ更新した。初回切替ではCoreとTUIの両方を再起動する。
+その後、利用者が確認したMarkdown本文の分断・欠落・重複をTUIで修正した。
+追加の表示修正では、色を後回しにして原文記号を保ち、ツールを短い行へ分離し、IMEの実cursorを修正した。
+`/tools`と`/tool NUMBER_OR_ENTITY_ID`で保存済み結果の詳細を読める。この修正はCore／TUIの両方を再起動する。
+利用者が表示順を確認した後、toolの代理実行による二重表示を修正し、公開本文を`thinking`、
+公開要約を`thinking summary`として保存・表示する経路を実装した。Responsesは要約も要求する。
+実OpenRouterでthinkingの途中表示とtool一行を確認した。公開summaryは実providerで未観測である。
 Ghostty → SSH → tmuxを利用経路とし、[計画](docs/plans/i06-conversation-tui.md)と
-[S-06スパイクの結果](docs/results/s06-tui-core.md)に旧Data Worker・参照実装の調査と確認範囲を記録した。
+[S-06スパイクの結果](docs/results/s06-tui-core.md)に旧Data Worker・参照実装の調査を、
+[I-06の結果](docs/results/i06-conversation-tui.md)に保存量・保持メモリ・表示・実利用の確認範囲を記録した。
+I-07ではSession選択・命名、detach／再接続、Core停止を実装した。
+[結果](docs/results/i07-session-management.md)に実利用経路とreviewを記録した。
+I-08ではprovider／model／effort pickerとmodel検索を追加し、5接続先の実run・保存・再開を確認した。
+[結果](docs/results/i08-connection-selection.md)に実接続・通常／批判的review・配布物の確認を記録した。
+I-09では実行中のF2予約、F3追加入力、予約列のF1停止とreceiptの参照を接続した。
+[契約](docs/design/i09-runtime-input-contract.md)と[結果](docs/results/i09-runtime-input.md)を参照する。
+I-10では`/context`で入力準備と引継ぎ状態を確認し、`/recall`で停止した実行の公開情報を次の依頼へ渡す。
+[契約](docs/design/i10-context-recall-contract.md)と[結果](docs/results/i10-context-recall.md)を参照する。
+I-12では`/login`からAPIキー登録とChatGPT account選択へ進める。保存済み認証を再利用し、
+登録・選択の変更は次runへ反映する。[契約](docs/design/i12-authentication-contract.md)と
+[確認結果](docs/results/i12-authentication-ui.md)を参照する。
 S-01〜S-05スパイクは実施済み。[実験コード](spikes/s01/README.md)、
 [S-01の結果](docs/spikes/s01-results.md)、[S-02の結果](docs/spikes/s02-results.md)、
 [S-03の結果](docs/spikes/s03-results.md)、[S-04の結果](docs/spikes/s04-results.md)、
@@ -37,7 +56,7 @@ Linux静的配布物は `python3 scripts/package-linux.py` で `dist/packages/` 
 
 接続は外部 `.hjh/extensions/config.json` の `providers` で指定する。
 標準でOpenRouter Responses、OpenCode Go Chat／Responses、OpenAI API Responses、ChatGPT OAuthを用意した。
-APIキーはJSONのcredential profileが参照する環境変数、fileの順に読む。
+APIキーは `/login` の専用入力欄から登録できる。解決順は明示 `--credential-file`、登録キー、profileの環境変数、file。
 標準のfile参照は旧Henjiと同じ保存先。`--credential-file PATH` は選択profileのfileを明示して使う。
 APIキーを設定JSONへ書かない。[provider設定と認証](docs/design/providers.md)に完全な形式とログイン操作を記載した。
 
@@ -65,7 +84,7 @@ stdoutは最終回答、stderrは進捗・Session ID・execution ID。Ctrl-Cで�
 run_agentを選んだroleでは、生成JSから `await api.agents.run({role: "reviewer", task: "調査内容と必要な文脈"})` を使える。
 外部tool／hook実装の同名APIは基礎委譲操作へ接続する。
 並行委譲は `Promise.all`。子は独立した会話とVMで実行し、結果にexecution IDと終了状態を返す。
-子の進捗はID付きで表示し、stdoutやTUIの親本文へ混ぜない。子の実行証拠はinspectから閲覧できる。
+子の進捗はID付きで表示する。TUIでは親子を区別して会話順に示し、CLIの親stdoutへ子本文を混ぜない。子の実行証拠はinspectから閲覧できる。
 子の会話をSessionへ直接採用せず、親の正常完了turnだけを採用する。
 
 TUIはCoreを起動してから、別端末で接続する。
@@ -76,14 +95,29 @@ TUIはCoreを起動してから、別端末で接続する。
 ./dist/hjh-tui --endpoint http://127.0.0.1:8765 --session SESSION_ID
 ```
 
-Enterで依頼、Alt-EnterまたはCtrl-Jで改行。実行中はEscで停止し、Ctrl-Cで終了する。
-通常TUI終了は自分のrunをキャンセルして保存完了まで待ち、Coreは起動したまま残す。
-Core自体はserve側のCtrl-C/SIGTERMで終了する。TUIの購読切断だけではrunをキャンセルしない。
-DB/config/credential-fileはCore側へ指定する。TUIのworkspace指定もCore上のpathを指す。
-`/sessions` でSessionを選び、`/new` で新規会話、`/resume ID` で再開する。
+通常画面に会話を出し、端末／tmuxのscrollbackで検索・コピーする。
+Enterで依頼、Alt／Shift／Ctrl+EnterまたはCtrl+Jで改行。Tabでコマンド補完、Escで選択表示を閉じる。
+実行中のEnterはdraftを保持する。受付可能な期間はF2で次run予約、F3で現在の親runへ指示を追加する。
+F1で現在runの予約列をキャンセルし、Ctrl+Cで入力を消す。`/inputs`で受付・適用・予約の状態を読む。
+停止後は`/recall [ID|latest]`で参考情報を準備し、`/context`でsourceと次回選択を確認して新しい依頼を送る。
+`/recall clear`で解除する。引継ぎは次の通常rootの開始保存時に一度消費し、完了済みtoolを自動再実行しない。
+detach中も準備はCoreに残る。Coreを再起動した場合は再準備する。
+`/detach`／Ctrl+DでTUIを閉じても、Coreと実行中runは継続する。切断時に表示されたSession IDを
+`--session ID`／`/resume ID`で開くと、その実行中runへ再接続する。
+`/quit`／Ctrl+QはCoreを停止し、全runの取消と保存完了を待ってTUIも終了する。
+Coreのserve側Ctrl-C／SIGTERMでも同じ終了保存を待つ。
+DB/config/credential-file/credential-state-dirはCore側へ指定する。TUIのworkspace指定もCore上のpathを指す。
+F4／`/sessions`でSessionを選び、`/rename 名前`で現在Sessionを命名する。
+`/new`で新規会話、`/resume ID`で履歴または実行中runを再開する。
 `/history [開始turn 終了turn]` は採用会話、`/executions` と
 `/inspect ID [開始ordinal 終了ordinal]` は失敗・取消を含む実行証拠を表示する。
-`/providers`・`/models [PROVIDER]` で候補を表示し、`/provider ID`・`/model ID`・`/effort VALUE` で次の接続を選ぶ。`/roles` はrole一覧、`/role NAME` は次の実行のrole選択、
+`/provider`・`/model`・`/effort`で候補を選び、`/model`ではID／表示名を検索できる。
+`/model`のTabでお気に入りを登録・解除する。保存確認後に印が付き、一覧の先頭へ並ぶ。
+お気に入りは同じ実効config・providerを使うSession間で共有し、Core再起動後も残る。
+保存先は`$XDG_STATE_HOME/hjh/model-favorites/`または`~/.local/state/hjh/model-favorites/`。
+Coreの`--model-favorites-dir PATH`で保存先だけを変更でき、credentialの保存先には影響しない。
+上下で選びEnterで確定、Escで閉じる。`/providers`・`/models [PROVIDER]`の一覧表示と、
+`/provider ID`・`/model ID`・`/effort VALUE`の直接指定も使える。`/roles` はrole一覧、`/role NAME` は次の実行のrole選択、
 `/role` は選択状態を表示する。実行中の選択変更は次runから反映する。成功rootのmodelとroleはSessionへ保存される。
 画面内の `/help` と[操作・責務](docs/design/tui.md)に詳細を記載する。
 

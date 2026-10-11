@@ -18,7 +18,7 @@ import (
 )
 
 func textObservation(text string) contracts.Observation {
-	return contracts.Observation{Kind: "assistant_text", Phase: "progress", Result: contracts.JSON(map[string]string{"text": text})}
+	return contracts.Observation{Kind: "assistant_text", Phase: "progress", Text: text}
 }
 
 func TestRunOutputModesAndModelSteps(t *testing.T) {
@@ -27,7 +27,8 @@ func TestRunOutputModesAndModelSteps(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			out := runOutput{stdout: &stdout, stderr: &stderr, stream: stream}
 			for _, event := range []contracts.Observation{
-				{Kind: "model_request", Phase: "start"}, textObservation("同じ🙂"), textObservation("同じ🙂前半"),
+				{Kind: "model_request", Phase: "start"}, textObservation("同じ🙂"),
+				{Kind: "assistant_text", Thinking: []contracts.ThinkingItem{{Key: "summary", Text: "公開summary"}}}, textObservation("同じ🙂前半"),
 				{Kind: "model_request", Phase: "end"}, {Kind: "tool", Name: "read_file", Phase: "started"},
 				{Kind: "model_request", Phase: "start"}, textObservation("同じ🙂"), textObservation("同じ🙂最終\n"),
 				{Kind: "model_request", Phase: "end"},
@@ -68,7 +69,7 @@ func TestRunOutputKeepsChildProgressOffRootTextStream(t *testing.T) {
 	for _, event := range []contracts.Observation{
 		{ExecutionID: "child-1", ParentExecutionID: "root-1", Kind: "execution", Name: "run", Phase: "started", Input: contracts.JSON(map[string]string{"sessionId": "child-session", "role": "reviewer"})},
 		{ExecutionID: "child-1", ParentExecutionID: "root-1", Kind: "model_request", Name: "openrouter.chat.completions", Phase: "start", ModelStep: 4},
-		{ExecutionID: "child-1", ParentExecutionID: "root-1", Kind: "assistant_text", Phase: "progress", ModelStep: 4, Result: contracts.JSON(map[string]string{"text": "child-only body"})},
+		{ExecutionID: "child-1", ParentExecutionID: "root-1", Kind: "assistant_text", Phase: "progress", ModelStep: 4, Text: "child-only body"},
 	} {
 		if err := out.observe(event); err != nil {
 			t.Fatal(err)

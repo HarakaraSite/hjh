@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"hjh/internal/contracts"
+	"hjh/internal/executiondata"
 	"hjh/internal/extensions"
 	"hjh/internal/history"
 )
@@ -45,8 +46,21 @@ func TestDelegationParallelResultsEvidenceAndResume(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, "input.txt"), []byte("source"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	owner := executiondata.NewOwner()
 	var mu sync.Mutex
 	var rootResult string
+	var liveFacts []contracts.ExecutionFact
+	_, subscription, err := executiondata.CaptureAndSubscribe(owner,
+		func(string, uint64) (struct{}, error) { return struct{}{}, nil },
+		func(commit contracts.ExecutionCommit) {
+			mu.Lock()
+			liveFacts = append(liveFacts, commit.Facts...)
+			mu.Unlock()
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer subscription.Close()
 	provider := delegationProvider(func(ctx context.Context, request contracts.ModelRequest, observe contracts.Observer) (contracts.ModelResult, error) {
 		task := request.Messages[0].VisibleText()
 		if len(request.Messages) == 1 {
@@ -64,7 +78,8 @@ func TestDelegationParallelResultsEvidenceAndResume(t *testing.T) {
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result, err := Run(ctx, store, provider, RunOptions{Task: "parent", Workspace: workspace, ModelID: "test/model"})
+	result, err := Run(ctx, store, provider, RunOptions{Task: "parent", Workspace: workspace, ModelID: "test/model",
+		ExecutionDataOwner: owner})
 	if err != nil || !result.Result.OK {
 		t.Fatalf("run %+v: %v", result, err)
 	}
@@ -72,6 +87,20 @@ func TestDelegationParallelResultsEvidenceAndResume(t *testing.T) {
 	if err != nil || len(children) != 2 {
 		t.Fatalf("children %+v: %v", children, err)
 	}
+	cut, err := store.CaptureConversationCut(ctx, result.ExecutionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var replayFacts []contracts.ExecutionFact
+	if err := store.WalkConversationCut(ctx, cut, func(fact contracts.ExecutionFact) error {
+		replayFacts = append(replayFacts, fact)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	liveFacts = append([]contracts.ExecutionFact(nil), liveFacts...)
+	mu.Unlock()
 	parentRecords, err := store.Records(ctx, result.ExecutionID, 0, -1)
 	if err != nil {
 		t.Fatal(err)
@@ -115,6 +144,28 @@ func TestDelegationParallelResultsEvidenceAndResume(t *testing.T) {
 		}
 		if !admissionLinked {
 			t.Fatal("child admission lacks parent call relation")
+		}
+		var liveAnswer, replayAnswer *contracts.ExecutionFact
+		for index := range liveFacts {
+			fact := &liveFacts[index]
+			if fact.ExecutionID == child.ID && fact.Conversation.EntityKind == "assistant" && fact.Text == child.Task+" source result" {
+				copy := *fact
+				liveAnswer = &copy
+				break
+			}
+		}
+		for index := range replayFacts {
+			fact := &replayFacts[index]
+			if fact.ExecutionID == child.ID && fact.Conversation.EntityKind == "assistant" && fact.Text == child.Task+" source result" {
+				copy := *fact
+				replayAnswer = &copy
+				break
+			}
+		}
+		if liveAnswer == nil || replayAnswer == nil || liveAnswer.ParentExecutionID != result.ExecutionID ||
+			replayAnswer.ParentExecutionID != result.ExecutionID || liveAnswer.RootExecutionID != result.ExecutionID ||
+			replayAnswer.RootExecutionID != result.ExecutionID {
+			t.Fatalf("child assistant live/replay scope differs: live=%+v replay=%+v root=%q", liveAnswer, replayAnswer, result.ExecutionID)
 		}
 		childMessages, e := store.Messages(ctx, child.ID, 0, -1)
 		if e != nil || len(childMessages) < 4 {

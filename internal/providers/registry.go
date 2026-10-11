@@ -56,8 +56,10 @@ type Auth struct {
 // ModelInfo is a display candidate. It does not limit model IDs accepted by
 // Resolve.
 type ModelInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Efforts      []string `json:"efforts,omitempty"`
+	EffortSource string   `json:"effortSource,omitempty"`
 }
 
 // Catalog identifies a model catalog source. An account-specific catalog is
@@ -83,6 +85,13 @@ func Parse(data []byte) (*Registry, error) {
 	}
 	for id, definition := range cfg.Providers {
 		definition.ID = id
+		for i := range definition.Models {
+			if definition.Models[i].Efforts != nil {
+				definition.Models[i].EffortSource = "config"
+			} else {
+				definition.Models[i].EffortSource = ""
+			}
+		}
 		cfg.Providers[id] = definition
 	}
 	return &Registry{Config: cfg}, nil

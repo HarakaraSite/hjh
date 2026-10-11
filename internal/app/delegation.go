@@ -36,7 +36,7 @@ func (d *delegation) RunAgent(ctx context.Context, request contracts.AgentRunReq
 	}
 	provider := d.provider
 	if !d.input.injectedProvider {
-		provider, err = d.input.connections.provider(ctx, registry, model, d.input.rootSessionID)
+		provider, err = d.input.connections.provider(ctx, registry, model, d.input.rootSessionID, d.input.configPath)
 		if err != nil {
 			return output, err
 		}
@@ -60,6 +60,7 @@ func (d *delegation) RunAgent(ctx context.Context, request contracts.AgentRunReq
 	}
 	childInput := d.input
 	childInput.execution, childInput.snapshot, childInput.session = child, snapshot, nil
+	childInput.recall = nil
 	childInput.model = model
 	childInput.spawnRecordID = d.journal.startReference(request.CallID)
 	result, runErr := execute(ctx, d.store, provider, childInput, d.control, d.progress)

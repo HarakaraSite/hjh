@@ -31,11 +31,15 @@ func (m *model) handleCommand(line string) {
 			m.status = "usage: /quit"
 			return
 		}
-		if m.activeRun != nil {
-			m.requestExit()
-		} else {
-			m.quitting = true
+		m.requestCoreShutdown()
+	case "/detach":
+		if len(fields) != 1 {
+			m.status = "usage: /detach"
+			return
 		}
+		m.requestDetach()
+	case "/rename":
+		m.renameSession(strings.TrimSpace(strings.TrimPrefix(line, "/rename")))
 	case "/new":
 		if len(fields) != 1 {
 			m.status = "usage: /new"
@@ -53,14 +57,7 @@ func (m *model) handleCommand(line string) {
 			m.status = "usage: /sessions"
 			return
 		}
-		ctx, cancel := context.WithCancel(m.ctx)
-		job := m.newJob(cancel)
-		generation := m.sessionGeneration
-		m.status = "loading Sessions"
-		m.launch(job, func() tea.Msg {
-			sessions, err := m.backend.Sessions(ctx)
-			return sessionsLoadedMsg{jobID: job.id, generation: generation, sessions: sessions, err: err}
-		})
+		m.openSessionPicker()
 	case "/history":
 		if len(fields) != 1 && len(fields) != 3 {
 			m.status = "usage: /history [FROM_TURN TO_TURN]"
@@ -90,6 +87,27 @@ func (m *model) handleCommand(line string) {
 			}
 			return formatConversation(messages), nil
 		})
+	case "/inputs":
+		if len(fields) != 1 {
+			m.status = "usage: /inputs"
+			return
+		}
+		if m.sessionID == "" {
+			m.status = "start or resume a Session before listing runtime inputs"
+			return
+		}
+		sessionID := m.sessionID
+		m.query("runtime inputs · "+sessionID, func(ctx context.Context) (string, error) {
+			page, err := m.backend.Inputs(ctx, sessionID, "", 0, false)
+			if err != nil {
+				return "", err
+			}
+			return formatRuntimeInputs(page.Receipts), nil
+		})
+	case "/context":
+		m.contextCommand(fields)
+	case "/recall":
+		m.recallCommand(fields)
 	case "/executions":
 		if len(fields) != 1 {
 			m.status = "usage: /executions"
@@ -106,6 +124,49 @@ func (m *model) handleCommand(line string) {
 				return "", err
 			}
 			return formatExecutions(executions), nil
+		})
+	case "/tools":
+		var lines []string
+		for _, entity := range m.mergedEntities() {
+			if entity.Kind != "tool" {
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("%d · %s %s · %s · %s", len(lines)+1, entity.Name, entity.Preview, entity.Status, entity.ID))
+		}
+		if len(lines) == 0 {
+			m.status = "no tool calls in this Session"
+		} else {
+			m.appendEntry("tools", strings.Join(lines, "\n")+"\n/tool NUMBER shows one saved call/result")
+		}
+	case "/tool":
+		if len(fields) != 2 {
+			m.status = "usage: /tool NUMBER_OR_ENTITY_ID (see /tools)"
+			return
+		}
+		var selected *api.ConversationEntity
+		number, _ := strconv.Atoi(fields[1])
+		index := 0
+		for _, entity := range m.mergedEntities() {
+			if entity.Kind != "tool" {
+				continue
+			}
+			index++
+			if entity.ID == fields[1] || (number > 0 && index == number) {
+				selected = &entity
+				break
+			}
+		}
+		if selected == nil || selected.Detail == nil {
+			m.status = "tool detail not found (see /tools)"
+			return
+		}
+		locator := *selected.Detail
+		m.query("tool · "+selected.Name, func(ctx context.Context) (string, error) {
+			record, err := m.backend.Record(ctx, locator.ExecutionID, locator.Ordinal)
+			if err != nil {
+				return "", err
+			}
+			return formatToolDetail(record), nil
 		})
 	case "/inspect":
 		if len(fields) != 2 && len(fields) != 4 {
@@ -134,20 +195,14 @@ func (m *model) handleCommand(line string) {
 		})
 	case "/model":
 		if len(fields) == 1 {
-			if m.modelID == "" {
-				m.status = "model will come from config or the selected Session"
-			} else {
-				m.status = "model for next run: " + m.modelID
-			}
+			m.openConnectionPicker(modelPicker)
 			return
 		}
 		if len(fields) != 2 {
 			m.status = "usage: /model MODEL_ID"
 			return
 		}
-		m.modelID = fields[1]
-		m.modelSet = true
-		m.status = "model for next run: " + m.modelID
+		m.setModel(fields[1])
 	case "/roles":
 		if len(fields) != 1 {
 			m.status = "usage: /roles"
@@ -170,8 +225,12 @@ func (m *model) handleCommand(line string) {
 			m.status = "usage: /role [NAME]"
 			return
 		}
+		before := m.selectionRequest()
 		m.roleID = fields[1]
 		m.roleSet = true
+		if before != m.selectionRequest() {
+			m.nextSelectionChanged()
+		}
 		m.status = "next run role: " + m.roleID
 		if m.activeRun != nil {
 			m.status += " · current effective role: " + m.currentRoleLabel()
@@ -212,37 +271,45 @@ func (m *model) query(title string, operation func(context.Context) (string, err
 	})
 }
 
-func (m *model) queryLogin(title string, operation func(context.Context) (api.Login, error)) {
-	ctx, cancel := context.WithCancel(m.ctx)
-	job := m.newJob(cancel)
-	generation := m.sessionGeneration
-	m.status = "loading " + title
-	m.launch(job, func() tea.Msg {
-		login, err := operation(ctx)
-		if err != nil {
-			return operationResultMsg{jobID: job.id, generation: generation, title: title, err: err}
-		}
-		text := login.AuthorizationURL + "\n\nOpen this URL in your browser, then submit /login complete " + login.ProviderID + " for a local browser callback, or /login callback " + login.ProviderID + " CALLBACK_URL"
-		return operationResultMsg{jobID: job.id, generation: generation, title: title, text: text, login: &login}
-	})
-}
-
 func (m *model) changeSession(action sessionAction) {
+	if !action.newSession && action.resumeID == m.sessionID {
+		m.status = "current Session · " + m.sessionID
+		return
+	}
 	if m.activeRun != nil {
 		m.pendingSession = &action
-		m.requestRunCancel(m.activeRun)
+		m.requestInputChainCancel(m.activeRun)
 		if action.newSession {
-			m.status = "stopping current run before starting a new Session"
+			m.status = "stopping current run chain before starting a new Session"
 		} else {
-			m.status = "stopping current run before resuming " + action.resumeID
+			m.status = "stopping current run chain before resuming " + action.resumeID
 		}
+		return
+	}
+	if m.chainCancel != nil && !m.chainCancelSettled {
+		m.pendingSession = &action
+		m.requestInputChainCancel(nil)
+		m.status = "waiting for the current run chain to settle before switching Session"
 		return
 	}
 	m.applySessionAction(action)
 }
 
 func (m *model) applySessionAction(action sessionAction) {
+	m.closeConnectionPicker()
+	m.closeSessionPicker()
+	m.sealCurrentFrame()
 	m.sessionGeneration++
+	m.selectionGeneration++
+	m.sessionTitle = ""
+	m.sessionEntities = make(map[string]api.ConversationEntity)
+	m.clearRuntimeInputs()
+	m.runtimeReadPending = false
+	m.runtimeReadJobID = 0
+	m.receiptByPart = make(map[string]int)
+	m.receiptOffset = 0
+	m.lastTranscriptBytes = 0
+	m.invalidateTranscript()
 	if action.newSession {
 		m.sessionLoading = false
 		m.sessionID = ""
@@ -251,6 +318,7 @@ func (m *model) applySessionAction(action sessionAction) {
 		m.lastSelection = contracts.ModelSelection{}
 		m.entries = nil
 		m.status = "new conversation · Session is created on the first run"
+		m.rebaseAuthUIForCurrentRoute()
 		m.refreshViewport(true)
 		return
 	}
@@ -259,25 +327,6 @@ func (m *model) applySessionAction(action sessionAction) {
 	m.lastRunRole = ""
 	m.lastSelection = contracts.ModelSelection{}
 	m.loadSession(action.resumeID, m.sessionGeneration)
-}
-
-func formatSessionPicker(sessions []api.Session, selected int) string {
-	var b strings.Builder
-	b.WriteString("Saved Sessions  ·  ↑/↓ or j/k selects · Enter resumes · Esc closes")
-	for i, session := range sessions {
-		b.WriteString("\n\n")
-		marker := "  "
-		if i == selected {
-			marker = "▶ "
-		}
-		title := "(untitled)"
-		if session.Title != nil {
-			title = *session.Title
-		}
-		fmt.Fprintf(&b, "%s%s · %s\n  model: %s · turns: %d · updated: %s\n  workspace: %s",
-			marker, title, session.ID, selectedModel(session.ActiveModel), session.TurnCount, session.UpdatedAt, session.WorkspaceRoot)
-	}
-	return b.String()
 }
 
 func formatExecutions(executions []api.Execution) string {
@@ -396,18 +445,65 @@ func formatInspection(inspection api.Inspection) string {
 	return b.String()
 }
 
+func formatToolDetail(record api.Record) string {
+	var payload struct {
+		Input   json.RawMessage `json:"input"`
+		Result  json.RawMessage `json:"result"`
+		Content json.RawMessage `json:"content"`
+		Text    string          `json:"text"`
+		Error   string          `json:"error"`
+	}
+	_ = json.Unmarshal(record.Payload, &payload)
+	if payload.Text != "" {
+		return payload.Text
+	}
+	if len(payload.Result) > 0 {
+		var result struct {
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(payload.Result, &result) == nil && result.Text != "" {
+			return result.Text
+		}
+		return messageText(payload.Result)
+	}
+	if len(payload.Input) > 0 {
+		return messageText(payload.Input)
+	}
+	if len(payload.Content) > 0 {
+		var results []contracts.ToolResult
+		if json.Unmarshal(payload.Content, &results) == nil && len(results) > 0 {
+			var text []string
+			for _, result := range results {
+				text = append(text, result.Text)
+			}
+			return strings.Join(text, "\n")
+		}
+		return messageText(payload.Content)
+	}
+	if payload.Error != "" {
+		return payload.Error
+	}
+	return messageText(record.Payload)
+}
+
 var helpText = strings.Join([]string{
-	"/sessions                         choose a saved Session with arrows and Enter",
+	"/tools · /tool NUMBER_OR_ENTITY_ID — saved tool call/result detail",
+	"/inputs                           list accepted steering and follow-up receipt status",
+	"/context                          show saved parent input and pending recall",
+	"/recall [ID|latest|clear]           prepare stopped execution for the next root once",
+	"F4 / /sessions                    choose a saved Session with arrows and Enter",
 	"/new                              start a new conversation in this workspace",
-	"/resume SESSION_ID                load an adopted conversation",
+	"/resume SESSION_ID                resume history or attach to its running execution",
+	"/rename TEXT                      rename the current Session",
+	"/detach (Ctrl+D)                  exit TUI and let Core keep running",
 	"/history [FROM_TURN TO_TURN]      show the complete adopted turn range",
 	"/executions                       list executions, including failed and cancelled runs",
 	"/inspect ID [FROM TO]             show execution, children, messages, records, configuration, and context",
-	"/model MODEL_ID                   select the model for the next run",
+	"/model [MODEL_ID]                 search/select a model for the next run",
 	"/providers                        show external provider definitions",
-	"/provider PROVIDER_ID             select a connection for the next run",
+	"/provider [PROVIDER_ID]           select a connection for the next run",
 	"/models [PROVIDER_ID]              show models for a connection",
-	"/effort EFFORT                     select reasoning effort for the next run",
+	"/effort [VALUE]                    select a listed or directly specified effort",
 	"/login PROVIDER_ID                 Continue with ChatGPT",
 	"/login complete PROVIDER_ID         complete a local browser callback",
 	"/login callback PROVIDER_ID URL     complete login with the browser callback URL",
@@ -415,8 +511,11 @@ var helpText = strings.Join([]string{
 	"/roles                            show configured roles and their tools",
 	"/role [NAME]                      show role state or select a role for the next run",
 	"/help                             show these commands",
-	"/quit                             stop an active run, then exit",
-	"Enter submits; Alt+Enter or Ctrl+J inserts a newline. Esc stops a run and keeps the UI open.",
+	"/quit (Ctrl+Q)                    stop Core, wait for saves, then exit",
+	"Enter submits while idle; during a run it keeps the draft. F2 reserves a follow-up and F3 sends steering when shown.",
+	"Alt/Shift/Ctrl+Enter inserts a newline; F1 cancels the run input chain; Ctrl+C clears the draft.",
+	"Model search accepts text and paste; arrows, PgUp/PgDn, Home/End navigate; Esc closes a picker.",
+	"Tab completes slash commands; Esc closes a picker or completion.",
 }, "\n")
 
 func formatRoleCatalog(catalog api.RoleCatalog) string {

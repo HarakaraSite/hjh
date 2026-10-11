@@ -76,16 +76,21 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	assembly := newStreamAssembly(provider.config.API)
 	var progressSequence uint64
 	streamErr := consumeSSE(response.Body, func(event []byte) error {
-		return assembly.addEvent(provider, event, func(text string) error {
+		return assembly.addEvent(provider, event, func(text string, thinking []contracts.ThinkingItem) error {
+			if text == "" && len(thinking) == 0 {
+				return nil
+			}
 			progressSequence++
 			return provider.observe(observer, contracts.Observation{
-				ID:     requestID + "-text-" + strconv.FormatUint(progressSequence, 10),
-				Parent: requestID,
-				Kind:   "assistant_text",
-				Name:   provider.requestName(),
-				Phase:  "progress",
-				Time:   time.Now().UTC(),
-				Result: contracts.JSON(map[string]string{"text": text}),
+				ID:                requestID + "-text-" + strconv.FormatUint(progressSequence, 10),
+				Parent:            requestID,
+				Kind:              "assistant_text",
+				Name:              provider.requestName(),
+				Phase:             "progress",
+				Time:              time.Now().UTC(),
+				Text:              text,
+				Thinking:          thinking,
+				PhysicalRequestID: requestID,
 			})
 		})
 	})
@@ -101,6 +106,7 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	if err != nil {
 		return contracts.ModelResult{}, provider.fail(observer, requestID, err)
 	}
+	result.PhysicalRequestID = requestID
 	if presentJSON(result.Usage) {
 		if err := provider.observe(observer, contracts.Observation{
 			ID:     requestID + "-usage",
@@ -115,6 +121,9 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 		}
 	}
 	modelResult := map[string]any{"text": result.Text, "calls": result.Calls}
+	if result.FinishReason != "" {
+		modelResult["finishReason"] = result.FinishReason
+	}
 	if result.ProviderState != nil {
 		modelResult["providerState"] = result.ProviderState
 	}
@@ -122,13 +131,16 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 		modelResult["usage"] = result.Usage
 	}
 	if err := provider.observe(observer, contracts.Observation{
-		ID:     requestID + "-result",
-		Parent: requestID,
-		Kind:   "model_result",
-		Name:   provider.requestName(),
-		Phase:  "end",
-		Time:   time.Now().UTC(),
-		Result: contracts.JSON(modelResult),
+		ID:                requestID + "-result",
+		Parent:            requestID,
+		Kind:              "model_result",
+		Name:              provider.requestName(),
+		Phase:             "end",
+		Time:              time.Now().UTC(),
+		Result:            contracts.JSON(modelResult),
+		Text:              result.Text,
+		Thinking:          result.Thinking,
+		PhysicalRequestID: requestID,
 	}); err != nil {
 		return contracts.ModelResult{}, err
 	}

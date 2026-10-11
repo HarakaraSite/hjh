@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func (p *observedProvider) Generate(ctx context.Context, request contracts.Model
 	p.requests = append(p.requests, request)
 	p.mu.Unlock()
 	for _, text := range []string{"途中", "途中の本文"} {
-		if err := observe(contracts.Observation{Kind: "assistant_text", Phase: "delta", Result: contracts.JSON(map[string]any{"text": text})}); err != nil {
+		if err := observe(contracts.Observation{Kind: "assistant_text", Phase: "delta", Text: text}); err != nil {
 			return contracts.ModelResult{}, err
 		}
 	}
@@ -99,8 +100,22 @@ func TestIndependentSubscriptionCancelAndSessionReservation(t *testing.T) {
 	if state.SessionID == "" || state.ExecutionID == "" {
 		t.Fatalf("admission missing IDs: %+v", state)
 	}
-	if len(state.Texts) != 1 || state.Texts[0].Text != "途中の本文" {
-		t.Fatalf("cumulative text: %+v", state.Texts)
+	late, err := m.Subscribe(request.CoreID, request.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer late.Close()
+	owner := managedRunForTest(m, request.RunID).owner
+	if err := late.view.WaitThrough(context.Background(), owner.ThroughSequence()); err != nil {
+		t.Fatal(err)
+	}
+	liveConversation, err := late.view.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assistant := findEntity(liveConversation, "assistant", "途中の本文")
+	if assistant == nil || assistant.Status != "streaming" {
+		t.Fatalf("latest live assistant fact missing after the durable prefix drained: %+v", liveConversation)
 	}
 	_, _, err = m.Start(api.StartRunRequest{CoreID: request.CoreID, RunID: uuid.NewString(), SessionID: state.SessionID, Task: "同じSessionの別依頼"})
 	var conflict *api.Error
@@ -109,6 +124,15 @@ func TestIndependentSubscriptionCancelAndSessionReservation(t *testing.T) {
 	}
 	if _, created, err = m.Start(request); err != nil || created {
 		t.Fatalf("same ID ran twice: %t %v", created, err)
+	}
+	late.Close()
+	slow.Close()
+	run := managedRunForTest(m, request.RunID)
+	run.viewMu.Lock()
+	retainedWhileUnsubscribed := run.view != nil
+	run.viewMu.Unlock()
+	if retainedWhileUnsubscribed {
+		t.Fatal("active run retained a heavy view after its last conversation subscriber left")
 	}
 	if _, err = m.Cancel(request.CoreID, request.RunID); err != nil {
 		t.Fatal(err)
@@ -121,21 +145,49 @@ func TestIndependentSubscriptionCancelAndSessionReservation(t *testing.T) {
 	if err != nil || inspection.Execution.Lifecycle == "active" || inspection.Execution.Outcome != "cancelled" {
 		t.Fatalf("terminal before saved completion: %+v %v", inspection.Execution, err)
 	}
-	late, err := m.Subscribe(request.CoreID, request.RunID)
+	lateFinal, err := m.Subscribe(request.CoreID, request.RunID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer late.Close()
-	snapshot, err := late.Snapshot()
+	defer lateFinal.Close()
+	final, err := lateFinal.FinalSnapshotContext(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Phase != "terminal" || len(snapshot.Texts) != 1 || snapshot.Texts[0].Text != "途中の本文" {
-		t.Fatalf("late snapshot lost cancelled text: %+v", snapshot)
+	finalAssistant := findEntity(final.Conversation, "assistant", "途中の本文")
+	if final.Phase != "terminal" || finalAssistant == nil || finalAssistant.Status != "incomplete" || finalAssistant.ID != assistant.ID {
+		t.Fatalf("final snapshot changed or lost cancelled text identity: %+v", final.Conversation)
 	}
 	executions, err := service.Executions(context.Background(), state.SessionID)
 	if err != nil || len(executions) != 1 {
 		t.Fatalf("same-ID/Session request created another execution: %d %v", len(executions), err)
+	}
+}
+
+func TestSubscriptionReleasesInitialSnapshotAfterDelivery(t *testing.T) {
+	provider := &observedProvider{}
+	m, _ := productManager(t, provider, app.RunOptions{})
+	request := api.StartRunRequest{CoreID: m.Core().CoreID, RunID: uuid.NewString(), Task: "snapshotを一度送る"}
+	if _, _, err := m.Start(request); err != nil {
+		t.Fatal(err)
+	}
+	awaitRun(t, m, request.RunID, func(state api.RunState) bool { return state.Phase == "terminal" })
+
+	subscription, err := m.Subscribe(request.CoreID, request.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer subscription.Close()
+	snapshot, err := subscription.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Conversation.Entities) == 0 || snapshot.Result == nil || snapshot.Result.AgentResult == nil {
+		t.Fatal("initial terminal snapshot was incomplete before delivery")
+	}
+	subscription.ReleaseInitialSnapshot()
+	if len(subscription.initial.Entities) != 0 || len(subscription.initial.Order) != 0 || subscription.initialState.Result != nil {
+		t.Fatal("subscription retained the initial revision after delivery")
 	}
 }
 
@@ -149,6 +201,27 @@ func TestTerminalAdoptionResumeAndExplicitZeroOptions(t *testing.T) {
 	state := awaitRun(t, m, first.RunID, func(s api.RunState) bool { return s.Phase == "terminal" })
 	if !state.Result.OK {
 		t.Fatalf("first failed: %+v", state.Result)
+	}
+	m.mu.Lock()
+	firstRun := m.runs[first.RunID]
+	firstTerminalRetainedBody := firstRun.terminal != nil && firstRun.terminal.fallback != nil
+	m.mu.Unlock()
+	firstRun.viewMu.Lock()
+	firstViewRetained := firstRun.view != nil
+	firstRun.viewMu.Unlock()
+	if firstViewRetained || firstTerminalRetainedBody {
+		t.Fatalf("terminal-only run retained a materialized view or full result: view=%t body=%t", firstViewRetained, firstTerminalRetainedBody)
+	}
+	replayed, created, err := m.Start(first)
+	if err != nil || created {
+		t.Fatalf("same-ID terminal replay: created=%t err=%v", created, err)
+	}
+	cancelled, err := m.Cancel(first.CoreID, first.RunID)
+	if err != nil {
+		t.Fatalf("terminal cancel result read: %v", err)
+	}
+	if !reflect.DeepEqual(state.Result, replayed.Result) || !reflect.DeepEqual(state.Result, cancelled.Result) {
+		t.Fatalf("terminal result differed across GET/replay/cancel: get=%+v replay=%+v cancel=%+v", state.Result, replayed.Result, cancelled.Result)
 	}
 	saved, err := service.Session(context.Background(), state.SessionID)
 	if err != nil || saved.TurnCount != 1 {
@@ -189,17 +262,42 @@ func TestTerminalAdoptionResumeAndExplicitZeroOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer late.Close()
 	snapshot, err := late.Snapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Phase != "terminal" || len(snapshot.Texts) != 1 || snapshot.Texts[0].Text != "作業完了" {
-		t.Fatalf("completed snapshot: %+v", snapshot)
+	if snapshot.Phase != "terminal" || findEntity(snapshot.Conversation, "assistant", "作業完了") == nil {
+		t.Fatalf("completed conversation snapshot: %+v", snapshot.Conversation)
 	}
-	for _, operation := range snapshot.Operations {
-		if operation.ExecutionID != secondState.ExecutionID || operation.Phase == "" || operation.Time.IsZero() {
-			t.Fatalf("non-observation evidence appeared as progress: %+v", operation)
+	session, err := m.SessionView(context.Background(), state.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(session.RootCuts) != 2 || findEntity(session, "task", "first") == nil || findEntity(session, "task", "second") == nil || findEntity(session, "assistant", "作業完了") == nil {
+		t.Fatalf("Session view did not restore both runs with stable entities: %+v", session)
+	}
+	late.Close()
+	run := managedRunForTest(m, second.RunID)
+	run.viewMu.Lock()
+	retained := run.view != nil
+	run.viewMu.Unlock()
+	if retained {
+		t.Fatal("terminal-only run retained a heavy conversation view after its last consumer left")
+	}
+}
+
+func findEntity(snapshot api.ConversationSnapshot, kind, text string) *api.ConversationEntity {
+	for _, entity := range snapshot.Entities {
+		if entity.Kind == kind && entity.Text == text {
+			copy := entity
+			return &copy
 		}
 	}
+	return nil
+}
+
+func managedRunForTest(m *Manager, id string) *managedRun {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.runs[id]
 }

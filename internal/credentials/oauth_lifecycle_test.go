@@ -6,49 +6,35 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"hjh/internal/api"
 )
 
-func TestManagerContextCancellationStopsListenerAndAllowsFreshLogin(t *testing.T) {
+func TestManagerCancellationStopsListenerAndAllowsFreshAttempt(t *testing.T) {
 	manager, discovery := newLoginLifecycleManager(t)
 	defer discovery.Close()
 	defer manager.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	first, err := manager.BeginLogin(ctx, "cancel-test", Profile{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager.mu.Lock()
-	pending := manager.pending["cancel-test"]
-	manager.mu.Unlock()
+	target := Target{ConfigPath: filepath.Join(t.TempDir(), "providers.yaml"), ProviderID: "chatgpt", Name: "cancel-test", Kind: KindChatGPTOAuth}
+	first := startTestAttempt(t, manager, target, api.AuthRequest{CoreID: "core", AttemptID: "attempt-cancel-first", ProviderID: target.ProviderID, AuthProfile: target.Name, AccountID: "primary"})
 	firstParams := mustLoginParams(t, first.AuthorizationURL)
 
-	cancel()
-	select {
-	case <-pending.retired:
-	case <-time.After(2 * time.Second):
-		t.Fatal("context cancellation did not retire the pending login")
-	}
-	select {
-	case <-pending.watcherDone:
-	case <-time.After(2 * time.Second):
-		t.Fatal("login context watcher did not exit")
+	cancelled, err := manager.CancelAttempt(first.AttemptID)
+	if err != nil || cancelled.Phase != "cancelled" {
+		t.Fatalf("cancel attempt = %#v, err=%v", cancelled, err)
 	}
 	assertListenerClosed(t, first.RedirectURI)
 
-	second, err := manager.BeginLogin(context.Background(), "cancel-test", Profile{})
-	if err != nil {
-		t.Fatalf("begin fresh login after cancellation: %v", err)
-	}
+	second := startTestAttempt(t, manager, target, api.AuthRequest{CoreID: "core", AttemptID: "attempt-cancel-second", ProviderID: target.ProviderID, AuthProfile: target.Name, AccountID: "primary"})
 	secondParams := mustLoginParams(t, second.AuthorizationURL)
 	if secondParams.Get("state") == firstParams.Get("state") || secondParams.Get("nonce") == firstParams.Get("nonce") || secondParams.Get("code_challenge") == firstParams.Get("code_challenge") {
 		t.Fatal("fresh login reused state, nonce, or PKCE challenge")
@@ -61,6 +47,9 @@ func TestManagerContextCancellationStopsListenerAndAllowsFreshLogin(t *testing.T
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("fresh listener response status = %d, want 404", response.StatusCode)
 	}
+	if _, err := manager.CancelAttempt(second.AttemptID); err != nil {
+		t.Fatalf("cancel fresh attempt: %v", err)
+	}
 	if err := manager.Close(); err != nil {
 		t.Fatalf("close manager: %v", err)
 	}
@@ -70,32 +59,20 @@ func TestManagerContextCancellationStopsListenerAndAllowsFreshLogin(t *testing.T
 func TestManagerCloseStopsListenerAndJoinsServe(t *testing.T) {
 	manager, discovery := newLoginLifecycleManager(t)
 	defer discovery.Close()
-	login, err := manager.BeginLogin(context.Background(), "close-test", Profile{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager.mu.Lock()
-	pending := manager.pending["close-test"]
-	manager.mu.Unlock()
+	target := Target{ConfigPath: filepath.Join(t.TempDir(), "providers.yaml"), ProviderID: "chatgpt", Name: "close-test", Kind: KindChatGPTOAuth}
+	login := startTestAttempt(t, manager, target, api.AuthRequest{CoreID: "core", AttemptID: "attempt-close", ProviderID: target.ProviderID, AuthProfile: target.Name, AccountID: "primary"})
 	if err := manager.Close(); err != nil {
 		t.Fatalf("close manager: %v", err)
 	}
-	for name, done := range map[string]<-chan struct{}{
-		"retirement": pending.retired,
-		"Serve":      pending.serveDone,
-		"watcher":    pending.watcherDone,
-	} {
-		select {
-		case <-done:
-		case <-time.After(2 * time.Second):
-			t.Fatalf("manager Close did not join %s", name)
-		}
+	closed, err := manager.Attempt(login.AttemptID)
+	if err != nil || closed.Phase != "cancelled" {
+		t.Fatalf("attempt after Close = %#v, err=%v", closed, err)
 	}
 	assertListenerClosed(t, login.RedirectURI)
 	if err := manager.Close(); err != nil {
 		t.Fatalf("second Close: %v", err)
 	}
-	if _, err := manager.BeginLogin(context.Background(), "close-test", Profile{}); err == nil {
+	if _, err := manager.BeginAttempt(context.Background(), resolveCredentialTarget(target), api.AuthRequest{CoreID: "core", AttemptID: "attempt-after-close", ProviderID: target.ProviderID, AuthProfile: target.Name, AccountID: "primary"}); err == nil {
 		t.Fatal("closed manager began another login")
 	}
 }
@@ -177,10 +154,8 @@ func TestManagerRetriesExpiredInitialCodeWithPersistedIssuedClient(t *testing.T)
 	manager := NewManager(Options{StateDir: t.TempDir(), HTTPClient: client})
 	defer manager.Close()
 	profile := Profile{}
-	first, err := manager.BeginLogin(context.Background(), "retry-test", profile)
-	if err != nil {
-		t.Fatal(err)
-	}
+	target := Target{ConfigPath: filepath.Join(t.TempDir(), "providers.yaml"), ProviderID: "chatgpt", Name: "retry-test", Kind: KindChatGPTOAuth, Profile: profile}
+	first := startTestAttempt(t, manager, target, api.AuthRequest{CoreID: "core", AttemptID: "attempt-retry-first", ProviderID: target.ProviderID, AuthProfile: target.Name, AccountID: "primary"})
 	firstParams := mustLoginParams(t, first.AuthorizationURL)
 	mu.Lock()
 	nonce = firstParams.Get("nonce")
@@ -192,13 +167,12 @@ func TestManagerRetriesExpiredInitialCodeWithPersistedIssuedClient(t *testing.T)
 		"state":     {firstParams.Get("state")},
 		"client_id": {"oaiapp_retry-issued"},
 	}.Encode()
-	if _, err = manager.CompleteLogin(context.Background(), "retry-test", profile, firstCallback); err == nil {
-		t.Fatal("expired authorization code completed successfully")
-	} else {
-		var expired *AuthorizationCodeInvalidGrantError
-		if !errors.As(err, &expired) {
-			t.Fatalf("expired authorization error = %v, want AuthorizationCodeInvalidGrantError", err)
-		}
+	if _, err = manager.CompleteAttempt(context.Background(), first.AttemptID, firstCallback); err != nil {
+		t.Fatal(err)
+	}
+	failed := waitAttempt(t, manager, first.AttemptID, "failed")
+	if failed.Error == nil || failed.Error.Code != "authorization_code_invalid_grant" {
+		t.Fatalf("expired authorization error = %#v", failed.Error)
 	}
 
 	oauthPath, err := manager.oauthPath("retry-test", profile)
@@ -212,15 +186,12 @@ func TestManagerRetriesExpiredInitialCodeWithPersistedIssuedClient(t *testing.T)
 	if err != nil || !found || registration.ClientID != "oaiapp_retry-issued" || registration.Issuer != "https://auth.openai.com" || registration.HostID == "" {
 		t.Fatalf("issued registration was not retained: %#v found=%v err=%v", registration, found, err)
 	}
-	status, err := manager.Status(context.Background(), "retry-test", profile)
-	if err != nil || status.Connected {
-		t.Fatalf("unverified registration was treated as connected: %#v err=%v", status, err)
+	accounts, err := manager.Accounts(context.Background(), resolveCredentialTarget(target))
+	if err != nil || len(accounts.Accounts) != 1 || accounts.Accounts[0].Connected {
+		t.Fatalf("unverified registration was treated as connected: %#v err=%v", accounts, err)
 	}
 
-	second, err := manager.BeginLogin(context.Background(), "retry-test", profile)
-	if err != nil {
-		t.Fatalf("begin fresh authorization: %v", err)
-	}
+	second := startTestAttempt(t, manager, target, api.AuthRequest{CoreID: "core", AttemptID: "attempt-retry-second", ProviderID: target.ProviderID, AuthProfile: target.Name, AccountID: "primary"})
 	secondParams := mustLoginParams(t, second.AuthorizationURL)
 	if secondParams.Get("client_id") != "oaiapp_retry-issued" || secondParams.Get("agent_name_hint") != "" || secondParams.Get("state") == firstParams.Get("state") || secondParams.Get("nonce") == firstParams.Get("nonce") || secondParams.Get("code_challenge") == firstParams.Get("code_challenge") {
 		t.Fatalf("fresh authorization did not reuse issued client with new proof values: %#v", secondParams)
@@ -234,9 +205,16 @@ func TestManagerRetriesExpiredInitialCodeWithPersistedIssuedClient(t *testing.T)
 		"code":  {"fresh-code"},
 		"state": {secondParams.Get("state")},
 	}.Encode()
-	status, err = manager.CompleteLogin(context.Background(), "retry-test", profile, secondCallback)
-	if err != nil || !status.Connected || !status.PlanUsageEnabled {
-		t.Fatalf("fresh authorization did not complete: %#v err=%v", status, err)
+	if _, err = manager.CompleteAttempt(context.Background(), second.AttemptID, secondCallback); err != nil {
+		t.Fatal(err)
+	}
+	completed := waitAttempt(t, manager, second.AttemptID, "completed")
+	if !completed.AccountSaved || !completed.SelectionSaved {
+		t.Fatalf("fresh authorization did not persist account and selection: %#v", completed)
+	}
+	accounts, err = manager.Accounts(context.Background(), resolveCredentialTarget(target))
+	if err != nil || len(accounts.Accounts) != 1 || !accounts.Accounts[0].Connected || !accounts.Accounts[0].PlanUsageEnabled {
+		t.Fatalf("fresh authorization did not connect the selected account: %#v err=%v", accounts, err)
 	}
 	mu.Lock()
 	gotAttempts := attempt

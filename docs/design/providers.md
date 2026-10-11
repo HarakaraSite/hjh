@@ -5,6 +5,11 @@ the extension `config.json`. The same captured file supplies the role
 configuration and the provider registry for a run. Standard routes are ordinary
 JSON definitions; Go code does not register them by provider ID.
 
+Responses requests include `reasoning.summary: "auto"`; an explicitly selected
+effort is sent alongside it. Public reasoning text and summaries are separate
+conversation items. A provider returning no readable reasoning creates neither
+item; encrypted replay data remains provider state.
+
 ## Provider, API, and authentication profile
 
 These values identify different parts of a connection:
@@ -108,7 +113,7 @@ Provider definitions use these fields:
 | `baseURL`, `path` | Endpoint base and request path. |
 | `auth.kind`, `auth.profile` | Credential method and reference name. |
 | `defaultModel`, `defaultEffort` | Values used when selecting this provider without same-provider values to inherit. `auto` leaves effort at the endpoint's default. |
-| `models` | Static `{ "id", "name" }` choices to display. |
+| `models` | Static `{ "id", "name", "efforts": ["low", "high"] }` choices to display. `efforts` is optional and declares only values confirmed for that model. |
 | `catalog.kind`, `catalog.path` | Dynamic model catalog source. `openai-account` reads `/models` for the selected ChatGPT account, displaying entries whose `visibility` is `list`. |
 | `headers` | Additional non-secret HTTP headers. Authentication headers are supplied by the selected `auth` method. |
 | `sessionHeader` | Header name used to send the current Session ID when a route requires it. |
@@ -146,8 +151,12 @@ credential references rather than these fields.
 }
 ```
 
-For `auth.kind: "api-key"`, hjh uses the non-empty environment variable named
-by `env`, then reads `file` when the environment variable is unset or empty.
+For `auth.kind: "api-key"`, hjh uses an explicit `--credential-file`, then a
+key registered through the TUI, then the non-empty environment variable named
+by `env`, then `file`. Registration belongs to the effective config path and
+profile, and never changes the external env/file references. Registered values
+are saved beneath the Core's credential state root, which can be selected with
+`--credential-state-dir` for serve, run, models, and auth.
 The file path may start with `~/`; other shell expressions are not expanded.
 Either reference may be omitted when the other is used.
 
@@ -163,9 +172,22 @@ issued client. CLI login prompts again on `invalid_grant`; in the TUI, start
 refreshes it when needed. Existing saved login is reused; a new browser
 authorization is not required for each launch or implementation check.
 The noninteractive CLI owns its callback listeners; with I-05's separate TUI,
-Core owns pending callbacks and joins them during Core shutdown.
+Core owns authorization attempts and joins their callback/network jobs and accepted
+saves during shutdown. A run captures its first key/account binding and shares
+it with children using the same owner; later account selection or key registration
+applies to newly prepared runs. OAuth refresh continues on the captured account.
 
 ## Selection precedence
+
+Model catalog DTOs include optional `efforts` and `effortSource` (`config` or
+`catalog`). Missing information does not prevent model or effort selection.
+The confirmed ChatGPT account catalog field `supported_reasoning_levels[].effort`
+supplies model-specific choices in server order. The selected account's model
+catalog uses the preview's effective `authProfile` and the existing credential
+manager, including ordinary token refresh. Opening a picker never begins login.
+The [official account catalog contract](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)
+defines `visibility: "list"`, `slug`, `display_name`, and account-scoped access;
+the effort field was verified against the live response on 2026-10-11.
 
 The selected provider definition supplies the API. For each selection, an
 explicit field wins; when provider changes, omitted authentication profile,
@@ -209,10 +231,15 @@ hjh run --provider openai-chatgpt --model gpt-6.1-sol "Continue the work"
 
 The login command prints the authorization URL and accepts the pasted browser
 callback URL, or an empty line after an automatic local callback. In the TUI,
-use `/providers`, `/provider PROVIDER_ID`, `/models PROVIDER_ID`,
-`/model MODEL_ID`, and `/effort VALUE`. `/login PROVIDER_ID` starts ChatGPT
-login; `/login complete PROVIDER_ID` accepts a local callback, and
-`/login callback PROVIDER_ID CALLBACK_URL` accepts a pasted callback.
+use `/provider`, `/model`, and `/effort` to open pickers. `/model` searches IDs
+and display names while keeping the conversation draft separate. Direct
+`/provider PROVIDER_ID`, `/model MODEL_ID`, and `/effort VALUE` remain available,
+as do `/providers` and `/models PROVIDER_ID` listings. `/login` opens the authentication
+profile picker; `/login PROVIDER_ID` opens its API-key input or ChatGPT account screen.
+Account Enter selects a connected slot or authorizes an unconnected slot; `a` adds
+and `r` reauthorizes. Callback URLs go into a separate masked input field. The old
+`/login complete` and `/login callback` commands direct the user to this screen.
+The [I-12 contract](i12-authentication-contract.md) defines storage and operation lifetimes.
 
 Use the same `--session` to continue an existing conversation on another
 route. Provider changes take effect for that run; the saved conversation

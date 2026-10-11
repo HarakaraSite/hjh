@@ -24,24 +24,20 @@ func (out *runOutput) observe(o contracts.Observation) error {
 		return out.observeChild(o)
 	}
 	if o.Kind == "assistant_text" {
-		if !out.stream {
+		if !out.stream || o.Text == "" {
+			// A public-thinking update has no body text and must not reset
+			// the already streamed assistant prefix.
 			return nil
 		}
-		var result struct {
-			Text string `json:"text"`
-		}
-		if err := json.Unmarshal(o.Result, &result); err != nil {
-			return err
-		}
 		// The provider publishes the cumulative text of the current request.
-		delta := result.Text[len(out.lastText):]
+		delta := o.Text[len(out.lastText):]
 		if _, err := io.WriteString(out.stdout, delta); err != nil {
 			return err
 		}
 		if delta != "" {
 			out.lineOpen = !strings.HasSuffix(delta, "\n")
 		}
-		out.lastText = result.Text
+		out.lastText = o.Text
 		return nil
 	}
 	if out.stream {

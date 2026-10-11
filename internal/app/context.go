@@ -15,6 +15,7 @@ type contextAttribution struct {
 	store          *history.Store
 	ctx            context.Context
 	executionID    string
+	recall         *recallAttribution
 	previousDigest string
 	previousCount  int
 	requests       []map[string]any
@@ -33,32 +34,45 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 	type item struct {
 		kind, resource, identity, media string
 		bytes                           []byte
+		recall                          bool
 	}
 	items := make([]item, 0, len(request.Messages)+len(request.Tools)+2)
 	if request.Instruction != "" {
-		items = append(items, item{"system", "instruction_component", "system", "text/plain; charset=utf-8", []byte(request.Instruction)})
+		items = append(items, item{kind: "system", resource: "instruction_component", identity: "system",
+			media: "text/plain; charset=utf-8", bytes: []byte(request.Instruction)})
 	}
 	for i, m := range request.Messages {
 		b, e := contracts.EncodeJSON(m)
 		if e != nil {
 			return e
 		}
-		items = append(items, item{"message", "message", fmt.Sprintf("request/%d/message/%d", step, i), "application/vnd.henji.message+json", b})
+		messageItem := item{kind: "message", resource: "message", identity: fmt.Sprintf("request/%d/message/%d", step, i),
+			media: "application/vnd.henji.message+json", bytes: b}
+		if a.recall != nil && m.ExecutionFact != nil && m.ExecutionFact.Recall != nil &&
+			m.ExecutionFact.Recall.RelationRecordID == a.recall.recordID {
+			messageItem.recall = true
+		}
+		items = append(items, messageItem)
 	}
 	for _, tool := range request.Tools {
 		b, e := contracts.EncodeJSON(tool)
 		if e != nil {
 			return e
 		}
-		items = append(items, item{"tool_contract", "tool_contract", "tool:" + tool.Name, "application/vnd.henji.tool+json", b})
+		items = append(items, item{kind: "tool_contract", resource: "tool_contract", identity: "tool:" + tool.Name,
+			media: "application/vnd.henji.tool+json", bytes: b})
 	}
 	wire := request.WireBody
-	items = append(items, item{"provider_wire_body", "provider_wire_body", fmt.Sprintf("request/%d/wire", step), "application/json", wire})
+	items = append(items, item{kind: "provider_wire_body", resource: "provider_wire_body",
+		identity: fmt.Sprintf("request/%d/wire", step), media: "application/json", bytes: wire})
 	insertions := make([]map[string]any, 0, len(items))
 	occurrences := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		content := map[string]any{"digest": digest(item.bytes), "byteLength": len(item.bytes), "mediaType": item.media}
 		sources := []map[string]any{{"stage": "projected", "resourceKind": item.resource, "logicalIdentity": item.identity, "contentDigest": digest(item.bytes), "lane": "parent", "modelStep": step}}
+		if item.recall {
+			sources = append(sources, a.recall.sourceRelations()...)
+		}
 		record, e := a.store.AppendOccurrence(a.ctx, a.executionID, history.OccurrenceInput{Kind: "context_item", Payload: contracts.JSON(map[string]any{"kind": item.kind, "content": content, "sourceRelations": sources}), Content: item.bytes})
 		if e != nil {
 			return e
@@ -89,7 +103,11 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 		return e
 	}
 	a.requests = append(a.requests, map[string]any{"requestOrdinal": step, "revisionDigest": revision})
-	body := map[string]any{"schemaVersion": 2, "requestCount": len(a.requests), "requests": a.requests, "externalRelations": []any{}}
+	externalRelations := []any{}
+	if a.recall != nil {
+		externalRelations = append(externalRelations, a.recall.externalRelation())
+	}
+	body := map[string]any{"schemaVersion": 2, "requestCount": len(a.requests), "requests": a.requests, "externalRelations": externalRelations}
 	manifestDigest, e := canonicalDigest(body)
 	if e != nil {
 		return e

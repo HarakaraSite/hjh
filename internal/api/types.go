@@ -4,6 +4,7 @@ package api
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"hjh/internal/contracts"
@@ -39,39 +40,136 @@ type RunState struct {
 	ExecutionID     string                    `json:"executionId,omitempty"`
 	ActualSelection *contracts.ModelSelection `json:"actualSelection,omitempty"`
 	ActualRole      string                    `json:"actualRole,omitempty"`
-	Texts           []TextState               `json:"texts"`
-	Operations      []OperationState          `json:"operations"`
-	Executions      []ExecutionState          `json:"executions"`
+	NextRunID       string                    `json:"nextRunId,omitempty"`
+	InputRevision   uint64                    `json:"inputRevision"`
+	InputAcceptance InputAcceptance           `json:"inputAcceptance"`
 	Result          *RunResult                `json:"result,omitempty"`
 }
 
-type TextState struct {
+// RunSnapshot and RunUpdate use the same wire key for different conversation
+// shapes. The SSE event name determines which shape the client decodes.
+type RunSnapshot struct {
+	RunState
+	Conversation ConversationSnapshot `json:"conversation"`
+}
+
+type RunUpdate struct {
+	RunState
+	Conversation *ConversationUpdate `json:"conversation,omitempty"`
+}
+
+type ConversationSnapshot struct {
+	ScopeID         string                        `json:"scopeId"`
+	ViewID          string                        `json:"viewId"`
+	Revision        uint64                        `json:"revision"`
+	ThroughSequence *uint64                       `json:"throughSequence"`
+	RootCuts        []ConversationCut             `json:"rootCuts,omitempty"`
+	Order           []string                      `json:"order"`
+	Entities        map[string]ConversationEntity `json:"entities"`
+	serialized      *serializedJSON
+}
+
+// ShareConversationSnapshot enables immutable consumers of one view revision
+// to reuse its JSON encoding. Callers must not mutate the returned maps/slices.
+func ShareConversationSnapshot(snapshot ConversationSnapshot) ConversationSnapshot {
+	if snapshot.serialized == nil {
+		snapshot.serialized = &serializedJSON{}
+	}
+	return snapshot
+}
+
+func (snapshot ConversationSnapshot) MarshalJSON() ([]byte, error) {
+	type wire ConversationSnapshot
+	if snapshot.serialized == nil {
+		return json.Marshal(wire(snapshot))
+	}
+	return snapshot.serialized.marshal(func() ([]byte, error) { return json.Marshal(wire(snapshot)) })
+}
+
+type ConversationCut struct {
+	RootExecutionID      string                      `json:"rootExecutionId"`
+	RootExecutionOrdinal int64                       `json:"rootExecutionOrdinal"`
+	ThroughSequence      *uint64                     `json:"throughSequence"`
+	Executions           []ConversationExecutionHead `json:"executions"`
+}
+
+// ConversationExecutionHead describes the immutable upper bounds included in
+// a fixed conversation cut. Ordinals are nullable in meaning through their
+// sentinel values: semanticOrdinal=0 means no semantic records, and
+// messageOrdinal=-1 means no messages.
+type ConversationExecutionHead struct {
 	ExecutionID       string `json:"executionId"`
 	ParentExecutionID string `json:"parentExecutionId,omitempty"`
-	ModelStep         int    `json:"modelStep"`
-	Text              string `json:"text"`
+	SemanticOrdinal   int64  `json:"semanticOrdinal"`
+	MessageOrdinal    int64  `json:"messageOrdinal"`
 }
 
-type OperationState struct {
-	ID                string    `json:"id"`
-	ExecutionID       string    `json:"executionId"`
-	ParentExecutionID string    `json:"parentExecutionId,omitempty"`
-	Parent            string    `json:"parent,omitempty"`
-	Kind              string    `json:"kind"`
-	Name              string    `json:"name"`
-	Phase             string    `json:"phase"`
-	Time              time.Time `json:"time"`
-	ModelStep         int       `json:"modelStep,omitempty"`
-	Error             string    `json:"error,omitempty"`
+type ConversationPosition struct {
+	RootExecutionOrdinal int64  `json:"rootExecutionOrdinal"`
+	FirstSequence        uint64 `json:"firstSequence"`
+	ItemIndex            int    `json:"itemIndex"`
 }
 
-type ExecutionState struct {
-	ExecutionID       string                    `json:"executionId"`
-	ParentExecutionID string                    `json:"parentExecutionId,omitempty"`
-	Role              string                    `json:"role,omitempty"`
-	Selection         *contracts.ModelSelection `json:"selection,omitempty"`
-	Phase             string                    `json:"phase,omitempty"`
-	Outcome           string                    `json:"outcome,omitempty"`
+type ConversationEntity struct {
+	ID                string                     `json:"id"`
+	Kind              string                     `json:"kind"`
+	ExecutionID       string                     `json:"executionId"`
+	ParentExecutionID string                     `json:"parentExecutionId,omitempty"`
+	ParentEntityID    string                     `json:"parentEntityId,omitempty"`
+	Position          ConversationPosition       `json:"position"`
+	Text              string                     `json:"text,omitempty"`
+	Status            string                     `json:"status"`
+	Name              string                     `json:"name,omitempty"`
+	Outcome           string                     `json:"outcome,omitempty"`
+	Error             string                     `json:"error,omitempty"`
+	ThinkingKind      string                     `json:"thinkingKind,omitempty"`
+	Detail            *ConversationDetailLocator `json:"detail,omitempty"`
+	Preview           string                     `json:"preview,omitempty"`
+}
+
+type ConversationDetailLocator struct {
+	ExecutionID string `json:"executionId"`
+	RecordID    string `json:"recordId"`
+	Ordinal     int64  `json:"ordinal"`
+	CallID      string `json:"callId,omitempty"`
+}
+
+type ConversationUpdate struct {
+	ScopeID         string               `json:"scopeId"`
+	ViewID          string               `json:"viewId"`
+	BaseRevision    uint64               `json:"baseRevision"`
+	Revision        uint64               `json:"revision"`
+	ThroughSequence *uint64              `json:"throughSequence"`
+	Upserts         []ConversationEntity `json:"upserts"`
+	serialized      *serializedJSON
+}
+
+// ShareConversationUpdate enables immutable consumers of one update frame to
+// reuse its JSON encoding. Callers must not mutate the returned upserts.
+func ShareConversationUpdate(update ConversationUpdate) ConversationUpdate {
+	if update.serialized == nil {
+		update.serialized = &serializedJSON{}
+	}
+	return update
+}
+
+func (update ConversationUpdate) MarshalJSON() ([]byte, error) {
+	type wire ConversationUpdate
+	if update.serialized == nil {
+		return json.Marshal(wire(update))
+	}
+	return update.serialized.marshal(func() ([]byte, error) { return json.Marshal(wire(update)) })
+}
+
+type serializedJSON struct {
+	once sync.Once
+	data []byte
+	err  error
+}
+
+func (cache *serializedJSON) marshal(build func() ([]byte, error)) ([]byte, error) {
+	cache.once.Do(func() { cache.data, cache.err = build() })
+	return cache.data, cache.err
 }
 
 type RunResult struct {
@@ -103,6 +201,7 @@ type ErrorResponse struct {
 
 type Session struct {
 	ID                   string          `json:"id"`
+	ActiveRunID          string          `json:"activeRunId,omitempty"`
 	WorkspaceRoot        string          `json:"workspaceRoot"`
 	AgentChoice          json.RawMessage `json:"agentChoice"`
 	Agent                string          `json:"agent"`
@@ -197,15 +296,26 @@ type ProviderDefinition struct {
 	Models        []ModelInfo  `json:"models,omitempty"`
 }
 type ModelInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Efforts      []string `json:"efforts,omitempty"`
+	EffortSource string   `json:"effortSource,omitempty"`
 }
-type Login struct {
-	AuthorizationURL string `json:"authorizationUrl"`
-	RedirectURI      string `json:"redirectUri"`
-	Workspace        string `json:"workspace"`
-	ProviderID       string `json:"providerId"`
-	AuthProfile      string `json:"authProfile"`
+
+// SelectionRequest contains next-run inputs without starting or reserving a run.
+type SelectionRequest struct {
+	SessionID   string `json:"sessionId,omitempty"`
+	Workspace   string `json:"workspace,omitempty"`
+	Role        string `json:"role,omitempty"`
+	ProviderID  string `json:"providerId,omitempty"`
+	ModelID     string `json:"modelId,omitempty"`
+	Effort      string `json:"effort,omitempty"`
+	AuthProfile string `json:"authProfile,omitempty"`
+}
+
+type SelectionPreview struct {
+	Role      string                   `json:"role"`
+	Selection contracts.ModelSelection `json:"selection"`
 }
 type Status struct {
 	Connected        bool      `json:"connected"`

@@ -13,7 +13,7 @@ func TestBlockedSSEAllowsIndependentRunPersistenceAndRecovery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !r.SSEBlockedAtTerminal || !r.TerminalAfterRelease || r.PersistedObservations != 16 {
+			if !r.SSEBlockedAtTerminal || !r.TerminalAfterRelease || !r.SSEBlockedAtShutdown || !r.ShutdownStreamExited || r.PersistedObservations != 0 {
 				t.Fatalf("Core relied on SSE consumer: %+v", r)
 			}
 		})

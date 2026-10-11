@@ -92,29 +92,51 @@ type Relation struct {
 }
 
 type OccurrenceInput struct {
-	Kind       string
-	Payload    json.RawMessage
-	Content    []byte
-	ObservedAt string
-	Relations  []Relation
+	Kind         string
+	Payload      json.RawMessage
+	Content      []byte
+	ObservedAt   string
+	Relations    []Relation
+	Conversation *contracts.ConversationMetadata
 }
 
 type Record struct {
-	ID          string
-	ExecutionID string
-	Ordinal     int64
-	Kind        string
-	ObservedAt  string
-	Payload     json.RawMessage
-	Content     []byte
-	Relations   []Relation
+	ID           string
+	ExecutionID  string
+	Ordinal      int64
+	Kind         string
+	ObservedAt   string
+	Payload      json.RawMessage
+	Content      []byte
+	Relations    []Relation
+	Conversation *contracts.ConversationMetadata
 }
 
 func (s *Store) AppendOccurrence(ctx context.Context, executionID string, input OccurrenceInput) (Record, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Record{}, fmt.Errorf("history begin occurrence: %w", err)
+	}
+	defer tx.Rollback()
+	record, err := appendOccurrenceTx(ctx, tx, executionID, input)
+	if err != nil {
+		return Record{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Record{}, fmt.Errorf("history commit occurrence: %w", err)
+	}
+	return record, nil
+}
+
+func appendOccurrenceTx(ctx context.Context, tx *sql.Tx, executionID string, input OccurrenceInput) (Record, error) {
 	if !validJSON(input.Payload) {
 		return Record{}, ErrInvalidJSON
 	}
-	payload, err := contracts.EncodeCanonicalJSON(input.Payload)
+	withMetadata, err := addConversationMetadata(input.Payload, input.Conversation)
+	if err != nil {
+		return Record{}, err
+	}
+	payload, err := contracts.EncodeCanonicalJSON(withMetadata)
 	if err != nil {
 		return Record{}, fmt.Errorf("history canonicalize occurrence: %w", err)
 	}
@@ -122,16 +144,12 @@ func (s *Store) AppendOccurrence(ctx context.Context, executionID string, input 
 	if observedAt == "" {
 		observedAt = timestampNow()
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Record{}, fmt.Errorf("history begin occurrence: %w", err)
-	}
-	defer tx.Rollback()
 	var latest int64
 	var lifecycle string
+	var parentID, spawnID sql.NullString
 	if err := tx.QueryRowContext(ctx,
-		"SELECT latest_ordinal, lifecycle FROM executions WHERE execution_id=?", executionID,
-	).Scan(&latest, &lifecycle); err != nil {
+		"SELECT latest_ordinal, lifecycle, parent_execution_id, spawn_call_id FROM executions WHERE execution_id=?", executionID,
+	).Scan(&latest, &lifecycle, &parentID, &spawnID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Record{}, ErrNotFound
 		}
@@ -202,14 +220,32 @@ func (s *Store) AppendOccurrence(ctx context.Context, executionID string, input 
 	); err != nil {
 		return Record{}, fmt.Errorf("history update occurrence ordinal: %w", err)
 	}
-	if err := tx.Commit(); err != nil {
-		return Record{}, fmt.Errorf("history commit occurrence: %w", err)
-	}
 	return Record{
 		ID: recordID, ExecutionID: executionID, Ordinal: ordinal, Kind: input.Kind,
 		ObservedAt: observedAt, Payload: append(json.RawMessage(nil), payload...),
 		Content: append([]byte(nil), input.Content...), Relations: persistedRelations,
+		Conversation: cloneConversation(input.Conversation),
 	}, nil
+}
+
+func addConversationMetadata(payload json.RawMessage, metadata *contracts.ConversationMetadata) (json.RawMessage, error) {
+	if metadata == nil {
+		return append(json.RawMessage(nil), payload...), nil
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &object); err != nil || object == nil {
+		return nil, fmt.Errorf("history conversation metadata requires an object payload: %w", ErrInvalidJSON)
+	}
+	object["conversation"] = contracts.JSON(metadata)
+	return json.Marshal(object)
+}
+
+func cloneConversation(value *contracts.ConversationMetadata) *contracts.ConversationMetadata {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }
 
 func semanticRecordExists(ctx context.Context, tx *sql.Tx, recordID string) (bool, error) {
@@ -270,45 +306,74 @@ func resolveIncomingRelations(ctx context.Context, tx *sql.Tx, targetRecordID st
 }
 
 func (s *Store) EndExecution(ctx context.Context, executionID string, outcome Outcome, terminal json.RawMessage, settledAt string) error {
+	_, err := s.EndExecutionWithConversation(ctx, executionID, outcome, terminal, settledAt, "", 0)
+	return err
+}
+
+// EndExecutionWithConversation moves every active latest state to an
+// incomplete assistant fact and stores the terminal fact in one transaction.
+func (s *Store) EndExecutionWithConversation(ctx context.Context, executionID string, outcome Outcome, terminal json.RawMessage, settledAt, rootExecutionID string, sequence uint64) ([]contracts.ExecutionFact, error) {
 	if !validJSON(terminal) {
-		return ErrInvalidJSON
+		return nil, ErrInvalidJSON
 	}
 	switch outcome {
 	case OutcomeCompleted, OutcomeFailed, OutcomeCancelled, OutcomeInterrupted:
 	default:
-		return fmt.Errorf("history unsupported execution outcome %q", outcome)
+		return nil, fmt.Errorf("history unsupported execution outcome %q", outcome)
 	}
-	terminalPayload, err := contracts.EncodeCanonicalJSON(terminal)
+	runtimePayload, err := contracts.EncodeCanonicalJSON(terminal)
 	if err != nil {
-		return fmt.Errorf("history canonicalize terminal: %w", err)
+		return nil, fmt.Errorf("history canonicalize terminal: %w", err)
 	}
 	if settledAt == "" {
 		settledAt = timestampNow()
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("history begin execution end: %w", err)
+		return nil, fmt.Errorf("history begin execution end: %w", err)
 	}
 	defer tx.Rollback()
 	var latest int64
 	var lifecycle string
+	var parentID, spawnID sql.NullString
 	if err := tx.QueryRowContext(ctx,
-		"SELECT latest_ordinal, lifecycle FROM executions WHERE execution_id=?", executionID,
-	).Scan(&latest, &lifecycle); err != nil {
+		"SELECT latest_ordinal, lifecycle, parent_execution_id, spawn_call_id FROM executions WHERE execution_id=?", executionID,
+	).Scan(&latest, &lifecycle, &parentID, &spawnID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
+			return nil, ErrNotFound
 		}
-		return fmt.Errorf("history read execution to end: %w", err)
+		return nil, fmt.Errorf("history read execution to end: %w", err)
 	}
 	if lifecycle != "active" {
-		return ErrExecutionClosed
+		return nil, ErrExecutionClosed
+	}
+	var rootOrdinal int64
+	if rootExecutionID != "" {
+		rootOrdinal, err = executionDisplayOrdinalTx(ctx, tx, rootExecutionID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	terminalFirstSequence := sequence
+	if rootExecutionID != "" && sequence != 0 {
+		var first sql.NullInt64
+		if err := tx.QueryRowContext(ctx, `SELECT MIN(CAST(json_extract(payload_json,'$.conversation.firstSequence') AS INTEGER))
+			FROM semantic_records WHERE execution_id=? AND kind='execution_admission'
+			AND json_extract(payload_json,'$.conversation.entityKind')='execution'
+			AND json_extract(payload_json,'$.conversation.localKey')='execution'
+			AND json_type(payload_json,'$.conversation.firstSequence')='integer'`, executionID).Scan(&first); err != nil {
+			return nil, fmt.Errorf("history read execution start position: %w", err)
+		}
+		if first.Valid && first.Int64 >= 0 {
+			terminalFirstSequence = uint64(first.Int64)
+		}
 	}
 	rows, err := tx.QueryContext(ctx, `
 		SELECT lane, model_step, request_ordinal, first_event_ordinal, event_json
 		FROM assistant_text_states WHERE execution_id=?
 		ORDER BY lane, model_step, request_ordinal`, executionID)
 	if err != nil {
-		return fmt.Errorf("history read assistant text state: %w", err)
+		return nil, fmt.Errorf("history read assistant text state: %w", err)
 	}
 	type assistantState struct {
 		lane              string
@@ -323,41 +388,108 @@ func (s *Store) EndExecution(ctx context.Context, executionID string, outcome Ou
 		var state assistantState
 		if err := rows.Scan(&state.lane, &state.modelStep, &state.requestOrdinal, &state.firstEventOrdinal, &state.eventJSON); err != nil {
 			_ = rows.Close()
-			return fmt.Errorf("history scan assistant text state: %w", err)
+			return nil, fmt.Errorf("history scan assistant text state: %w", err)
 		}
 		state.observedAt = eventObservedAt(json.RawMessage(state.eventJSON), settledAt)
 		states = append(states, state)
 	}
 	if err := rows.Err(); err != nil {
 		_ = rows.Close()
-		return fmt.Errorf("history read assistant text state: %w", err)
+		return nil, fmt.Errorf("history read assistant text state: %w", err)
 	}
 	if err := rows.Close(); err != nil {
-		return fmt.Errorf("history close assistant text state: %w", err)
+		return nil, fmt.Errorf("history close assistant text state: %w", err)
 	}
+	facts := make([]contracts.ExecutionFact, 0, len(states)+1)
 	for _, state := range states {
 		latest++
 		recordID := semanticRecordID(executionID, latest)
-		payload, err := contracts.EncodeCanonicalJSON(json.RawMessage(state.eventJSON))
+		var event map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(state.eventJSON), &event); err != nil {
+			return nil, fmt.Errorf("history decode assistant text state: %w", err)
+		}
+		event["phase"] = contracts.JSON("incomplete")
+		metadata := conversationMetadata(json.RawMessage(state.eventJSON))
+		var request contracts.RequestIdentity
+		_ = json.Unmarshal(event["request"], &request)
+		if metadata == nil {
+			lane := request.Lane
+			if lane == "" {
+				lane = "parent"
+			}
+			entityKind, localKey := "assistant", lane+fmt.Sprintf("/%d/answer", request.RequestOrdinal)
+			if len(state.lane) >= len("thinking/") && state.lane[:len("thinking/")] == "thinking/" {
+				entityKind = "thinking"
+				localKey = lane + fmt.Sprintf("/%d/", request.RequestOrdinal) + state.lane[len("thinking/"):]
+			}
+			metadata = &contracts.ConversationMetadata{RootExecutionID: rootExecutionID, EntityKind: entityKind, LocalKey: localKey, FirstSequence: sequence}
+		}
+		if sequence != 0 {
+			metadata.RootExecutionID = rootExecutionID
+			metadata.Sequence = sequence
+			event["conversation"] = contracts.JSON(metadata)
+		}
+		if request.ExecutionID == "" {
+			request.ExecutionID = executionID
+		}
+		if _, ok := event["request"]; !ok {
+			event["request"] = contracts.JSON(request)
+		}
+		encodedEvent, err := json.Marshal(event)
 		if err != nil {
-			return fmt.Errorf("history canonicalize assistant text state: %w", err)
+			return nil, fmt.Errorf("history encode assistant text state: %w", err)
+		}
+		payload, err := contracts.EncodeCanonicalJSON(encodedEvent)
+		if err != nil {
+			return nil, fmt.Errorf("history canonicalize assistant text state: %w", err)
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO semantic_records(record_id, execution_id, ordinal, kind, observed_at, payload_json, content_digest)
 			VALUES(?, ?, ?, 'assistant_message', ?, ?, NULL)`,
 			recordID, executionID, latest, state.observedAt, string(payload),
 		); err != nil {
-			return fmt.Errorf("history persist assistant text state: %w", err)
+			return nil, fmt.Errorf("history persist assistant text state: %w", err)
 		}
+		var statePayload struct {
+			Text         string `json:"text"`
+			ThinkingKind string `json:"thinkingKind"`
+		}
+		_ = json.Unmarshal(event["payload"], &statePayload)
+		if thinkingKind := event["thinkingKind"]; len(thinkingKind) != 0 {
+			_ = json.Unmarshal(thinkingKind, &statePayload.ThinkingKind)
+		}
+		fact := contracts.ExecutionFact{RootExecutionID: rootExecutionID, ExecutionID: executionID, ParentExecutionID: parentID.String,
+			RootExecutionOrdinal: rootOrdinal, Kind: "assistant_message", Phase: "incomplete", Role: "assistant",
+			Text: statePayload.Text, ThinkingKind: statePayload.ThinkingKind, Request: request, Conversation: *metadata,
+			Locator: contracts.ExecutionLocator{ExecutionID: executionID, RecordID: recordID, Ordinal: latest,
+				Lane: state.lane, ModelStep: int(state.modelStep), ItemIndex: metadata.ItemIndex}}
+		if metadata.EntityKind == "thinking" {
+			fact.Thinking = []contracts.ThinkingItem{{Key: state.lane[len("thinking/"):], Text: statePayload.Text, Kind: statePayload.ThinkingKind}}
+		}
+		facts = append(facts, fact)
 	}
 	latest++
 	terminalRecordID := semanticRecordID(executionID, latest)
+	terminalConversation := (*contracts.ConversationMetadata)(nil)
+	terminalRecordPayload := append(json.RawMessage(nil), runtimePayload...)
+	if rootExecutionID != "" && sequence != 0 {
+		terminalConversation = &contracts.ConversationMetadata{RootExecutionID: rootExecutionID, Sequence: sequence,
+			EntityKind: "execution", LocalKey: "execution", FirstSequence: terminalFirstSequence, ItemIndex: 1}
+		terminalRecordPayload, err = addConversationMetadata(terminalRecordPayload, terminalConversation)
+		if err != nil {
+			return nil, err
+		}
+	}
+	terminalRecordPayload, err = contracts.EncodeCanonicalJSON(terminalRecordPayload)
+	if err != nil {
+		return nil, fmt.Errorf("history canonicalize terminal fact: %w", err)
+	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO semantic_records(record_id, execution_id, ordinal, kind, observed_at, payload_json, content_digest)
 		VALUES(?, ?, ?, 'host_decision', ?, ?, NULL)`,
-		terminalRecordID, executionID, latest, settledAt, string(terminalPayload),
+		terminalRecordID, executionID, latest, settledAt, string(terminalRecordPayload),
 	); err != nil {
-		return fmt.Errorf("history persist terminal record: %w", err)
+		return nil, fmt.Errorf("history persist terminal record: %w", err)
 	}
 	_, err = tx.ExecContext(ctx, `
 		UPDATE executions SET lifecycle='settled', outcome=?, adoption='non_canonical',
@@ -365,20 +497,31 @@ func (s *Store) EndExecution(ctx context.Context, executionID string, outcome Ou
 			terminal_record_id=?, runtime_outcome_json=?
 		WHERE execution_id=? AND lifecycle='active'`,
 		string(outcome), settledAt, latest, len(states)+1, terminalRecordID,
-		string(terminalPayload), executionID,
+		string(runtimePayload), executionID,
 	)
 	if err != nil {
-		return fmt.Errorf("history settle execution: %w", err)
+		return nil, fmt.Errorf("history settle execution: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx,
 		"DELETE FROM assistant_text_states WHERE execution_id=?", executionID,
 	); err != nil {
-		return fmt.Errorf("history clear assistant text state: %w", err)
+		return nil, fmt.Errorf("history clear assistant text state: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("history commit execution end: %w", err)
+		return nil, fmt.Errorf("history commit execution end: %w", err)
 	}
-	return nil
+	if terminalConversation != nil {
+		var runtimeResult struct {
+			Error   string `json:"error"`
+			Outcome string `json:"outcome"`
+		}
+		_ = json.Unmarshal(runtimePayload, &runtimeResult)
+		facts = append(facts, contracts.ExecutionFact{RootExecutionID: rootExecutionID, ExecutionID: executionID, ParentExecutionID: parentID.String, ParentCallID: spawnID.String,
+			RootExecutionOrdinal: rootOrdinal, Kind: "host_decision", Phase: string(outcome), Outcome: runtimeResult.Outcome,
+			Error: runtimeResult.Error, Conversation: *terminalConversation,
+			Locator: contracts.ExecutionLocator{ExecutionID: executionID, RecordID: terminalRecordID, Ordinal: latest}})
+	}
+	return facts, nil
 }
 
 func (s *Store) AdoptCanonical(ctx context.Context, executionID string, updatedAt string) error {

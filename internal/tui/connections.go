@@ -2,11 +2,9 @@ package tui
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"hjh/internal/api"
 	"hjh/internal/apiclient"
 )
 
@@ -25,6 +23,32 @@ func (m *model) nextConnectionLabel() string {
 	return provider + " · effort: " + effort
 }
 
+func (m *model) connectionStatusLabel() string {
+	next := "next: " + m.nextConnectionLabel()
+	if m.activeRun != nil {
+		provider, effort := m.activeRun.provider, m.activeRun.effort
+		if m.activeRun.hasActualSelection {
+			provider = m.activeRun.actualSelection.Provider
+			effort = m.activeRun.actualSelection.Effort
+		}
+		if provider == "" {
+			provider = "resolving connection"
+		}
+		if effort == "" {
+			effort = "default"
+		}
+		return "running: " + provider + " · effort: " + effort + " → " + next
+	}
+	if m.lastSelection.Provider != "" {
+		effort := m.lastSelection.Effort
+		if effort == "" {
+			effort = "default"
+		}
+		return "last: " + m.lastSelection.Provider + " · effort: " + effort + " → " + next
+	}
+	return next
+}
+
 func (m *model) connectionCommand(fields []string) {
 	providerID := m.providerID
 	if providerID == "" {
@@ -32,31 +56,28 @@ func (m *model) connectionCommand(fields []string) {
 	}
 	workspace := m.workspace
 	scope := apiclient.Scope{SessionID: m.sessionID, Workspace: workspace}
+	explicitModelsProvider := ""
 	switch fields[0] {
 	case "/provider":
 		if len(fields) == 1 {
-			m.status = "next connection: " + m.nextConnectionLabel()
+			m.openConnectionPicker(providerPicker)
 			return
 		}
 		if len(fields) != 2 {
 			m.status = "usage: /provider PROVIDER_ID"
 			return
 		}
-		m.providerID = fields[1]
-		m.modelID, m.effort, m.authProfile = "", "", ""
-		m.modelSet = false
-		m.status = "next connection: " + m.providerID + " · destination defaults; use /model and /effort to override"
+		m.setProvider(fields[1])
 	case "/effort":
 		if len(fields) == 1 {
-			m.status = "next connection: " + m.nextConnectionLabel()
+			m.openConnectionPicker(effortPicker)
 			return
 		}
 		if len(fields) != 2 {
 			m.status = "usage: /effort EFFORT"
 			return
 		}
-		m.effort = fields[1]
-		m.status = "effort for next run: " + m.effort
+		m.setEffort(fields[1])
 	case "/providers":
 		m.query("providers", func(ctx context.Context) (string, error) {
 			definitions, err := m.backend.Providers(ctx, scope)
@@ -65,7 +86,15 @@ func (m *model) connectionCommand(fields []string) {
 			}
 			var b strings.Builder
 			for _, d := range definitions {
-				fmt.Fprintf(&b, "%s · %s\n  %s · auth: %s · default model: %s\n", d.ID, d.DisplayName, d.API, d.Auth.Kind, d.DefaultModel)
+				fmt.Fprintf(&b, "%s · %s\n  %s · auth: %s", d.ID, d.DisplayName, d.API, d.Auth.Kind)
+				if d.Auth.Profile != "" {
+					fmt.Fprintf(&b, " / %s", d.Auth.Profile)
+				}
+				fmt.Fprintf(&b, " · default model: %s", d.DefaultModel)
+				if d.DefaultEffort != "" {
+					fmt.Fprintf(&b, " · default effort: %s", d.DefaultEffort)
+				}
+				b.WriteByte('\n')
 			}
 			return b.String(), nil
 		})
@@ -75,16 +104,42 @@ func (m *model) connectionCommand(fields []string) {
 			return
 		}
 		if len(fields) == 2 {
-			providerID = fields[1]
+			explicitModelsProvider = fields[1]
 		}
-		m.query("models · "+providerID, func(ctx context.Context) (string, error) {
-			models, err := m.backend.Models(ctx, scope, providerID)
+		baseRequest := m.selectionRequest()
+		modelsTitle := "next run"
+		if explicitModelsProvider != "" {
+			modelsTitle = explicitModelsProvider
+		}
+		m.query("models · "+modelsTitle, func(ctx context.Context) (string, error) {
+			request := baseRequest
+			preview, err := m.backend.Selection(ctx, request)
+			if explicitModelsProvider != "" && (err != nil || explicitModelsProvider != preview.Selection.Provider) {
+				request.ProviderID = explicitModelsProvider
+				request.ModelID, request.Effort, request.AuthProfile = "", "", ""
+				preview, err = m.backend.Selection(ctx, request)
+			}
+			if err != nil {
+				return "", err
+			}
+			resolvedProvider := preview.Selection.Provider
+			if resolvedProvider == "" {
+				resolvedProvider = explicitModelsProvider
+			}
+			result, err := m.backend.ModelsWithAuth(ctx, scope, resolvedProvider, preview.Selection.AuthProfile)
 			if err != nil {
 				return "", err
 			}
 			var b strings.Builder
-			for _, model := range models {
-				fmt.Fprintf(&b, "%s · %s\n", model.ID, model.Name)
+			for _, model := range result.Models {
+				fmt.Fprintf(&b, "%s · %s", model.ID, model.Name)
+				if len(model.Efforts) > 0 {
+					fmt.Fprintf(&b, " · efforts: %s", strings.Join(model.Efforts, ", "))
+					if model.EffortSource != "" {
+						fmt.Fprintf(&b, " (%s)", model.EffortSource)
+					}
+				}
+				b.WriteByte('\n')
 			}
 			return b.String(), nil
 		})
@@ -97,54 +152,26 @@ func (m *model) connectionCommand(fields []string) {
 			providerID = fields[1]
 		}
 		m.query("authentication", func(ctx context.Context) (string, error) {
-			status, err := m.backend.LoginStatus(ctx, scope, providerID)
+			request := m.authRequestForProvider(providerID)
+			profiles, err := m.backend.AuthProfiles(ctx, request)
 			if err != nil {
 				return "", err
 			}
-			b, err := json.MarshalIndent(status, "", "  ")
-			return string(b), err
+			return formatAuthProfiles(profiles), nil
 		})
 	case "/login":
-		if len(fields) == 3 && fields[1] == "complete" {
-			providerID = fields[2]
-			login := m.loginScope(providerID, scope)
-			m.query("ChatGPT login", func(ctx context.Context) (string, error) {
-				status, err := m.backend.CompleteLogin(ctx, login, "")
-				if err != nil {
-					return "", err
-				}
-				return fmt.Sprintf("Connected: %t · account: %s", status.Connected, status.Account), nil
-			})
-			return
-		}
-		if len(fields) == 4 && fields[1] == "callback" {
-			providerID, callback := fields[2], fields[3]
-			login := m.loginScope(providerID, scope)
-			m.query("ChatGPT login", func(ctx context.Context) (string, error) {
-				status, err := m.backend.CompleteLogin(ctx, login, callback)
-				if err != nil {
-					return "", err
-				}
-				return fmt.Sprintf("Connected: %t · account: %s", status.Connected, status.Account), nil
-			})
+		if len(fields) >= 2 && (fields[1] == "complete" || fields[1] == "callback") {
+			m.status = "Use /login and paste the callback URL in the masked authentication screen."
 			return
 		}
 		if len(fields) > 2 {
-			m.status = "usage: /login [PROVIDER_ID], /login complete PROVIDER_ID, or /login callback PROVIDER_ID CALLBACK_URL"
+			m.status = "usage: /login [PROVIDER_ID]"
 			return
 		}
+		loginProviderID := ""
 		if len(fields) == 2 {
-			providerID = fields[1]
+			loginProviderID = fields[1]
 		}
-		m.queryLogin("Continue with ChatGPT", func(ctx context.Context) (api.Login, error) {
-			return m.backend.BeginLogin(ctx, scope, providerID)
-		})
+		m.openAuthUI(loginProviderID)
 	}
-}
-
-func (m *model) loginScope(providerID string, fallback apiclient.Scope) api.Login {
-	if m.pendingLogin != nil && m.pendingLogin.ProviderID == providerID {
-		return *m.pendingLogin
-	}
-	return api.Login{Workspace: fallback.Workspace, ProviderID: providerID, AuthProfile: m.authProfile}
 }

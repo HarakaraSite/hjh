@@ -28,10 +28,13 @@ const schemaVersion = 3
 var schemaFile embed.FS
 
 var (
-	ErrNotFound         = errors.New("history: row not found")
-	ErrInvalidJSON      = errors.New("history: invalid JSON")
-	ErrRevisionConflict = errors.New("history: Session revision changed before adoption")
-	ErrExecutionClosed  = errors.New("history: execution is not active")
+	ErrNotFound          = errors.New("history: row not found")
+	ErrInvalidJSON       = errors.New("history: invalid JSON")
+	ErrRevisionConflict  = errors.New("history: Session revision changed before adoption")
+	ErrExecutionClosed   = errors.New("history: execution is not active")
+	ErrRecallAmbiguous   = errors.New("history: recall selector matches multiple executions")
+	ErrRecallNotFound    = errors.New("history: recall source not found")
+	ErrCommandIDConflict = errors.New("history: command ID conflicts with an existing operation")
 )
 
 type Store struct {
@@ -368,16 +371,18 @@ func (s *Store) UpdateSessionModel(ctx context.Context, sessionID string, select
 }
 
 type BeginExecutionInput struct {
-	ExecutionID     string
-	Task            string
-	TaskID          string
-	SessionID       string
-	AgentName       string
-	Model           json.RawMessage
-	Build           json.RawMessage
-	ConfigurationID string
-	MaxSteps        int64
-	CreatedAt       string
+	ExecutionID       string
+	Task              string
+	TaskContentDigest string
+	TaskID            string
+	SessionID         string
+	AgentName         string
+	Model             json.RawMessage
+	Build             json.RawMessage
+	ConfigurationID   string
+	MaxSteps          int64
+	CreatedAt         string
+	Recall            *contracts.RecallReference
 }
 
 type BeginChildExecutionInput struct {
@@ -416,6 +421,7 @@ type Execution struct {
 	Outcome            string
 	Adoption           string
 	TerminalRecordID   string
+	RecallRecordID     string
 }
 
 func (s *Store) BeginExecution(ctx context.Context, input BeginExecutionInput) (Execution, error) {
@@ -469,9 +475,22 @@ func (s *Store) BeginExecution(ctx context.Context, input BeginExecutionInput) (
 	if agent == "" {
 		agent = agentName(json.RawMessage(choiceJSON))
 	}
-	taskDigest, err := putContent(ctx, tx, []byte(input.Task))
-	if err != nil {
-		return Execution{}, err
+	taskDigest := input.TaskContentDigest
+	task := input.Task
+	if taskDigest == "" {
+		taskDigest, err = putContent(ctx, tx, []byte(input.Task))
+		if err != nil {
+			return Execution{}, err
+		}
+	} else {
+		var storedTask []byte
+		if err := tx.QueryRowContext(ctx, "SELECT content_bytes FROM contents WHERE content_digest=?", taskDigest).Scan(&storedTask); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Execution{}, ErrNotFound
+			}
+			return Execution{}, fmt.Errorf("history read execution task content: %w", err)
+		}
+		task = string(storedTask)
 	}
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO executions(
@@ -502,10 +521,64 @@ func (s *Store) BeginExecution(ctx context.Context, input BeginExecutionInput) (
 	); err != nil {
 		return Execution{}, fmt.Errorf("history save execution position: %w", err)
 	}
+	var recallRecordID string
+	if input.Recall != nil {
+		reference := *input.Recall
+		if reference.CoreID == "" || reference.OperationID == "" || reference.SourceExecutionID == "" {
+			return Execution{}, fmt.Errorf("history begin execution: incomplete recall reference")
+		}
+		var sourceLifecycle, sourceOutcome, sourceAdoption, sourceCorrelation string
+		if err := tx.QueryRowContext(ctx, `SELECT lifecycle,outcome,adoption,session_correlation
+			FROM executions WHERE execution_id=?`, reference.SourceExecutionID).Scan(
+			&sourceLifecycle, &sourceOutcome, &sourceAdoption, &sourceCorrelation,
+		); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Execution{}, ErrRecallNotFound
+			}
+			return Execution{}, fmt.Errorf("history read recall source for admission: %w", err)
+		}
+		if sourceLifecycle != "settled" || sourceAdoption != "non_canonical" || sourceCorrelation != input.SessionID ||
+			!recallOutcome(sourceOutcome) {
+			return Execution{}, ErrRecallNotFound
+		}
+		ordinal := int64(1)
+		recallRecordID = semanticRecordID(executionID, ordinal)
+		recallPayload := contracts.JSON(map[string]any{
+			"schemaVersion": 1, "sourceExecutionId": reference.SourceExecutionID,
+			"targetExecutionId": executionID, "coreId": reference.CoreID,
+			"operationId": reference.OperationID, "generation": reference.Generation,
+		})
+		encoded, err := contracts.EncodeCanonicalJSON(recallPayload)
+		if err != nil {
+			return Execution{}, fmt.Errorf("history encode recall relation: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO semantic_records(
+			record_id,execution_id,ordinal,kind,observed_at,payload_json,content_digest
+		) VALUES(?,?,?,'recall_relation',?,?,NULL)`, recallRecordID, executionID, ordinal, createdAt, string(encoded)); err != nil {
+			return Execution{}, fmt.Errorf("history save recall relation record: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO recall_relations(source_execution_id,target_execution_id,record_id)
+			VALUES(?,?,?)`, reference.SourceExecutionID, executionID, recallRecordID); err != nil {
+			return Execution{}, fmt.Errorf("history save recall relation: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE executions SET latest_ordinal=?,occurrence_count=occurrence_count+1
+			WHERE execution_id=?`, ordinal, executionID); err != nil {
+			return Execution{}, fmt.Errorf("history update recall relation position: %w", err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return Execution{}, fmt.Errorf("history commit execution: %w", err)
 	}
-	return s.readExecution(ctx, executionID)
+	// Return the committed admission from values already captured in the write
+	// transaction. A cancelled caller must not lose the commit result to a
+	// cancellable post-commit readback.
+	result := Execution{ID: executionID, TaskID: taskID, Task: task, SessionID: input.SessionID,
+		SessionCorrelation: input.SessionID, Turn: turn, BaseRevision: baseRevision,
+		BaseMessageCount: baseMessageCount, CreatedAt: createdAt, AgentName: agent,
+		Model: append(json.RawMessage(nil), input.Model...), Build: append(json.RawMessage(nil), input.Build...),
+		ConfigurationID: input.ConfigurationID, MaxSteps: input.MaxSteps, Lifecycle: "active",
+		Outcome: "unknown", Adoption: "non_canonical", RecallRecordID: recallRecordID}
+	return result, nil
 }
 
 // BeginChildExecution admits an independent execution under an existing

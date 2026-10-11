@@ -207,10 +207,11 @@ func TestStreamFailureRetainsTextWithoutAdopting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var retained bool
+	startedMarkers, incompleteBodies := 0, 0
 	for _, r := range records {
 		var event struct {
 			Kind    string `json:"kind"`
+			Phase   string `json:"phase"`
 			Payload struct {
 				Text string `json:"text"`
 			} `json:"payload"`
@@ -219,14 +220,24 @@ func TestStreamFailureRetainsTextWithoutAdopting(t *testing.T) {
 			t.Fatal(err)
 		}
 		if event.Kind == "assistant_message" {
-			if event.Payload.Text != "途中の出力" {
-				t.Fatalf("retained cumulative text: %q", event.Payload.Text)
+			switch event.Phase {
+			case "started":
+				if event.Payload.Text != "" {
+					t.Fatalf("start marker retained body text: %q", event.Payload.Text)
+				}
+				startedMarkers++
+			case "incomplete":
+				if event.Payload.Text != "途中の出力" {
+					t.Fatalf("incomplete terminal body: %q", event.Payload.Text)
+				}
+				incompleteBodies++
+			default:
+				t.Fatalf("unexpected permanent assistant phase %q", event.Phase)
 			}
-			retained = true
 		}
 	}
-	if !retained {
-		t.Fatal("stream text was discarded on failure")
+	if startedMarkers != 1 || incompleteBodies != 1 {
+		t.Fatalf("assistant marker/incomplete records = %d/%d, want one each", startedMarkers, incompleteBodies)
 	}
 }
 

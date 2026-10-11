@@ -90,7 +90,11 @@ func providerDTO(value providers.Definition) api.ProviderDefinition {
 }
 
 func modelDTO(value providers.ModelInfo) api.ModelInfo {
-	return api.ModelInfo{ID: value.ID, Name: value.Name}
+	source := value.EffortSource
+	if source == "" && value.Efforts != nil {
+		source = "config"
+	}
+	return api.ModelInfo{ID: value.ID, Name: value.Name, Efforts: value.Efforts, EffortSource: source}
 }
 
 func statusDTO(value credentials.Status) api.Status {

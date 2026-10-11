@@ -1,8 +1,16 @@
 # 保存payloadとGo実装の対応
 
-2026-10-10。取得元は[固定したsource](schema-source.json)、DDLは
-[schema v3](history-schema.md)。この対応はI-01・I-02で使う保存経路に限る。
+2026-10-11更新。取得元は[固定したsource](schema-source.json)、DDLは
+[schema v3](history-schema.md)。初期の対応に、後続incrementで採用した保存契約を末尾の各節で追加する。
 旧Core、queue、permission実装を追加する契約ではない。
+I-09で新規に書く入力receipt、予約、steering messageの設計は
+[追加入力契約](i09-runtime-input-contract.md)を参照する。schema v3を維持し、
+steeringの本文は受付contentと適用messageで共用する。semantic mirrorは本文を含まないmetadataと
+同じcontent digestを持ち、cold replayで保存Messageから本文を読む。旧receipt形式の互換変換は含めない。
+
+I-10の[recall契約](i10-context-recall-contract.md)では、操作結果をcommand_receipts、
+開始時のsource/target relationをrecall_relationsへ保存する。実参考messageはcontentsで保持し、
+semantic mirrorと会話walkは本文のないrecall markerを使う。DDLは変更しない。
 
 ## 会話・model
 
@@ -119,3 +127,18 @@ providerState.replayItemsにResponsesのraw output itemを保存する。provide
 同じ送信先・account・modelだけで再送し、別接続には可視会話とtool call／結果からinputを組み立てる。
 context_item.provider_wire_bodyとmodel_request contentはadapter.Prepareの実送信bytesを共用する。
 Authorizationはtransportのみに渡す。raw応答の保存を削除・書換えず、既存Session selectionを自動変換しない。
+
+## I-06：途中本文の保存位置と会話identity
+
+2026-10-11。I-06で実装。[I-06契約](i06-conversation-contract.md)の保存節を参照する。
+DDL v3とmessages/contentsの保存形は維持する。
+新規書込みでは表示に関わるsemantic payloadへconversation metadataを加え、rootと子に共通の受付順を記録する。
+途中本文は小さい開始markerと最新assistant_text_statesへ保存し、累積全文の永久追記を撤去する。
+完了resultとstate終了、未完了本文への移送とterminalはそれぞれ同じtransactionで行う。
+本文が途中→確定へ変わっても同じentity ID/位置を維持する。公開thinkingも可視text/summaryだけを同じ方式で保存する。
+公開thinkingのpayloadは`thinkingKind`（`reasoning`／`summary`）と完全なitem keyを保持し、
+本文・要約の開始、最新state、確定・未完了、再開で同じentityへ結び付ける。
+modelが宣言したtoolと外側runtime呼出しのcall IDは共用し、Agentが開始・結果を保存する。
+runtime代理呼出しの開始・結果を重複保存せず、実nested callは別IDを維持する。
+既存データの書換え・削除は行わず、messages、provider再送state、tool/context/sourceの必要な保存を維持する。
+性能・実利用・reviewは[I-06結果](../results/i06-conversation-tui.md)へ記録する。

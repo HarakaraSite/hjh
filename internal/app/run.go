@@ -11,28 +11,37 @@ import (
 	"hjh/internal/buildinfo"
 	"hjh/internal/contracts"
 	"hjh/internal/credentials"
+	"hjh/internal/executiondata"
 	"hjh/internal/extensions"
 	"hjh/internal/history"
 )
 
 type RunOptions struct {
-	Task           string
-	Role           string
-	SessionID      string
-	Workspace      string
-	ConfigPath     string
-	ModelID        string
-	ProviderID     string
-	AuthProfile    string
-	CredentialFile string
-	Credentials    *credentials.Manager
-	HTTPClient     *http.Client
-	Effort         string
-	MaxSteps       int
-	FromTurn       int64
-	NewSessionID   string
-	OnSession      func(string)
-	Progress       contracts.Observer
+	Task                 string
+	Role                 string
+	SessionID            string
+	Workspace            string
+	ConfigPath           string
+	ModelFavoritesDir    string
+	ModelID              string
+	ProviderID           string
+	AuthProfile          string
+	CredentialFile       string
+	CredentialStateDir   string
+	Credentials          *credentials.Manager
+	HTTPClient           *http.Client
+	Effort               string
+	MaxSteps             int
+	FromTurn             int64
+	NewSessionID         string
+	AdmissionExecutionID string
+	Recall               *contracts.RecallReference
+	OnSession            func(string)
+	OnAdmission          func(contracts.ExecutionAdmission)
+	Progress             contracts.Observer
+	ExecutionDataOwner   *executiondata.Owner
+	Steering             contracts.SteeringSource
+	TaskContentDigest    string
 }
 type RunResult struct {
 	SessionID   string       `json:"sessionId"`
@@ -81,18 +90,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if err != nil {
 		return output, err
 	}
-	model := active
-	if options.SessionID == "" {
-		model, err = registry.Resolve(contracts.ModelSelection{}, registry.Config.Model)
-		if err == nil {
-			model, err = registry.Resolve(model, registry.Config.Roles[snapshot.Agent.Name].Model)
-		}
-		if err != nil {
-			return output, err
-		}
-	}
-	model, err = registry.Resolve(model, contracts.ModelSelection{Provider: options.ProviderID, ModelID: options.ModelID,
-		AuthProfile: options.AuthProfile, Effort: options.Effort})
+	model, err := resolveModelSelection(registry, snapshot.Agent.Name, options.SessionID != "", active, options)
 	if err != nil {
 		return output, err
 	}
@@ -113,7 +111,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 		factory.overrideFile = options.CredentialFile
 	}
 	if provider == nil {
-		provider, err = factory.provider(ctx, registry, model, session.ID)
+		provider, err = factory.provider(ctx, registry, model, session.ID, configPath)
 		if err != nil {
 			return output, err
 		}
@@ -129,19 +127,32 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if err != nil {
 		return output, err
 	}
-	execution, err := store.BeginExecution(ctx, history.BeginExecutionInput{Task: options.Task, SessionID: session.ID, AgentName: snapshot.Agent.Name,
-		Model: contracts.JSON(model), Build: contracts.JSON(manifest), ConfigurationID: snapshot.ConfigurationID, MaxSteps: int64(options.MaxSteps)})
+	execution, err := store.BeginExecution(ctx, history.BeginExecutionInput{ExecutionID: options.AdmissionExecutionID,
+		Task: options.Task, SessionID: session.ID, AgentName: snapshot.Agent.Name,
+		Model: contracts.JSON(model), Build: contracts.JSON(manifest), ConfigurationID: snapshot.ConfigurationID,
+		MaxSteps: int64(options.MaxSteps), TaskContentDigest: options.TaskContentDigest, Recall: options.Recall})
 	if err != nil {
 		return output, err
 	}
 	output.ExecutionID = execution.ID
+	if options.OnAdmission != nil {
+		admission := contracts.ExecutionAdmission{ExecutionID: execution.ID, RecallRecordID: execution.RecallRecordID}
+		if options.Recall != nil {
+			admission.RecallGeneration = options.Recall.Generation
+		}
+		options.OnAdmission(admission)
+	}
+	if options.ExecutionDataOwner == nil {
+		options.ExecutionDataOwner = executiondata.NewOwner()
+	}
 	workCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	control := &executionControl{cancel: cancel}
 	progress := &progressSink{observer: options.Progress}
 	output.Result, err = execute(workCtx, store, provider, executionInput{execution: execution, snapshot: snapshot,
-		workspace: workspace, configPath: configPath, model: model, maxSteps: options.MaxSteps,
-		rootSessionID: session.ID, session: &session, previousModel: active, fromTurn: options.FromTurn,
-		connections: factory, injectedProvider: injected}, control, progress)
+		workspace: workspace, configPath: configPath, model: model, maxSteps: options.MaxSteps, recall: options.Recall,
+		rootSessionID: session.ID, rootExecutionID: execution.ID, session: &session, previousModel: active, fromTurn: options.FromTurn,
+		connections: factory, injectedProvider: injected, executionDataOwner: options.ExecutionDataOwner,
+		steering: options.Steering}, control, progress)
 	return output, err
 }

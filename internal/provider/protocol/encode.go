@@ -139,9 +139,11 @@ func (provider *Provider) prepareResponses(request contracts.ModelRequest) ([]by
 			wire["tools"] = functions
 		}
 	}
+	reasoning := map[string]string{"summary": "auto"}
 	if request.Model.Effort != "" && request.Model.Effort != "auto" {
-		wire["reasoning"] = map[string]string{"effort": request.Model.Effort}
+		reasoning["effort"] = request.Model.Effort
 	}
+	wire["reasoning"] = reasoning
 	return json.Marshal(wire)
 }
 

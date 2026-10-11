@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -25,37 +24,6 @@ const (
 	chatGPTPlanScope         = "chatgpt.tokens.use.direct"
 	chatGPTCallbackPath      = "/auth/callback"
 )
-
-type pendingLogin struct {
-	profileName string
-	path        string
-	existing    bool
-	registered  bool
-	clientID    string
-	subject     string
-	hostID      string
-	state       string
-	nonce       string
-	verifier    string
-	redirectURI string
-	authorize   string
-	endpoints   openIDConfiguration
-	callback    chan string
-	listener    net.Listener
-	server      *http.Server
-	ctx         context.Context
-	cancel      context.CancelFunc
-	watchStop   chan struct{}
-	watcherDone chan struct{}
-	serveDone   chan struct{}
-	retired     chan struct{}
-
-	busy        bool
-	mu          sync.Mutex
-	shutdown    sync.Once
-	retire      sync.Once
-	shutdownErr error
-}
 
 // AuthorizationCodeInvalidGrantError reports an authorization code that must
 // be discarded. The issued client registration remains available for a fresh
@@ -75,119 +43,58 @@ type tokenResponse struct {
 	Scope        string `json:"scope"`
 }
 
-// BeginLogin creates a Sign in with ChatGPT authorization request. It starts a
-// loopback callback listener when possible; callers may instead pass the URL
-// copied from a browser on another machine to CompleteLogin.
-func (m *Manager) BeginLogin(ctx context.Context, profileName string, profile Profile) (Login, error) {
+func (m *Manager) prepareOAuthAttempt(ctx context.Context, job *attemptJob) error {
 	if err := ctx.Err(); err != nil {
-		return Login{}, err
-	}
-	m.mu.Lock()
-	if m.closed {
-		m.mu.Unlock()
-		return Login{}, errors.New("credential manager is closed")
-	}
-	if pending := m.pending[profileName]; pending != nil {
-		login := Login{AuthorizationURL: pending.authorize, RedirectURI: pending.redirectURI}
-		m.mu.Unlock()
-		return login, nil
-	}
-	m.mu.Unlock()
-
-	path, err := m.oauthPath(profileName, profile)
-	if err != nil {
-		return Login{}, err
-	}
-	var existing oauthRecord
-	var registration oauthRegistration
-	found := false
-	registrationFound := false
-	err = withFileLock(ctx, path, func() error {
-		var readErr error
-		existing, found, readErr = readOAuthRecord(path)
-		if readErr != nil {
-			return readErr
-		}
-		registration, registrationFound, readErr = readOAuthRegistration(oauthRegistrationPath(path))
-		return readErr
-	})
-	if err != nil {
-		return Login{}, err
-	}
-	hostID, err := m.ensureHostID(ctx)
-	if err != nil {
-		return Login{}, err
+		return err
 	}
 	endpoints, err := m.openIDConfiguration(ctx)
 	if err != nil {
-		return Login{}, err
+		return err
 	}
-	registered := found || registrationFound
-	issuedClientID := ""
-	if found {
-		issuedClientID = existing.ClientID
-		if existing.HostID != "" {
-			hostID = existing.HostID
-		}
-	} else if registrationFound {
-		if registration.Issuer != endpoints.Issuer {
-			return Login{}, errors.New("ChatGPT client registration issuer did not match OpenAI")
-		}
-		issuedClientID = registration.ClientID
-		hostID = registration.HostID
+	hostID, err := m.ensureHostID(ctx)
+	if err != nil {
+		return err
+	}
+	if job.hostID != "" {
+		hostID = job.hostID
+	}
+	if job.registered && job.registration.Issuer != "" && job.registration.Issuer != endpoints.Issuer {
+		return errors.New("ChatGPT client registration issuer did not match OpenAI")
+	}
+	if job.registered && job.clientID == "" {
+		return errors.New("ChatGPT client registration is incomplete")
 	}
 	state, err := randomURLToken(32)
 	if err != nil {
-		return Login{}, err
+		return err
 	}
 	nonce, err := randomURLToken(32)
 	if err != nil {
-		return Login{}, err
+		return err
 	}
 	verifier, err := randomURLToken(32)
 	if err != nil {
-		return Login{}, err
+		return err
 	}
 	challenge := sha256.Sum256([]byte(verifier))
-	loginURL, err := url.Parse(endpoints.AuthorizationEndpoint)
-	if err != nil {
-		return Login{}, errors.New("invalid ChatGPT authorization endpoint")
-	}
-	pendingCtx, cancelPending := context.WithCancel(ctx)
-	m.mu.Lock()
-	if err := ctx.Err(); err != nil {
-		m.mu.Unlock()
-		cancelPending()
-		return Login{}, err
-	}
-	if m.closed {
-		m.mu.Unlock()
-		cancelPending()
-		return Login{}, errors.New("credential manager is closed")
-	}
-	if previous := m.pending[profileName]; previous != nil {
-		login := Login{AuthorizationURL: previous.authorize, RedirectURI: previous.redirectURI}
-		m.mu.Unlock()
-		cancelPending()
-		return login, nil
-	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		m.mu.Unlock()
-		cancelPending()
-		return Login{}, fmt.Errorf("start ChatGPT callback listener: %w", err)
+		return fmt.Errorf("start ChatGPT callback listener: %w", err)
 	}
 	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
 		_ = listener.Close()
-		m.mu.Unlock()
-		cancelPending()
-		return Login{}, errors.New("start ChatGPT callback listener: unexpected address")
+		return errors.New("start ChatGPT callback listener: unexpected address")
 	}
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d%s", tcpAddr.Port, chatGPTCallbackPath)
+	authorizeURL, err := url.Parse(endpoints.AuthorizationEndpoint)
+	if err != nil {
+		_ = listener.Close()
+		return errors.New("invalid ChatGPT authorization endpoint")
+	}
 	requestClientID := chatGPTAuthorizeClientID
-	if registered {
-		requestClientID = issuedClientID
+	if job.registered {
+		requestClientID = job.clientID
 	}
 	params := url.Values{
 		"client_id":             {requestClientID},
@@ -201,155 +108,70 @@ func (m *Manager) BeginLogin(ctx context.Context, profileName string, profile Pr
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"ext_agent_host_id":     {hostID},
 	}
-	if !registered {
+	if !job.registered {
 		params.Set("agent_name_hint", "hjh")
 	}
-	query := loginURL.Query()
+	query := authorizeURL.Query()
 	for name, values := range params {
 		for _, value := range values {
 			query.Add(name, value)
 		}
 	}
-	loginURL.RawQuery = query.Encode()
-	pending := &pendingLogin{
-		profileName: profileName,
-		path:        path,
-		existing:    found,
-		subject:     existing.Subject,
-		registered:  registered,
-		clientID:    issuedClientID,
-		hostID:      hostID,
-		state:       state,
-		nonce:       nonce,
-		verifier:    verifier,
-		redirectURI: redirectURI,
-		authorize:   loginURL.String(),
-		endpoints:   endpoints,
-		callback:    make(chan string, 1),
-		listener:    listener,
-		ctx:         pendingCtx,
-		cancel:      cancelPending,
-		watchStop:   make(chan struct{}),
-		watcherDone: make(chan struct{}),
-		serveDone:   make(chan struct{}),
-		retired:     make(chan struct{}),
-	}
-	pending.server = &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	authorizeURL.RawQuery = query.Encode()
+	serveDone := make(chan struct{})
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != chatGPTCallbackPath {
 			http.NotFound(w, r)
 			return
 		}
-		select {
-		case pending.callback <- pending.redirectURI + "?" + r.URL.RawQuery:
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			_, _ = io.WriteString(w, "Sign-in response received. Return to hjh.\n")
-		default:
-			w.WriteHeader(http.StatusAccepted)
-		}
+		job.queueCallback(redirectURI + "?" + r.URL.RawQuery)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = io.WriteString(w, "Sign-in response received. Return to hjh.\n")
 	})}
+	job.mu.Lock()
+	job.endpoints = endpoints
+	job.hostID = hostID
+	job.stateToken = state
+	job.nonce = nonce
+	job.verifier = verifier
+	job.redirectURI = redirectURI
+	job.authorize = authorizeURL.String()
+	job.listener = listener
+	job.server = server
+	job.serveDone = serveDone
+	job.mu.Unlock()
 	go func() {
-		defer close(pending.serveDone)
-		_ = pending.server.Serve(listener)
+		defer close(serveDone)
+		_ = server.Serve(listener)
 	}()
-	m.pending[profileName] = pending
-	m.live[pending] = struct{}{}
-	go m.watchPendingContext(pending)
-	m.mu.Unlock()
-	if err := ctx.Err(); err != nil {
-		_ = m.retirePending(profileName, pending)
-		<-pending.watcherDone
-		return Login{}, err
-	}
-	return Login{AuthorizationURL: pending.authorize, RedirectURI: pending.redirectURI}, nil
+	return nil
 }
 
-// CompleteLogin exchanges a validated authorization callback and stores the
-// resulting account. When callbackURL is empty it waits for the loopback
-// listener started by BeginLogin.
-func (m *Manager) CompleteLogin(ctx context.Context, profileName string, profile Profile, callbackURL string) (Status, error) {
-	_ = profile // The pending operation keeps the exact profile path it began with.
-	m.mu.Lock()
-	pending := m.pending[profileName]
-	if pending == nil {
-		m.mu.Unlock()
-		return Status{}, fmt.Errorf("no ChatGPT login is pending for profile %q", profileName)
-	}
-	pending.mu.Lock()
-	if pending.busy {
-		pending.mu.Unlock()
-		m.mu.Unlock()
-		return Status{}, errors.New("ChatGPT login completion is already in progress")
-	}
-	pending.busy = true
-	pending.mu.Unlock()
-	m.mu.Unlock()
-
-	completionCtx, cancelCompletion := context.WithCancel(ctx)
-	stopBeginContext := context.AfterFunc(pending.ctx, cancelCompletion)
-	if pending.ctx.Err() != nil {
-		cancelCompletion()
-	}
-	defer func() {
-		stopBeginContext()
-		cancelCompletion()
-	}()
-	ctx = completionCtx
-
-	keepPending := false
-	defer func() {
-		m.mu.Lock()
-		if keepPending {
-			if m.pending[profileName] == pending {
-				pending.mu.Lock()
-				pending.busy = false
-				pending.mu.Unlock()
-			}
+func (m *Manager) completeOAuthAttempt(ctx context.Context, job *attemptJob, code, clientID string) (accountSaved, selectionSaved bool, err error) {
+	if !job.registered {
+		registration := oauthRegistration{Issuer: job.endpoints.Issuer, ClientID: clientID, HostID: job.hostID}
+		if err := m.runTicket(ctx, true, func(operationCtx context.Context) error {
+			return m.saveOAuthRegistration(operationCtx, job.accountPath, registration)
+		}); err != nil {
+			return false, false, err
 		}
-		m.mu.Unlock()
-		if !keepPending {
-			_ = m.retirePending(profileName, pending)
-			<-pending.watcherDone
-		}
-	}()
-
-	if callbackURL == "" {
-		select {
-		case callbackURL = <-pending.callback:
-		case <-ctx.Done():
-			return Status{}, ctx.Err()
-		}
+		job.clientID = clientID
+		job.registered = true
+		job.registration = registration
 	}
-	code, clientID, err := validateCallback(pending, callbackURL)
+	tokens, err := m.exchangeAuthorizationCode(ctx, job, code, clientID)
 	if err != nil {
-		var retryable callbackInputError
-		keepPending = errors.As(err, &retryable)
-		return Status{}, err
+		return false, false, err
 	}
-	if !pending.registered {
-		registration := oauthRegistration{
-			Issuer:   pending.endpoints.Issuer,
-			ClientID: clientID,
-			HostID:   pending.hostID,
-		}
-		if err := m.saveOAuthRegistration(ctx, pending.path, registration); err != nil {
-			return Status{}, err
-		}
-		pending.clientID = clientID
-		pending.registered = true
-	}
-	tokens, err := m.exchangeAuthorizationCode(ctx, pending, code, clientID)
+	claims, err := m.verifyIDToken(ctx, job.endpoints.JWKSURI, job.endpoints.Issuer, tokens.IDToken, clientID, job.nonce)
 	if err != nil {
-		return Status{}, err
+		return false, false, err
 	}
-	claims, err := m.verifyIDToken(ctx, pending.endpoints.JWKSURI, pending.endpoints.Issuer, tokens.IDToken, clientID, pending.nonce)
-	if err != nil {
-		return Status{}, err
-	}
-	if pending.existing && claims.Subject != pending.subject {
-		return Status{}, errors.New("ChatGPT account identity did not match the selected profile")
+	if job.wasConnected && claims.Subject != job.oldSubject {
+		return false, false, errors.New("ChatGPT account identity did not match the selected account")
 	}
 	if tokens.AccessToken == "" || tokens.IDToken == "" {
-		return Status{}, errors.New("ChatGPT token response was incomplete")
+		return false, false, errors.New("ChatGPT token response was incomplete")
 	}
 	now := time.Now().UTC()
 	record := oauthRecord{
@@ -357,7 +179,7 @@ func (m *Manager) CompleteLogin(ctx context.Context, profileName string, profile
 		Subject:   claims.Subject,
 		Email:     claims.Email,
 		ClientID:  clientID,
-		HostID:    pending.hostID,
+		HostID:    job.hostID,
 		IDToken:   tokens.IDToken,
 		Access:    tokens.AccessToken,
 		Refresh:   tokens.RefreshToken,
@@ -366,31 +188,63 @@ func (m *Manager) CompleteLogin(ctx context.Context, profileName string, profile
 		Scopes:    strings.Fields(tokens.Scope),
 		SavedAt:   now,
 	}
-	err = withFileLock(ctx, pending.path, func() error {
-		current, currentFound, readErr := readOAuthRecord(pending.path)
-		if readErr != nil {
-			return readErr
-		}
-		if pending.existing {
-			if !currentFound || current.ClientID != pending.clientID || current.Subject != pending.subject {
-				return errors.New("ChatGPT credential profile changed during login")
+	job.setPhase("saving")
+	metadataPath := oauthMetadataPath(job.basePath)
+	err = m.runTicket(ctx, true, func(operationCtx context.Context) error {
+		return withAccountMetadataLock(operationCtx, job.basePath, func() error {
+			metadata, found, readErr := readAccountMetadata(metadataPath)
+			if readErr != nil {
+				return readErr
 			}
-		} else if currentFound {
-			return errors.New("ChatGPT credential profile changed during login")
-		}
-		currentRegistration, registrationFound, readErr := readOAuthRegistration(oauthRegistrationPath(pending.path))
-		if readErr != nil {
-			return readErr
-		}
-		if registrationFound && (currentRegistration.Issuer != record.Issuer || currentRegistration.ClientID != record.ClientID || currentRegistration.HostID != record.HostID) {
-			return errors.New("ChatGPT client registration changed during login")
-		}
-		return writeOAuthRecord(pending.path, record)
+			if !found {
+				metadata = defaultAccountMetadata()
+			}
+			if !containsAccount(metadata.AccountIDs, job.state.AccountID) {
+				return errors.New("ChatGPT account slot was removed during authorization")
+			}
+			if err := withFileLock(operationCtx, job.accountPath, func() error {
+				current, currentFound, readErr := readOAuthRecord(job.accountPath)
+				if readErr != nil {
+					return readErr
+				}
+				if job.wasConnected {
+					if !currentFound || current.ClientID != job.clientID || current.Subject != job.oldSubject {
+						return errors.New("ChatGPT account changed during authorization")
+					}
+				} else if currentFound {
+					return errors.New("ChatGPT account changed during authorization")
+				}
+				currentRegistration, registrationFound, readErr := readOAuthRegistration(oauthRegistrationPath(job.accountPath))
+				if readErr != nil {
+					return readErr
+				}
+				if registrationFound && (currentRegistration.Issuer != record.Issuer || currentRegistration.ClientID != record.ClientID || currentRegistration.HostID != record.HostID) {
+					return errors.New("ChatGPT client registration changed during authorization")
+				}
+				if err := writeOAuthRecord(job.accountPath, record); err != nil {
+					return err
+				}
+				accountSaved = true
+				return nil
+			}); err != nil {
+				return err
+			}
+			if job.wasConnected {
+				selectionSaved = true
+				return nil
+			}
+			if metadata.SelectedAccountID != job.state.AccountID {
+				metadata.SelectedAccountID = job.state.AccountID
+				metadata.Revision++
+				if err := writeAccountMetadata(metadataPath, metadata); err != nil {
+					return err
+				}
+			}
+			selectionSaved = true
+			return nil
+		})
 	})
-	if err != nil {
-		return Status{}, err
-	}
-	return statusFor(record), nil
+	return accountSaved, selectionSaved, err
 }
 
 func (m *Manager) saveOAuthRegistration(ctx context.Context, path string, registration oauthRegistration) error {
@@ -410,12 +264,12 @@ type callbackInputError struct{ message string }
 
 func (e callbackInputError) Error() string { return e.message }
 
-func validateCallback(pending *pendingLogin, callbackURL string) (string, string, error) {
+func validateAttemptCallback(job *attemptJob, callbackURL string) (string, string, error) {
 	callback, err := url.Parse(callbackURL)
 	if err != nil {
 		return "", "", callbackInputError{message: "could not parse ChatGPT callback URL"}
 	}
-	expected, _ := url.Parse(pending.redirectURI)
+	expected, _ := url.Parse(job.redirectURI)
 	if callback.Scheme != expected.Scheme || callback.Host != expected.Host || callback.Path != expected.Path || callback.User != nil || callback.Fragment != "" {
 		return "", "", callbackInputError{message: "ChatGPT callback URL did not match the pending redirect"}
 	}
@@ -424,7 +278,7 @@ func validateCallback(pending *pendingLogin, callbackURL string) (string, string
 		return "", "", callbackInputError{message: "could not parse ChatGPT callback parameters"}
 	}
 	state := query.Get("state")
-	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(pending.state)) != 1 {
+	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(job.stateToken)) != 1 {
 		return "", "", callbackInputError{message: "ChatGPT callback state did not match"}
 	}
 	if query.Get("error") != "" {
@@ -438,11 +292,11 @@ func validateCallback(pending *pendingLogin, callbackURL string) (string, string
 		return "", "", callbackInputError{message: "ChatGPT callback did not include an authorization code"}
 	}
 	clientID := query.Get("client_id")
-	if pending.registered {
-		if clientID != "" && clientID != pending.clientID {
+	if job.registered {
+		if clientID != "" && clientID != job.clientID {
 			return "", "", callbackInputError{message: "ChatGPT callback client did not match the selected profile"}
 		}
-		return code, pending.clientID, nil
+		return code, job.clientID, nil
 	}
 	if clientID == "" || clientID == chatGPTAuthorizeClientID {
 		return "", "", callbackInputError{message: "ChatGPT registration did not return an issued client ID"}
@@ -450,16 +304,16 @@ func validateCallback(pending *pendingLogin, callbackURL string) (string, string
 	return code, clientID, nil
 }
 
-func (m *Manager) exchangeAuthorizationCode(ctx context.Context, pending *pendingLogin, code, clientID string) (tokenResponse, error) {
+func (m *Manager) exchangeAuthorizationCode(ctx context.Context, job *attemptJob, code, clientID string) (tokenResponse, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {clientID},
 		"code":          {code},
-		"code_verifier": {pending.verifier},
-		"redirect_uri":  {pending.redirectURI},
+		"code_verifier": {job.verifier},
+		"redirect_uri":  {job.redirectURI},
 		"resource":      {chatGPTResource},
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, pending.endpoints.TokenEndpoint, strings.NewReader(form.Encode()))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, job.endpoints.TokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return tokenResponse{}, errors.New("could not prepare ChatGPT token exchange")
 	}
@@ -487,40 +341,26 @@ func (m *Manager) exchangeAuthorizationCode(ctx context.Context, pending *pendin
 }
 
 func (m *Manager) resolveChatGPT(ctx context.Context, profileName string, profile Profile) (Resolved, error) {
-	path, err := m.oauthPath(profileName, profile)
+	basePath, err := m.oauthPath(profileName, profile)
 	if err != nil {
 		return Resolved{}, err
 	}
-	var resolved Resolved
-	err = withFileLock(ctx, path, func() error {
-		record, found, readErr := readOAuthRecord(path)
+	metadataPath := oauthMetadataPath(basePath)
+	metadata := defaultAccountMetadata()
+	err = withAccountMetadataLock(ctx, basePath, func() error {
+		loaded, found, readErr := readAccountMetadata(metadataPath)
 		if readErr != nil {
 			return readErr
 		}
-		if !found {
-			return fmt.Errorf("ChatGPT login is required for credential profile %q", profileName)
+		if found {
+			metadata = loaded
 		}
-		if !hasScope(record.Scopes, chatGPTPlanScope) {
-			return errors.New("ChatGPT plan usage is not enabled for this account")
-		}
-		if !record.ExpiresAt.After(time.Now().Add(30 * time.Second)) {
-			if record.Refresh == "" {
-				return errors.New("ChatGPT access token expired and no refresh token is available")
-			}
-			if err := m.refreshRecord(ctx, path, &record); err != nil {
-				return err
-			}
-		}
-		if !hasScope(record.Scopes, chatGPTPlanScope) {
-			return errors.New("ChatGPT plan usage is not enabled for this account")
-		}
-		resolved = Resolved{Token: record.Access, Identity: accountIdentity(record.Issuer, record.ClientID, record.Subject)}
 		return nil
 	})
 	if err != nil {
 		return Resolved{}, err
 	}
-	return resolved, nil
+	return m.resolveOAuthAccount(ctx, profileName, oauthAccountPath(basePath, metadata.SelectedAccountID))
 }
 
 func (m *Manager) refreshRecord(ctx context.Context, path string, record *oauthRecord) error {
@@ -578,58 +418,6 @@ func randomURLToken(size int) (string, error) {
 		return "", fmt.Errorf("create ChatGPT authorization request: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(data), nil
-}
-
-func (m *Manager) watchPendingContext(pending *pendingLogin) {
-	defer close(pending.watcherDone)
-	select {
-	case <-pending.ctx.Done():
-		_ = m.retirePending(pending.profileName, pending)
-	case <-pending.watchStop:
-	}
-}
-
-func (m *Manager) retirePending(profileName string, pending *pendingLogin) error {
-	pending.retire.Do(func() {
-		m.mu.Lock()
-		if m.pending[profileName] == pending {
-			delete(m.pending, profileName)
-		}
-		m.mu.Unlock()
-
-		pending.shutdownErr = pending.stop()
-
-		m.mu.Lock()
-		delete(m.live, pending)
-		m.mu.Unlock()
-	})
-	return pending.shutdownErr
-}
-
-func (pending *pendingLogin) stop() error {
-	pending.shutdown.Do(func() {
-		close(pending.watchStop)
-		if pending.cancel != nil {
-			pending.cancel()
-		}
-		var closeErrors []error
-		if pending.server != nil {
-			if err := pending.server.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				closeErrors = append(closeErrors, err)
-			}
-		}
-		if pending.listener != nil {
-			if err := pending.listener.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-				closeErrors = append(closeErrors, err)
-			}
-		}
-		if pending.serveDone != nil {
-			<-pending.serveDone
-		}
-		pending.shutdownErr = errors.Join(closeErrors...)
-		close(pending.retired)
-	})
-	return pending.shutdownErr
 }
 
 func statusFor(record oauthRecord) Status {

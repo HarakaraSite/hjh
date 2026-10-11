@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"hjh/internal/contracts"
 )
 
 type Message struct {
@@ -123,6 +125,7 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 			return nil, fmt.Errorf("history scan semantic record: %w", err)
 		}
 		item.record.Payload = json.RawMessage(payload)
+		item.record.Conversation = conversationMetadata(item.record.Payload)
 		stored = append(stored, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -149,6 +152,17 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		result = append(result, item.record)
 	}
 	return result, nil
+}
+
+func conversationMetadata(payload json.RawMessage) *contracts.ConversationMetadata {
+	var envelope struct {
+		Conversation *contracts.ConversationMetadata `json:"conversation"`
+	}
+	if json.Unmarshal(payload, &envelope) != nil || envelope.Conversation == nil {
+		return nil
+	}
+	metadata := *envelope.Conversation
+	return &metadata
 }
 
 func (s *Store) readRelations(ctx context.Context, recordID string) ([]Relation, error) {

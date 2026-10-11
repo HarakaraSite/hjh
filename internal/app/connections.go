@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"hjh/internal/contracts"
 	"hjh/internal/credentials"
@@ -24,14 +24,54 @@ type connectionFactory struct {
 	ownsCredentials               bool
 	client                        *http.Client
 	overrideProfile, overrideFile string
+	bindingMu                     sync.Mutex
+	bindings                      map[string]*bindingFlight
+}
+
+type bindingFlight struct {
+	done    chan struct{}
+	binding *credentials.Binding
+	err     error
 }
 
 func newConnectionFactory(options RunOptions) *connectionFactory {
 	manager := options.Credentials
 	if manager == nil {
-		manager = credentials.NewManager(credentials.Options{HTTPClient: options.HTTPClient})
+		manager = credentials.NewManager(credentials.Options{HTTPClient: options.HTTPClient, StateDir: options.CredentialStateDir})
 	}
-	return &connectionFactory{credentials: manager, client: options.HTTPClient, ownsCredentials: options.Credentials == nil}
+	return &connectionFactory{credentials: manager, client: options.HTTPClient, ownsCredentials: options.Credentials == nil,
+		bindings: make(map[string]*bindingFlight)}
+}
+
+// capture joins the first preparation for one owner without holding a factory
+// mutex over credential reads or refresh. Different owners prepare independently.
+func (f *connectionFactory) capture(ctx context.Context, target credentials.Target) (*credentials.Binding, error) {
+	key, err := f.credentials.BindingKey(target)
+	if err != nil {
+		return nil, err
+	}
+	f.bindingMu.Lock()
+	flight := f.bindings[key]
+	if flight != nil {
+		f.bindingMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-flight.done:
+			return flight.binding, flight.err
+		}
+	}
+	flight = &bindingFlight{done: make(chan struct{})}
+	f.bindings[key] = flight
+	f.bindingMu.Unlock()
+	flight.binding, flight.err = f.credentials.Capture(ctx, target)
+	f.bindingMu.Lock()
+	if flight.err != nil {
+		delete(f.bindings, key)
+	}
+	close(flight.done)
+	f.bindingMu.Unlock()
+	return flight.binding, flight.err
 }
 
 func capturedRegistry(snapshot extensions.Snapshot, configPath string) (*providers.Registry, error) {
@@ -43,16 +83,21 @@ func capturedRegistry(snapshot extensions.Snapshot, configPath string) (*provide
 	return nil, fmt.Errorf("configuration source was not captured: %s", configPath)
 }
 
-func (f *connectionFactory) provider(ctx context.Context, registry *providers.Registry, selection contracts.ModelSelection, sessionID string) (contracts.Provider, error) {
+func (f *connectionFactory) provider(ctx context.Context, registry *providers.Registry, selection contracts.ModelSelection, sessionID, configPath string) (contracts.Provider, error) {
 	definition, err := registry.Definition(selection.Provider)
 	if err != nil {
 		return nil, err
 	}
-	profile := registry.Config.Credentials[selection.AuthProfile]
-	if f.overrideFile != "" && selection.AuthProfile == f.overrideProfile {
-		profile.Env, profile.File = "", f.overrideFile
+	target := credentials.Target{ConfigPath: configPath, ProviderID: selection.Provider, Name: selection.AuthProfile,
+		Kind: definition.Auth.Kind, Profile: registry.Config.Credentials[selection.AuthProfile]}
+	if selection.AuthProfile == f.overrideProfile {
+		target.OverrideFile = f.overrideFile
 	}
-	resolved, err := f.credentials.Resolve(ctx, definition.Auth.Kind, selection.AuthProfile, profile)
+	binding, err := f.capture(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := binding.Resolve(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +115,7 @@ func (f *connectionFactory) provider(ctx context.Context, registry *providers.Re
 		SessionID: sessionID, SessionHeader: definition.SessionHeader}
 	if definition.Auth.Kind == credentials.KindChatGPTOAuth {
 		config.ResolveToken = func(requestCtx context.Context) (string, error) {
-			current, resolveErr := f.credentials.Resolve(requestCtx, definition.Auth.Kind, selection.AuthProfile, profile)
+			current, resolveErr := binding.Resolve(requestCtx)
 			if resolveErr != nil {
 				return "", resolveErr
 			}
@@ -84,11 +129,7 @@ func (s *Service) connectionRegistry(workspace string) (*providers.Registry, err
 	if workspace == "" {
 		workspace = s.options.Workspace
 	}
-	path, err := prepareConfig(workspace, s.options.ConfigPath)
-	if err != nil {
-		return nil, err
-	}
-	b, err := os.ReadFile(path)
+	_, b, err := s.selectionConfig(workspace, s.options.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -106,32 +147,57 @@ func (s *Service) Providers(ctx context.Context, workspace string) ([]providers.
 	return r.List(), nil
 }
 
-func (s *Service) Models(ctx context.Context, workspace, providerID string) ([]providers.ModelInfo, error) {
-	r, err := s.connectionRegistry(workspace)
+func (s *Service) Models(ctx context.Context, workspace, providerID, authProfile string) ([]providers.ModelInfo, error) {
+	result, err := s.ModelsWithAuth(ctx, workspace, providerID, authProfile)
+	return result.Models, err
+}
+
+type ModelCatalog struct {
+	Models                     []providers.ModelInfo
+	AuthOwnerID, AuthAccountID string
+}
+
+func (s *Service) ModelsWithAuth(ctx context.Context, workspace, providerID, authProfile string) (result ModelCatalog, err error) {
+	if workspace == "" {
+		workspace = s.options.Workspace
+	}
+	configPath, data, err := s.selectionConfig(workspace, s.options.ConfigPath)
 	if err != nil {
-		return nil, err
+		return result, err
+	}
+	r, err := providers.Parse(data)
+	if err != nil {
+		return result, err
 	}
 	if providerID == "" {
 		providerID = r.Config.Model.Provider
 	}
 	d, err := r.Definition(providerID)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	if d.Catalog.Path == "" {
-		return d.Models, nil
+		result.Models = d.Models
+		return result, nil
 	}
-	selection, err := r.Resolve(contracts.ModelSelection{}, contracts.ModelSelection{Provider: providerID})
+	selection, err := r.Resolve(contracts.ModelSelection{}, contracts.ModelSelection{Provider: providerID, AuthProfile: authProfile})
 	if err != nil {
-		return nil, err
+		return result, err
 	}
-	resolved, err := s.connections.credentials.Resolve(ctx, d.Auth.Kind, selection.AuthProfile, r.Config.Credentials[selection.AuthProfile])
+	binding, err := s.connections.credentials.Capture(ctx, credentials.Target{ConfigPath: configPath,
+		ProviderID: providerID, Name: selection.AuthProfile, Kind: d.Auth.Kind,
+		Profile: r.Config.Credentials[selection.AuthProfile], OverrideFile: s.options.CredentialFile})
 	if err != nil {
-		return nil, err
+		return result, err
 	}
+	resolved, err := binding.Resolve(ctx)
+	if err != nil {
+		return result, err
+	}
+	result.AuthOwnerID, result.AuthAccountID = binding.OwnerID, binding.AccountID
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(d.BaseURL, "/")+"/"+strings.TrimLeft(d.Catalog.Path, "/"), nil)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	for name, value := range d.Headers {
 		request.Header.Set(name, value)
@@ -144,11 +210,11 @@ func (s *Service) Models(ctx context.Context, workspace, providerID string) ([]p
 	client = protocol.NewAuthenticatedHTTPClient(client, request.URL.String(), resolved.Token)
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("model catalog request failed: %w", err)
+		return result, fmt.Errorf("model catalog request failed: %w", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("model catalog HTTP %s", response.Status)
+		return result, fmt.Errorf("model catalog HTTP %s", response.Status)
 	}
 	var body struct {
 		Data []struct {
@@ -156,19 +222,31 @@ func (s *Service) Models(ctx context.Context, workspace, providerID string) ([]p
 			Name string `json:"name"`
 		} `json:"data"`
 		Models []struct {
-			Slug       string `json:"slug"`
-			Name       string `json:"display_name"`
-			Visibility string `json:"visibility"`
+			Slug                     string `json:"slug"`
+			Name                     string `json:"display_name"`
+			Visibility               string `json:"visibility"`
+			SupportedReasoningLevels *[]struct {
+				Description string `json:"description"`
+				Effort      string `json:"effort"`
+			} `json:"supported_reasoning_levels"`
 		} `json:"models"`
 	}
 	if err = json.NewDecoder(response.Body).Decode(&body); err != nil {
-		return nil, err
+		return result, err
 	}
 	var models []providers.ModelInfo
 	if d.Catalog.Kind == "openai-account" {
 		for _, model := range body.Models {
 			if model.Visibility == "list" {
-				models = append(models, providers.ModelInfo{ID: model.Slug, Name: model.Name})
+				info := providers.ModelInfo{ID: model.Slug, Name: model.Name}
+				if model.SupportedReasoningLevels != nil {
+					info.EffortSource = "catalog"
+					info.Efforts = make([]string, 0, len(*model.SupportedReasoningLevels))
+					for _, level := range *model.SupportedReasoningLevels {
+						info.Efforts = append(info.Efforts, level.Effort)
+					}
+				}
+				models = append(models, info)
 			}
 		}
 	} else {
@@ -176,47 +254,8 @@ func (s *Service) Models(ctx context.Context, workspace, providerID string) ([]p
 			models = append(models, providers.ModelInfo{ID: model.ID, Name: model.Name})
 		}
 	}
-	return models, nil
-}
-
-func (s *Service) authProfile(workspace, providerID string) (string, credentials.Profile, error) {
-	r, err := s.connectionRegistry(workspace)
-	if err != nil {
-		return "", credentials.Profile{}, err
-	}
-	if providerID == "" {
-		providerID = r.Config.Model.Provider
-	}
-	d, err := r.Definition(providerID)
-	if err != nil {
-		return "", credentials.Profile{}, err
-	}
-	if d.Auth.Kind != "chatgpt-oauth" {
-		return "", credentials.Profile{}, fmt.Errorf("provider %s uses %s authentication", providerID, d.Auth.Kind)
-	}
-	return d.Auth.Profile, r.Config.Credentials[d.Auth.Profile], nil
-}
-
-func (s *Service) BeginLogin(ctx context.Context, workspace, providerID string) (credentials.Login, error) {
-	name, profile, err := s.authProfile(workspace, providerID)
-	if err != nil {
-		return credentials.Login{}, err
-	}
-	return s.connections.credentials.BeginLogin(ctx, name, profile)
-}
-func (s *Service) CompleteLogin(ctx context.Context, workspace, providerID, callbackURL string) (credentials.Status, error) {
-	name, profile, err := s.authProfile(workspace, providerID)
-	if err != nil {
-		return credentials.Status{}, err
-	}
-	return s.connections.credentials.CompleteLogin(ctx, name, profile, callbackURL)
-}
-func (s *Service) LoginStatus(ctx context.Context, workspace, providerID string) (credentials.Status, error) {
-	name, profile, err := s.authProfile(workspace, providerID)
-	if err != nil {
-		return credentials.Status{}, err
-	}
-	return s.connections.credentials.Status(ctx, name, profile)
+	result.Models = models
+	return result, nil
 }
 
 func (f *connectionFactory) close() error {

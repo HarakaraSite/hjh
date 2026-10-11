@@ -20,6 +20,9 @@ type streamAssembly struct {
 	text             strings.Builder
 	chatReasoning    strings.Builder
 	chatReasoningRaw []json.RawMessage
+	thinking         map[string]*strings.Builder
+	thinkingKind     map[string]string
+	thinkingOrder    []string
 	toolCalls        map[int]*toolCallAssembly
 	outputItems      map[int]json.RawMessage
 	replayItems      []json.RawMessage
@@ -45,9 +48,11 @@ type toolCallAssembly struct {
 
 func newStreamAssembly(api string) *streamAssembly {
 	return &streamAssembly{
-		api:         api,
-		toolCalls:   make(map[int]*toolCallAssembly),
-		outputItems: make(map[int]json.RawMessage),
+		api:          api,
+		toolCalls:    make(map[int]*toolCallAssembly),
+		outputItems:  make(map[int]json.RawMessage),
+		thinking:     make(map[string]*strings.Builder),
+		thinkingKind: make(map[string]string),
 	}
 }
 
@@ -119,7 +124,7 @@ func consumeSSE(reader io.Reader, onData func([]byte) error) error {
 	}
 }
 
-func (assembly *streamAssembly) addEvent(provider *Provider, raw []byte, onText func(string) error) error {
+func (assembly *streamAssembly) addEvent(provider *Provider, raw []byte, onProgress func(string, []contracts.ThinkingItem) error) error {
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("[DONE]")) {
 		assembly.doneMarker = true
 		if assembly.api == "chat-completions" {
@@ -128,12 +133,12 @@ func (assembly *streamAssembly) addEvent(provider *Provider, raw []byte, onText 
 		return errStopSSE
 	}
 	if assembly.api == "chat-completions" {
-		return assembly.addChatEvent(raw, provider.config.Options.ReasoningField, onText)
+		return assembly.addChatEvent(raw, provider.config.Options.ReasoningField, onProgress)
 	}
-	return assembly.addResponsesEvent(raw, onText)
+	return assembly.addResponsesEvent(raw, onProgress)
 }
 
-func (assembly *streamAssembly) addChatEvent(raw []byte, reasoningField string, onText func(string) error) error {
+func (assembly *streamAssembly) addChatEvent(raw []byte, reasoningField string, onProgress func(string, []contracts.ThinkingItem) error) error {
 	var event map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &event); err != nil {
 		return fmt.Errorf("invalid Chat Completions stream JSON: %w", err)
@@ -177,24 +182,32 @@ func (assembly *streamAssembly) addChatEvent(raw []byte, reasoningField string, 
 			if text := decodeContent(delta["content"]); text != "" {
 				assembly.text.WriteString(text)
 				assembly.sawTextDelta = true
-				if err := onText(assembly.text.String()); err != nil {
+				if err := onProgress(assembly.text.String(), nil); err != nil {
 					return err
 				}
 			}
-			assembly.addChatReasoning(delta, reasoningField)
+			if thinking := assembly.addChatReasoning(delta, reasoningField); thinking != nil {
+				if err := onProgress("", []contracts.ThinkingItem{*thinking}); err != nil {
+					return err
+				}
+			}
 			assembly.addChatToolCallFragments(delta["tool_calls"])
 		}
 	}
 	return nil
 }
 
-func (assembly *streamAssembly) addChatReasoning(delta map[string]json.RawMessage, field string) {
+func (assembly *streamAssembly) addChatReasoning(delta map[string]json.RawMessage, field string) *contracts.ThinkingItem {
 	if field == "" {
-		return
+		return nil
 	}
 	if value, ok := decodeJSONString(delta[field]); ok {
 		assembly.chatReasoning.WriteString(value)
-		return
+		if value == "" {
+			return nil
+		}
+		item := assembly.appendThinking("reasoning", "reasoning", value)
+		return &item
 	}
 	var details []json.RawMessage
 	if json.Unmarshal(delta[field], &details) == nil {
@@ -202,6 +215,7 @@ func (assembly *streamAssembly) addChatReasoning(delta map[string]json.RawMessag
 			assembly.chatReasoningRaw = append(assembly.chatReasoningRaw, append(json.RawMessage(nil), item...))
 		}
 	}
+	return nil
 }
 
 func (assembly *streamAssembly) addChatToolCallFragments(raw json.RawMessage) {
@@ -239,7 +253,7 @@ func (assembly *streamAssembly) addChatToolCallFragments(raw json.RawMessage) {
 	}
 }
 
-func (assembly *streamAssembly) addResponsesEvent(raw []byte, onText func(string) error) error {
+func (assembly *streamAssembly) addResponsesEvent(raw []byte, onProgress func(string, []contracts.ThinkingItem) error) error {
 	var event map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &event); err != nil {
 		return fmt.Errorf("invalid Responses stream JSON: %w", err)
@@ -305,7 +319,7 @@ func (assembly *streamAssembly) addResponsesEvent(raw []byte, onText func(string
 		if ok && text != "" {
 			assembly.text.WriteString(text)
 			assembly.sawTextDelta = true
-			if err := onText(assembly.text.String()); err != nil {
+			if err := onProgress(assembly.text.String(), nil); err != nil {
 				return err
 			}
 		}
@@ -313,6 +327,36 @@ func (assembly *streamAssembly) addResponsesEvent(raw []byte, onText func(string
 		if !assembly.sawTextDelta {
 			if text, ok := decodeJSONString(event["text"]); ok {
 				assembly.text.WriteString(text)
+			}
+		}
+	case "response.reasoning_text.delta":
+		if delta, ok := decodeJSONString(event["delta"]); ok && delta != "" {
+			item := assembly.appendThinking(responseThinkingKey(event, "reasoning"), "reasoning", delta)
+			if err := onProgress("", []contracts.ThinkingItem{item}); err != nil {
+				return err
+			}
+		}
+	case "response.reasoning_text.done":
+		if text, ok := decodeJSONString(event["text"]); ok {
+			if item, changed := assembly.setThinkingText(responseThinkingKey(event, "reasoning"), "reasoning", text); changed {
+				if err := onProgress("", []contracts.ThinkingItem{item}); err != nil {
+					return err
+				}
+			}
+		}
+	case "response.reasoning_summary_text.delta":
+		if delta, ok := decodeJSONString(event["delta"]); ok && delta != "" {
+			item := assembly.appendThinking(responseThinkingKey(event, "summary"), "summary", delta)
+			if err := onProgress("", []contracts.ThinkingItem{item}); err != nil {
+				return err
+			}
+		}
+	case "response.reasoning_summary_text.done":
+		if text, ok := decodeJSONString(event["text"]); ok {
+			if item, changed := assembly.setThinkingText(responseThinkingKey(event, "summary"), "summary", text); changed {
+				if err := onProgress("", []contracts.ThinkingItem{item}); err != nil {
+					return err
+				}
 			}
 		}
 	case "response.function_call_arguments.delta":
@@ -323,7 +367,11 @@ func (assembly *streamAssembly) addResponsesEvent(raw []byte, onText func(string
 		index, _ := decodeJSONInt(event["output_index"])
 		var item json.RawMessage
 		if json.Unmarshal(event["item"], &item) == nil && len(item) > 0 {
-			assembly.addResponsesItem(index, item)
+			for _, thinking := range assembly.addResponsesItem(index, item) {
+				if err := onProgress("", []contracts.ThinkingItem{thinking}); err != nil {
+					return err
+				}
+			}
 			if typeName == "response.output_item.done" {
 				assembly.outputItems[index] = append(json.RawMessage(nil), item...)
 			}
@@ -389,10 +437,10 @@ func (assembly *streamAssembly) responsesCall(index int) *toolCallAssembly {
 	return call
 }
 
-func (assembly *streamAssembly) addResponsesItem(index int, raw json.RawMessage) {
+func (assembly *streamAssembly) addResponsesItem(index int, raw json.RawMessage) []contracts.ThinkingItem {
 	var item map[string]json.RawMessage
 	if json.Unmarshal(raw, &item) != nil {
-		return
+		return nil
 	}
 	typeName, _ := decodeJSONString(item["type"])
 	switch typeName {
@@ -411,7 +459,48 @@ func (assembly *streamAssembly) addResponsesItem(index int, raw json.RawMessage)
 		if !assembly.sawTextDelta {
 			assembly.appendOutputMessageText(item["content"])
 		}
+	case "reasoning":
+		itemID, _ := decodeJSONString(item["id"])
+		changed := make([]contracts.ThinkingItem, 0)
+		var content []json.RawMessage
+		if json.Unmarshal(item["content"], &content) == nil {
+			for contentIndex, rawContent := range content {
+				var part map[string]json.RawMessage
+				if json.Unmarshal(rawContent, &part) != nil {
+					continue
+				}
+				partType, _ := decodeJSONString(part["type"])
+				text, ok := decodeJSONString(part["text"])
+				if !ok || text == "" || partType != "reasoning_text" {
+					continue
+				}
+				key := responseItemThinkingKey(itemID, index, "reasoning", contentIndex)
+				if current, didChange := assembly.setThinkingText(key, "reasoning", text); didChange {
+					changed = append(changed, current)
+				}
+			}
+		}
+		var summary []json.RawMessage
+		if json.Unmarshal(item["summary"], &summary) == nil {
+			for summaryIndex, rawSummary := range summary {
+				var part map[string]json.RawMessage
+				if json.Unmarshal(rawSummary, &part) != nil {
+					continue
+				}
+				partType, _ := decodeJSONString(part["type"])
+				text, ok := decodeJSONString(part["text"])
+				if !ok || text == "" || (partType != "summary_text" && partType != "") {
+					continue
+				}
+				key := responseItemThinkingKey(itemID, index, "summary", summaryIndex)
+				if current, didChange := assembly.setThinkingText(key, "summary", text); didChange {
+					changed = append(changed, current)
+				}
+			}
+		}
+		return changed
 	}
+	return nil
 }
 
 func (assembly *streamAssembly) captureResponsesOutput(raw json.RawMessage) error {
@@ -515,7 +604,71 @@ func (assembly *streamAssembly) result(provider *Provider, request contracts.Mod
 		Calls:         calls,
 		ProviderState: state,
 		Usage:         append(json.RawMessage(nil), assembly.usage...),
+		Thinking:      assembly.thinkingItems(),
 	}, nil
+}
+
+func responseThinkingKey(event map[string]json.RawMessage, kind string) string {
+	itemID, _ := decodeJSONString(event["item_id"])
+	outputIndex, _ := decodeJSONInt(event["output_index"])
+	indexName := "content_index"
+	if kind == "summary" {
+		indexName = "summary_index"
+	}
+	partIndex, hasPartIndex := decodeJSONInt(event[indexName])
+	key := itemID
+	if key == "" {
+		key = fmt.Sprintf("output/%d", outputIndex)
+	}
+	if !hasPartIndex {
+		partIndex = 0
+	}
+	return responseItemThinkingKey(key, outputIndex, kind, partIndex)
+}
+
+func responseItemThinkingKey(itemID string, outputIndex int, kind string, partIndex int) string {
+	if itemID == "" {
+		itemID = fmt.Sprintf("output/%d", outputIndex)
+	}
+	return fmt.Sprintf("%s/%s/%d", itemID, kind, partIndex)
+}
+
+func (assembly *streamAssembly) appendThinking(key, kind, delta string) contracts.ThinkingItem {
+	text := assembly.thinking[key]
+	if text == nil {
+		text = &strings.Builder{}
+		assembly.thinking[key] = text
+		assembly.thinkingOrder = append(assembly.thinkingOrder, key)
+	}
+	assembly.thinkingKind[key] = kind
+	text.WriteString(delta)
+	return contracts.ThinkingItem{Key: key, Text: text.String(), Kind: kind}
+}
+
+func (assembly *streamAssembly) setThinkingText(key, kind, value string) (contracts.ThinkingItem, bool) {
+	text := assembly.thinking[key]
+	if text == nil {
+		text = &strings.Builder{}
+		assembly.thinking[key] = text
+		assembly.thinkingOrder = append(assembly.thinkingOrder, key)
+	}
+	assembly.thinkingKind[key] = kind
+	if text.String() == value {
+		return contracts.ThinkingItem{Key: key, Text: value, Kind: kind}, false
+	}
+	text.Reset()
+	text.WriteString(value)
+	return contracts.ThinkingItem{Key: key, Text: value, Kind: kind}, true
+}
+
+func (assembly *streamAssembly) thinkingItems() []contracts.ThinkingItem {
+	items := make([]contracts.ThinkingItem, 0, len(assembly.thinkingOrder))
+	for _, key := range assembly.thinkingOrder {
+		if text := assembly.thinking[key]; text != nil && text.Len() > 0 {
+			items = append(items, contracts.ThinkingItem{Key: key, Text: text.String(), Kind: assembly.thinkingKind[key]})
+		}
+	}
+	return items
 }
 
 func (assembly *streamAssembly) toolCallResults() ([]contracts.ToolCall, error) {

@@ -116,6 +116,31 @@ func TestPrepareResponsesOmitsOpaqueReplayForOtherStateIdentity(t *testing.T) {
 	}
 }
 
+func TestPrepareResponsesRequestsAutomaticReasoningSummary(t *testing.T) {
+	provider := New(Config{API: "responses", BaseURL: "https://example.invalid/v1", Path: "/responses"})
+	for _, test := range []struct {
+		effort string
+		want   string
+	}{{effort: "auto"}, {effort: "high", want: "high"}} {
+		body, err := provider.Prepare(contracts.ModelRequest{
+			Model:    contracts.ModelSelection{ModelID: "fixture-model", Effort: test.effort},
+			Messages: []contracts.Message{contracts.User("inspect this")},
+		})
+		if err != nil {
+			t.Fatalf("Prepare effort %q: %v", test.effort, err)
+		}
+		var wire struct {
+			Reasoning map[string]string `json:"reasoning"`
+		}
+		if err := json.Unmarshal(body, &wire); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if wire.Reasoning["summary"] != "auto" || wire.Reasoning["effort"] != test.want {
+			t.Fatalf("reasoning request for effort %q = %#v", test.effort, wire.Reasoning)
+		}
+	}
+}
+
 func TestPrepareChatCompletionsUsesCommonMessagesAndConfiguredReasoningField(t *testing.T) {
 	provider := New(Config{
 		ProviderID:    "opencode-go-chat",
@@ -188,9 +213,13 @@ func TestGenerateResponsesUsesPreparedBytesAndReplaysCompletedOutput(t *testing.
 			"event: response.created\n"+
 				"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\"}}\n\n"+
 				"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Checking the project.\"}\n\n"+
+				"data: {\"type\":\"response.reasoning_text.delta\",\"item_id\":\"rs_1\",\"output_index\":0,\"content_index\":0,\"delta\":\"Tracing the request.\"}\n\n"+
+				"data: {\"type\":\"response.reasoning_text.done\",\"item_id\":\"rs_1\",\"output_index\":0,\"content_index\":0,\"text\":\"Tracing the request.\"}\n\n"+
+				"data: {\"type\":\"response.reasoning_summary_text.delta\",\"item_id\":\"rs_1\",\"output_index\":0,\"summary_index\":0,\"delta\":\"Inspecting the project.\"}\n\n"+
+				"data: {\"type\":\"response.reasoning_summary_text.done\",\"item_id\":\"rs_1\",\"output_index\":0,\"summary_index\":0,\"text\":\"Inspecting the project.\"}\n\n"+
 				"data: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":2,\"item_id\":\"fc_item\",\"delta\":\"{\\\"code\\\":\\\"return 1\\\"}\"}\n\n"+
 				"data: {\"type\":\"response.function_call_arguments.done\",\"output_index\":2,\"item_id\":\"fc_item\",\"arguments\":\"{\\\"code\\\":\\\"return 1\\\"}\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_item\",\"call_id\":\"call_1\",\"name\":\"run_js\",\"namespace\":\"hjh\",\"arguments\":\"{\\\"code\\\":\\\"return 1\\\"}\"}}\n\n"+
-				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-test\",\"status\":\"completed\",\"usage\":{\"input_tokens\":3,\"output_tokens\":4,\"total_tokens\":7},\"output\":[{\"type\":\"reasoning\",\"id\":\"rs_1\",\"encrypted_content\":\"opaque-response-state\",\"future\":{\"kept\":true}},{\"type\":\"message\",\"id\":\"msg_1\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Checking the project.\"}]},{\"type\":\"function_call\",\"id\":\"fc_item\",\"call_id\":\"call_1\",\"name\":\"run_js\",\"namespace\":\"hjh\",\"arguments\":\"{\\\"code\\\":\\\"return 1\\\"}\",\"status\":\"completed\"}]}}\n\n")
+				"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-test\",\"status\":\"completed\",\"usage\":{\"input_tokens\":3,\"output_tokens\":4,\"total_tokens\":7},\"output\":[{\"type\":\"reasoning\",\"id\":\"rs_1\",\"content\":[{\"type\":\"reasoning_text\",\"text\":\"Tracing the request.\"}],\"summary\":[{\"type\":\"summary_text\",\"text\":\"Inspecting the project.\"}],\"encrypted_content\":\"opaque-response-state\",\"future\":{\"kept\":true}},{\"type\":\"message\",\"id\":\"msg_1\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Checking the project.\"}]},{\"type\":\"function_call\",\"id\":\"fc_item\",\"call_id\":\"call_1\",\"name\":\"run_js\",\"namespace\":\"hjh\",\"arguments\":\"{\\\"code\\\":\\\"return 1\\\"}\",\"status\":\"completed\"}]}}\n\n")
 	}))
 	defer server.Close()
 
@@ -234,6 +263,12 @@ func TestGenerateResponsesUsesPreparedBytesAndReplaysCompletedOutput(t *testing.
 	if result.Text != "Checking the project." || result.FinishReason != "completed" {
 		t.Fatalf("result text/reason = %q / %q", result.Text, result.FinishReason)
 	}
+	if len(result.Thinking) != 2 || result.Thinking[0].Key != "rs_1/reasoning/0" ||
+		result.Thinking[0].Kind != "reasoning" || result.Thinking[0].Text != "Tracing the request." ||
+		result.Thinking[1].Key != "rs_1/summary/0" || result.Thinking[1].Kind != "summary" ||
+		result.Thinking[1].Text != "Inspecting the project." {
+		t.Fatalf("public thinking text and summary = %#v", result.Thinking)
+	}
 	if len(result.Calls) != 1 || result.Calls[0].CallID != "call_1" || result.Calls[0].Name != "run_js" || string(result.Calls[0].Arguments) != `{"code":"return 1"}` {
 		t.Fatalf("tool calls = %#v", result.Calls)
 	}
@@ -248,6 +283,25 @@ func TestGenerateResponsesUsesPreparedBytesAndReplaysCompletedOutput(t *testing.
 	}
 	if len(observations) == 0 || !reflect.DeepEqual([]byte(observations[0].Input), prepared) {
 		t.Fatalf("observed request differs from prepared bytes: %#v", observations)
+	}
+	var textProgress, summaryProgress, typedResult bool
+	for _, observation := range observations {
+		if observation.Kind == "assistant_text" && observation.Text == "" && len(observation.Thinking) == 1 {
+			item := observation.Thinking[0]
+			textProgress = textProgress || (item.Key == "rs_1/reasoning/0" && item.Kind == "reasoning" && item.Text == "Tracing the request.")
+			summaryProgress = summaryProgress || (item.Key == "rs_1/summary/0" && item.Kind == "summary" && item.Text == "Inspecting the project.")
+		}
+		if observation.Kind == "model_result" && observation.Text == "Checking the project." && len(observation.Thinking) == 2 {
+			var resultPayload struct {
+				FinishReason string `json:"finishReason"`
+			}
+			if json.Unmarshal(observation.Result, &resultPayload) == nil && resultPayload.FinishReason == "completed" {
+				typedResult = true
+			}
+		}
+	}
+	if !textProgress || !summaryProgress || !typedResult {
+		t.Fatalf("provider omitted typed progress/result fields (text progress %v, summary progress %v, result %v)", textProgress, summaryProgress, typedResult)
 	}
 
 	followup, err := provider.Prepare(contracts.ModelRequest{
@@ -298,6 +352,40 @@ func TestGenerateChatCompletionsAssemblesTextToolCallsAndUsage(t *testing.T) {
 	}
 	if string(result.Usage) != `{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}` {
 		t.Fatalf("usage = %s", result.Usage)
+	}
+}
+
+func TestGenerateChatReasoningTextIsTypedPublicThinking(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = fmt.Fprint(w,
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Inspect the changed files.\"}}]}\n\n"+
+				"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Done.\"},\"finish_reason\":\"stop\"}]}\n\n"+
+				"data: [DONE]\n\n")
+	}))
+	defer server.Close()
+	provider := New(Config{ProviderID: "chat-fixture", API: "chat-completions", BaseURL: server.URL,
+		Options: Options{ReasoningField: "reasoning_content"}})
+	var observations []contracts.Observation
+	result, err := provider.Generate(context.Background(), contracts.ModelRequest{Model: contracts.ModelSelection{ModelID: "fixture/model"}},
+		func(observation contracts.Observation) error {
+			observations = append(observations, observation)
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Thinking) != 1 || result.Thinking[0].Key != "reasoning" || result.Thinking[0].Kind != "reasoning" || result.Thinking[0].Text != "Inspect the changed files." {
+		t.Fatalf("typed public thinking = %#v", result.Thinking)
+	}
+	var thinkingProgress bool
+	for _, observation := range observations {
+		if observation.Kind == "assistant_text" && len(observation.Thinking) == 1 && observation.Thinking[0].Text == result.Thinking[0].Text {
+			thinkingProgress = true
+		}
+	}
+	if !thinkingProgress {
+		t.Fatalf("typed thinking progress was not emitted: %#v", observations)
 	}
 }
 

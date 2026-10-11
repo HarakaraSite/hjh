@@ -22,12 +22,13 @@ TUIはCoreと別processで起動する。次の2行は別端末で実行する�
 
 TUIで再開するときは`--session SESSION_ID`、次runの選択は`--provider`・`--model`・`--role`等を指定する。
 `--max-steps`・`--from-turn`もTUIのrun条件へ送る。省略時はserveの既定値、明示0は無制限/会話先頭。
-DB/config/credential-fileはCoreに指定し、TUIはそれらを直接開かない。
+DB/config/credential-file/credential-state-dirはCoreに指定し、TUIはそれらを直接開かない。
 manifest.jsonのbinariesに、各binaryのsize/hash/build情報/依存を記録する。licenseは両binaryの依存を同梱する。
 
 配布設定は外部providers JSONからOpenRouter Responsesを既定選択する。
 `--provider ID`・`--model ID`・`--effort VALUE` で切替できる。
-APIキーはconfig.credentialsのenv、fileの順に参照し、`--credential-file PATH` は選択profileを上書きする。
+APIキーは `/login` の専用入力欄から登録できる。明示 `--credential-file PATH` → 登録キー → env → fileの順に使う。
+登録先は実効configとprofileごとの専用state。`--credential-state-dir PATH` はCore／CLIの保存rootを指定する。
 標準file参照は `~/.local/state/henji-harness/v1/credentials/` の各APIキー。
 配布先では利用先のcredential参照へ設定を編集する。APIキーは設定JSONに書かない。
 ChatGPTは `hjh auth --provider openai-chatgpt login` でhjh自身の認証を保存し、
@@ -66,12 +67,26 @@ run_jsもrole.toolsで選択する。run_agentを選んだ生成JSは
 {"name":"catalog","description":"Read a YAML dependency catalog from a URL and select compatible versions.","inputSchema":{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]},"module":"modules/catalog.js","export":"catalog"}
 ```
 
-TUIはEnterで依頼、Alt-Enter／Ctrl-Jで改行、Escで実行停止、Ctrl-Cで終了する。
-Escはrunのキャンセル、Ctrl-Cと`/quit`は自分のrunのキャンセル・保存完了後にTUIだけを終了する。
-Core終了はserve側のCtrl-C/SIGTERM。通信切断はrunの取消とは区別し、同じrunIdで状態を確認する。
-`/sessions`、`/new`、`/resume ID`、`/history`、`/executions`、`/inspect ID`、`/providers`、`/provider ID`、`/models [ID]`、`/model ID`、`/effort VALUE`、`/login ID`、`/roles`、`/role [NAME]` が使える。
+TUIは通常画面のscrollbackへ会話を表示する。Enterで依頼、Alt／Shift／Ctrl+EnterまたはCtrl+Jで改行、
+Tabでコマンド補完、Escで選択表示close、Ctrl+Cで入力消去、F1で現在runの予約列をキャンセルする。
+実行中のEnterはdraftを保持し、受付可能な期間はF2で次runを予約、F3で現在の親runへ指示を追加する。
+F2は現在runの正常保存後にCoreが同じSessionで実行する。F3は次の親requestの境界で適用する。
+受付応答までdraftを保持し、その間に編集したdraftは消さない。`/inputs`でreceiptと未実行理由を読む。
+`/context`で保存済み入力準備と次回選択・引継ぎ状態を確認する。
+停止後は`/recall [ID|latest]`で公開情報を次の通常rootへ一度引き継ぎ、`/recall clear`で解除する。
+準備はdetach中も残るがCore再起動で失われる。元runと完了済みtoolを自動再実行しない。
+`/detach`／Ctrl+DはTUIだけを終了し、Coreとrunは継続する。`--session ID`／`/resume ID`で同runへ再接続する。
+`/quit`／Ctrl+QはCoreを停止し、全runの取消・join・保存を待ってTUIも終了する。
+serve側のCtrl-C/SIGTERMも終了保存を待つ。F4でSession選択、`/rename 名前`で現在Sessionを命名する。
+`/sessions`、`/new`、`/resume ID`、`/history`、`/executions`、`/inspect ID`、`/providers`、`/provider [ID]`、`/models [ID]`、`/model [ID]`、`/effort [VALUE]`、`/login [ID]`、`/roles`、`/role [NAME]` が使える。
+引数なしの`/provider`・`/model`・`/effort`はpickerを開く。`/model`はID／表示名を検索できる。
+model pickerのTabでお気に入りを登録・解除し、保存確認後に印と先頭への整列を反映する。
+同じ実効config path・provider IDで共有し、認証accountの変更やCore再起動後も好みを保持する。
+既定保存先は`$XDG_STATE_HOME/hjh/model-favorites/`、未指定なら`~/.local/state/hjh/model-favorites/`。
+`hjh serve --model-favorites-dir PATH`でお気に入りの保存先だけを変更できる。
+上下で選びEnterで確定、Escで閉じる。直接指定と実行中の次run選択も利用できる。
 role選択の変更は次runへ反映し、実行中の構成は維持する。
-一覧は上下で選んでEnter、会話はPgUp／PgDownでscrollする。詳細は画面内の `/help` を参照する。
+一覧は上下で選んでEnter、会話の検索・コピーは端末／tmuxのscrollbackを使う。詳細は画面内の `/help` を参照する。
 
 既存DBのmigrationはこの版の対象外。対応確認はLinux/amd64の検証環境に限る。
 

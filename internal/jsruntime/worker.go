@@ -63,6 +63,9 @@ type agentJob struct {
 type activeObservation struct {
 	started contracts.Observation
 	order   int
+	// The agent loop records model-declared calls; the runtime owns nested
+	// calls and must not save a second start/result for the same invocation.
+	external bool
 }
 
 type delegationObservationEnd struct {
@@ -413,7 +416,7 @@ func (o *vmOwner) call(request callRequest) (callResult, bool) {
 	if parent == "" {
 		parent = o.options.ObserverParent
 	}
-	root, err := o.start(parent, "tool", request.name, input)
+	root, err := o.startCall(contracts.ModelToolCall(request.ctx), parent, request.name, input)
 	if err != nil {
 		return callResult{err: err}, false
 	}
@@ -628,21 +631,31 @@ func (o *vmOwner) awaitModule(ctx context.Context, promise quickjs.Value) error 
 }
 
 func (o *vmOwner) start(parent, kind, name string, input json.RawMessage) (string, error) {
+	return o.startObservation(uuid.NewString(), parent, kind, name, input, false)
+}
+
+func (o *vmOwner) startCall(modelCallID, parent, name string, input json.RawMessage) (string, error) {
+	if modelCallID == "" {
+		return o.start(parent, "tool", name, input)
+	}
+	return o.startObservation(modelCallID, parent, "tool", name, input, true)
+}
+
+func (o *vmOwner) startObservation(id, parent, kind, name string, input json.RawMessage, external bool) (string, error) {
 	if len(input) == 0 || !json.Valid(input) {
 		input = json.RawMessage("null")
 	}
-	id := uuid.NewString()
 	observation := contracts.Observation{
 		ID: id, Parent: parent, Kind: kind, Name: name, Phase: "started", Time: time.Now().UTC(),
 		Input: append(json.RawMessage(nil), input...),
 	}
-	if o.options.Observer != nil {
+	if !external && o.options.Observer != nil {
 		if err := o.options.Observer(observation); err != nil {
 			return "", err
 		}
 	}
 	o.sequence++
-	o.active[id] = activeObservation{started: observation, order: o.sequence}
+	o.active[id] = activeObservation{started: observation, order: o.sequence, external: external}
 	if o.callCtx != nil {
 		o.callStarts[id] = observation
 	}
@@ -666,7 +679,7 @@ func (o *vmOwner) end(id, phase string, result json.RawMessage, eventErr error) 
 	if eventErr != nil {
 		observation.Error = eventErr.Error()
 	}
-	if o.options.Observer != nil {
+	if !active.external && o.options.Observer != nil {
 		return o.options.Observer(observation)
 	}
 	return nil

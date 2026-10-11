@@ -17,7 +17,7 @@ import (
 	"hjh/internal/api"
 )
 
-const apiPrefix = "/api/v1"
+const apiPrefix = "/api/v2"
 
 // Client talks to one hjh Core. Close stops this client's HTTP/SSE requests;
 // it never asks the Core to stop a run.
@@ -84,6 +84,13 @@ func (c *Client) Conversation(ctx context.Context, id string, fromTurn, toTurn i
 	return result, err
 }
 
+// SessionView returns the unified human-readable conversation view for a saved Session.
+func (c *Client) SessionView(ctx context.Context, id string) (api.ConversationSnapshot, error) {
+	var result api.ConversationSnapshot
+	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/sessions/"+url.PathEscape(id)+"/view", nil, &result)
+	return result, err
+}
+
 func (c *Client) Executions(ctx context.Context, sessionID string) ([]api.Execution, error) {
 	var result []api.Execution
 	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/sessions/"+url.PathEscape(sessionID)+"/executions", nil, &result)
@@ -96,6 +103,12 @@ func (c *Client) Inspect(ctx context.Context, executionID string, fromOrdinal, t
 	query.Set("toOrdinal", fmt.Sprint(toOrdinal))
 	var result api.Inspection
 	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/executions/"+url.PathEscape(executionID)+"?"+query.Encode(), nil, &result)
+	return result, err
+}
+
+func (c *Client) Record(ctx context.Context, executionID string, ordinal int64) (api.Record, error) {
+	var result api.Record
+	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/executions/"+url.PathEscape(executionID)+"/records/"+fmt.Sprint(ordinal), nil, &result)
 	return result, err
 }
 
@@ -120,11 +133,42 @@ func (c *Client) Providers(ctx context.Context, scope Scope) ([]api.ProviderDefi
 	return result, err
 }
 
-func (c *Client) Models(ctx context.Context, scope Scope, providerID string) ([]api.ModelInfo, error) {
+func (c *Client) Models(ctx context.Context, scope Scope, providerID, authProfile string) ([]api.ModelInfo, error) {
+	result, err := c.ModelsWithAuth(ctx, scope, providerID, authProfile)
+	return result.Models, err
+}
+
+// ModelsWithAuth returns the catalog together with the credential binding used
+// by the Core for this request. The wire response remains the models array.
+func (c *Client) ModelsWithAuth(ctx context.Context, scope Scope, providerID, authProfile string) (api.ModelsResult, error) {
 	query := scopeQuery(scope)
 	query.Set("providerId", providerID)
-	var result []api.ModelInfo
-	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/models?"+query.Encode(), nil, &result)
+	if authProfile != "" {
+		query.Set("authProfile", authProfile)
+	}
+	var models []api.ModelInfo
+	headers, err := c.jsonRequestWithHeaders(ctx, http.MethodGet, apiPrefix+"/models?"+query.Encode(), nil, &models)
+	if err != nil {
+		return api.ModelsResult{}, err
+	}
+	return api.ModelsResult{Models: models, AuthOwnerID: headers.Get("Hjh-Auth-Owner-Id"),
+		AuthAccountID: headers.Get("Hjh-Auth-Account-Id")}, nil
+}
+
+// Selection asks the Core to resolve the same inputs used by the next run.
+// It reads selection metadata without starting an execution or capturing code.
+func (c *Client) Selection(ctx context.Context, request api.SelectionRequest) (api.SelectionPreview, error) {
+	query := scopeQuery(Scope{SessionID: request.SessionID, Workspace: request.Workspace})
+	for key, value := range map[string]string{
+		"role": request.Role, "providerId": request.ProviderID, "modelId": request.ModelID,
+		"effort": request.Effort, "authProfile": request.AuthProfile,
+	} {
+		if value != "" {
+			query.Set(key, value)
+		}
+	}
+	var result api.SelectionPreview
+	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/selection?"+query.Encode(), nil, &result)
 	return result, err
 }
 
@@ -133,28 +177,6 @@ func (c *Client) LoginStatus(ctx context.Context, scope Scope, providerID string
 	query.Set("providerId", providerID)
 	var result api.Status
 	err := c.jsonRequest(ctx, http.MethodGet, apiPrefix+"/auth/status?"+query.Encode(), nil, &result)
-	return result, err
-}
-
-func (c *Client) BeginLogin(ctx context.Context, scope Scope, providerID string) (api.Login, error) {
-	var result api.Login
-	body := struct {
-		SessionID  string `json:"sessionId,omitempty"`
-		Workspace  string `json:"workspace,omitempty"`
-		ProviderID string `json:"providerId"`
-	}{scope.SessionID, scope.Workspace, providerID}
-	err := c.jsonRequest(ctx, http.MethodPost, apiPrefix+"/auth/login", body, &result)
-	return result, err
-}
-
-func (c *Client) CompleteLogin(ctx context.Context, login api.Login, callbackURL string) (api.Status, error) {
-	var result api.Status
-	body := struct {
-		Workspace   string `json:"workspace"`
-		ProviderID  string `json:"providerId"`
-		CallbackURL string `json:"callbackUrl,omitempty"`
-	}{login.Workspace, login.ProviderID, callbackURL}
-	err := c.jsonRequest(ctx, http.MethodPost, apiPrefix+"/auth/complete", body, &result)
 	return result, err
 }
 
@@ -186,39 +208,44 @@ func scopeQuery(scope Scope) url.Values {
 }
 
 func (c *Client) jsonRequest(parent context.Context, method, path string, body any, result any) error {
+	_, err := c.jsonRequestWithHeaders(parent, method, path, body, result)
+	return err
+}
+
+func (c *Client) jsonRequestWithHeaders(parent context.Context, method, path string, body any, result any) (http.Header, error) {
 	ctx, cancel := c.requestContext(parent)
 	defer cancel()
 	var reader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("encode Core request: %w", err)
+			return nil, fmt.Errorf("encode Core request: %w", err)
 		}
 		reader = bytes.NewReader(data)
 	}
 	request, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
 	if err != nil {
-		return fmt.Errorf("create Core request: %w", err)
+		return nil, fmt.Errorf("create Core request: %w", err)
 	}
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
 	response, err := c.http.Do(request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return readAPIError(response)
+		return nil, readAPIError(response)
 	}
 	if result == nil {
 		_, err = io.Copy(io.Discard, response.Body)
-		return err
+		return response.Header.Clone(), err
 	}
 	if err := json.NewDecoder(response.Body).Decode(result); err != nil {
-		return fmt.Errorf("decode Core response: %w", err)
+		return nil, fmt.Errorf("decode Core response: %w", err)
 	}
-	return nil
+	return response.Header.Clone(), nil
 }
 
 func readAPIError(response *http.Response) error {

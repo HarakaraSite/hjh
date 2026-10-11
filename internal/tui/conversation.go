@@ -1,0 +1,357 @@
+package tui
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+	"hjh/internal/api"
+	"hjh/internal/tui/renderer"
+)
+
+var commandNames = []string{
+	"/sessions", "/new", "/resume", "/rename", "/detach", "/history", "/inputs", "/context", "/recall", "/executions", "/tools", "/tool", "/inspect", "/model", "/models",
+	"/provider", "/providers", "/effort", "/auth", "/login", "/roles", "/role", "/help", "/quit",
+}
+
+const toolReceiptSource = "tool"
+
+func (m *model) mergedEntities() []api.ConversationEntity {
+	merged := make(map[string]api.ConversationEntity, len(m.sessionEntities)+len(m.activeRunEntities()))
+	for id, entity := range m.sessionEntities {
+		merged[id] = entity
+	}
+	for id, entity := range m.activeRunEntities() {
+		merged[id] = entity
+	}
+	entities := make([]api.ConversationEntity, 0, len(merged))
+	for _, entity := range merged {
+		entities = append(entities, entity)
+	}
+	sort.Slice(entities, func(i, j int) bool {
+		a, b := entities[i], entities[j]
+		if a.Position.RootExecutionOrdinal != b.Position.RootExecutionOrdinal {
+			return a.Position.RootExecutionOrdinal < b.Position.RootExecutionOrdinal
+		}
+		if a.Position.FirstSequence != b.Position.FirstSequence {
+			return a.Position.FirstSequence < b.Position.FirstSequence
+		}
+		if a.Position.ItemIndex != b.Position.ItemIndex {
+			return a.Position.ItemIndex < b.Position.ItemIndex
+		}
+		return a.ID < b.ID
+	})
+	return entities
+}
+
+func (m *model) activeRunEntities() map[string]api.ConversationEntity {
+	if m.activeRun == nil {
+		return nil
+	}
+	return m.activeRun.entities
+}
+
+func (m *model) renderTranscript() string {
+	doc := m.ensureTranscript()
+	if !doc.fullStyledReady {
+		doc.fullStyled = m.renderFullTranscript()
+		doc.fullStyledReady = true
+	}
+	return doc.fullStyled
+}
+
+func (m *model) renderFullTranscript() string {
+	var styled strings.Builder
+	entities := m.mergedEntities()
+	visibleEntityCount := 0
+	previousEntityHasBody := false
+	previousEntityEndsWithNewline := false
+	for _, entity := range entities {
+		if entity.Kind == "execution" && entity.ParentExecutionID == "" {
+			continue
+		}
+		if entity.Kind == "assistant" && entity.Text == "" {
+			continue
+		}
+		prefix := ""
+		if visibleEntityCount > 0 && previousEntityHasBody &&
+			!previousEntityEndsWithNewline {
+			prefix = "\n"
+		}
+		visibleEntityCount++
+		if entity.Kind == "tool" {
+			styled.WriteString(prefix + toolDisplayLine(entity))
+			previousEntityHasBody = true
+			previousEntityEndsWithNewline = true
+			continue
+		}
+		label := prefix + entityLabel(entity) + ":\n"
+		styled.WriteString(label)
+		blocks, _ := m.markdownBlocksForSource("entity:"+entity.ID+":body", entity.Text)
+		currentEntityHasBody := false
+		for _, block := range blocks {
+			styled.WriteString(block.render)
+			currentEntityHasBody = currentEntityHasBody || block.plain != ""
+		}
+		if entity.Kind != "execution" {
+			if meta := entityMeta(entity); meta != "" {
+				formatted, _ := m.renderedMarkdownSource(meta)
+				styled.WriteString("\n" + formatted.styled)
+				currentEntityHasBody = true
+			}
+		}
+		previousEntityHasBody = currentEntityHasBody
+		previousEntityEndsWithNewline = strings.HasSuffix(entity.Text, "\n")
+		if meta := entityMeta(entity); meta != "" {
+			previousEntityEndsWithNewline = strings.HasSuffix(meta, "\n")
+		}
+	}
+	for index, entry := range m.entries {
+		prefix := "\n"
+		if (visibleEntityCount == 0 && index == 0) || !previousEntityHasBody ||
+			previousEntityEndsWithNewline {
+			prefix = ""
+		}
+		label := prefix + entry.role + ":\n"
+		styled.WriteString(label)
+		blocks, _ := m.markdownBlocksForSource(fmt.Sprintf("entry:%d:body", index), entry.text)
+		for _, block := range blocks {
+			styled.WriteString(block.render)
+		}
+		previousEntityHasBody = entry.text != ""
+		previousEntityEndsWithNewline = strings.HasSuffix(entry.text, "\n")
+	}
+	return styled.String()
+}
+
+func entityLabel(entity api.ConversationEntity) string {
+	child := entity.ParentExecutionID != ""
+	var label string
+	switch entity.Kind {
+	case "task":
+		label = "you"
+	case "assistant":
+		label = "assistant"
+	case "thinking":
+		label = "thinking"
+		if entity.ThinkingKind == "summary" {
+			label += " summary"
+		}
+	case "tool":
+		label = "tool"
+		if entity.Name != "" {
+			label += " / " + entity.Name
+		}
+	case "execution":
+		label = "execution"
+	default:
+		label = entity.Kind
+		if label == "" {
+			label = "conversation"
+		}
+	}
+	if child {
+		label = fmt.Sprintf("child %s · %s", entity.ExecutionID, label)
+	}
+	return label
+}
+
+func toolDisplayLine(entity api.ConversationEntity) string {
+	line := entityLabel(entity)
+	if preview := strings.Join(strings.Fields(entity.Preview), " "); preview != "" {
+		line += " · " + preview
+	}
+	line += " " + toolStateMarker(entity) + "\n"
+	return line
+}
+
+func toolStateMarker(entity api.ConversationEntity) string {
+	if entity.Error != "" || entity.Status == "incomplete" {
+		return "✗"
+	}
+	switch strings.ToLower(entity.Outcome) {
+	case "failed", "cancelled", "interrupted", "error":
+		return "✗"
+	}
+	if entity.Status == "completed" {
+		return "✓"
+	}
+	return "…"
+}
+
+func (m *model) renderMarkdown(text string) string {
+	return text
+}
+
+func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, string, int, int, []string) {
+	columns := max(1, m.width)
+	rows := max(1, m.height)
+	doc := m.ensureTranscript()
+	footerRows := renderer.WrapText(strings.Join(footer, "\n"), columns)
+	help := "Enter send · Alt+Enter newline · F1 cancel · F4 Sessions · /help"
+	if run := m.activeRun; run != nil {
+		if run.inputAcceptance.FollowUp {
+			help += " · F2 follow-up"
+		}
+		if run.inputAcceptance.Steering {
+			help += " · F3 steer"
+		}
+	}
+	if m.authUI != nil && m.authUI.open {
+		help = m.authHelp()
+	} else if m.connectionPicker != nil {
+		help = "↑/↓ select · Enter applies to next run · Esc closes"
+	} else if m.pickerOpen {
+		help = "↑/↓ select · Enter resumes · Esc closes"
+	}
+	helpRows := renderer.WrapText(help, columns)
+	inputRows := renderer.WrapText(m.textarea.View(), columns)
+	if m.authUI != nil && m.authUI.open {
+		inputRows = nil
+	}
+	divider := strings.Repeat("─", columns)
+	var committed []string
+	var bodyRows []string
+	committedThrough := doc.startRow
+	bodyStart := doc.startRow
+	bodyHeight := max(1, rows-len(footerRows)-len(helpRows)-len(inputRows)-1)
+	if m.pickerOpen {
+		m.viewport.SetHeight(bodyHeight)
+		m.refreshViewport(false)
+		bodyRows = renderer.WrapText(m.viewport.View(), columns)
+	} else {
+		safeRow := len(doc.rows)
+		if doc.sealPlainLimit >= 0 {
+			safeRow = rowBoundaryForOffset(doc.rowStarts, doc.plain, doc.sealPlainLimit)
+		}
+		committedThrough = doc.startRow
+		for _, part := range doc.parts {
+			if part.mutable || part.rowEnd > safeRow {
+				break
+			}
+			if part.rowEnd <= committedThrough {
+				continue
+			}
+			// Only complete, immutable parts advance the scrollback boundary.
+			committedThrough = part.rowEnd
+		}
+		bodyStart = committedThrough
+		if committedThrough > doc.startRow {
+			committed = append(committed, doc.rows[doc.startRow:committedThrough]...)
+		}
+		bodyEnd := len(doc.rows)
+		for _, part := range doc.parts {
+			if part.mutable {
+				// Keep the preview inside the first mutable source block so later
+				// conversation text cannot push its newest tail out of the live band.
+				bodyStart = max(bodyStart, part.rowStart)
+				bodyEnd = part.rowEnd
+				break
+			}
+		}
+		bodyEnd = min(bodyEnd, len(doc.rows))
+		bodyStart = min(bodyStart, bodyEnd)
+		if bodyEnd-bodyStart > bodyHeight {
+			bodyStart = bodyEnd - bodyHeight
+		}
+		if bodyStart < bodyEnd {
+			bodyRows = append(bodyRows, doc.rows[bodyStart:bodyEnd]...)
+		}
+	}
+	liveRows := make([]string, 0, len(bodyRows)+1+len(footerRows)+len(helpRows)+len(inputRows))
+	liveRows = append(liveRows, bodyRows...)
+	liveRows = append(liveRows, divider)
+	liveRows = append(liveRows, inputRows...)
+	liveRows = append(liveRows, helpRows...)
+	liveRows = append(liveRows, footerRows...)
+	frame := renderer.Frame{
+		CommittedRows: committed,
+		LiveRows:      liveRows,
+		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+1), Cell: 0},
+		Size:          renderer.Size{Columns: columns, Rows: rows},
+	}
+	var cursor *tea.Cursor
+	if m.authUI != nil && m.authUI.open {
+		_, _, _, cursorLine, cursorCell := m.authRows()
+		if cursorLine >= 0 {
+			visibleRow := cursorLine - m.viewport.YOffset()
+			if visibleRow >= 0 && visibleRow < len(bodyRows) {
+				cursor = &tea.Cursor{Position: tea.Position{X: cursorCell, Y: visibleRow}}
+				frame.Cursor = renderer.Cursor{Row: cursor.Position.Y, Cell: cursor.Position.X}
+			}
+		}
+	} else if !m.pickerOpen {
+		if textareaCursor := m.textarea.Cursor(); textareaCursor != nil {
+			cursor = textareaCursor
+			cursor.Position.Y += len(bodyRows) + 1
+			frame.Cursor = renderer.Cursor{Row: cursor.Position.Y, Cell: cursor.Position.X}
+		}
+	}
+	content := strings.Join(liveRows, "\n")
+	return frame, cursor, content, committedThrough, bodyStart, bodyRows
+}
+
+func (m *model) sealCurrentFrame() {
+	m.sealTranscriptDocument()
+}
+
+func (m *model) completeCommand() {
+	value := strings.TrimSpace(m.textarea.Value())
+	if value == "" || strings.ContainsAny(value, " \t\r\n") || !strings.HasPrefix(value, "/") {
+		return
+	}
+	matches := make([]string, 0, len(commandNames))
+	for _, command := range commandNames {
+		if strings.HasPrefix(command, value) {
+			matches = append(matches, command)
+		}
+	}
+	if len(matches) == 0 {
+		return
+	}
+	if len(matches) == 1 {
+		m.textarea.SetValue(matches[0] + " ")
+		m.completionActive = false
+		m.status = "command completed · type arguments or press Enter"
+		return
+	}
+	if m.completionActive && m.completionPrefix == value {
+		m.completionIndex = (m.completionIndex + 1) % len(matches)
+		m.textarea.SetValue(matches[m.completionIndex] + " ")
+		m.completionActive = false
+		m.status = "command completed · type arguments or press Enter"
+		return
+	}
+	common := matches[0]
+	for _, candidate := range matches[1:] {
+		for !strings.HasPrefix(candidate, common) && common != "" {
+			common = common[:len(common)-1]
+		}
+	}
+	if len(common) > len(value) {
+		m.textarea.SetValue(common)
+		m.completionPrefix = common
+	} else {
+		m.completionPrefix = value
+	}
+	m.completionActive = true
+	m.completionIndex = 0
+	m.status = "commands: " + strings.Join(matches, " · ")
+}
+
+func (m *model) applySessionSnapshot(snapshot api.ConversationSnapshot) {
+	m.sessionEntities = cloneEntities(snapshot.Entities)
+	m.receiptByPart = make(map[string]int)
+	m.receiptOffset = 0
+	m.lastTranscriptBytes = 0
+	m.invalidateTranscript()
+}
+
+func cloneEntities(entities map[string]api.ConversationEntity) map[string]api.ConversationEntity {
+	copyOf := make(map[string]api.ConversationEntity, len(entities))
+	for id, entity := range entities {
+		copyOf[id] = entity
+	}
+	return copyOf
+}

@@ -87,6 +87,39 @@ typing Alt+Enter through Ghostty → SSH → tmux with the user's actual setup. 
 acceptance record above is real evidence for that former TUI path, not for Bubble Tea in hjh. No
 user tmux configuration, environment, or process was changed.
 
+## I-06 Go writer comparison (2026-10-11)
+
+The initial resize discrepancy is recorded as two different observations. In the earlier short-tail
+S06 capture, `最後の行は` appeared once in the complete captured pane after 80x24→44x24
+(`count=1`, meaning one occurrence and no duplicate). The earlier S06 result still records its
+separate duplicate reproduction; the short-tail capture does not replace that result.
+
+To compare the writer choices under a live tail that actually exceeds the screen, the three modes
+below used the same single assistant line containing 1,000 `Q` markers and a changing `stream
+update N` suffix. A private tmux 3.8 server started at 80x24, resized to 44x24 after one second,
+returned to 80x24 after another second, and was captured one second later while updates continued
+(final visible update 14). The complete scrollback plus pane contained:
+
+| Renderer | `Q` count | Meaning |
+| --- | ---: | --- |
+| Bubble Tea default normal-screen renderer (`--default-writer`) | 63,653 | Repeated the oversized mutable body during redraw and resize. |
+| Independent Go writer, full live body resent (`--independent-writer`) | 2,078 | Still duplicated rows that had scrolled out of the mutable screen band. |
+| Independent Go writer with source offset receipt and resize seal (`--independent-writer --writer-receipt`) | 1,000 | Preserved the complete source exactly once through overflow and both resizes. |
+
+The initial Go shape was an independent inline writer plus a TUI-owned source receipt. The TUI
+commits each source prefix once as it leaves the visible live tail. On resize it seals the currently
+displayed tail and asks the writer to retain those rows, so reflowed text already in terminal
+scrollback is not appended again. This is the minimal mode that passed the long-stream resize probe;
+the standard renderer's short-tail count above remains a separate condition. These spike results are
+local tmux evidence, not Ghostty→SSH→the user's tmux acceptance.
+
+The user's later README-summary check exposed missing link text, repeated table rules, and
+extra blank lines in the TUI's glyph-to-source receipt mapping. This one-character probe did
+not validate Markdown layout. The product now uses immutable Markdown block boundaries,
+keeps the streaming final block mutable, and sends changing run state to the footer.
+See [the I-06 result](../../docs/results/i06-conversation-tui.md) for that separate regression
+and its verification; the counts above describe this spike's original implementation only.
+
 To reproduce the private-tmux resize capture from the repository root (the unique socket is
 removed at the end):
 
