@@ -176,7 +176,11 @@
     {
       "name": "run_agent",
       "revision": "1",
-      "description": "Delegate an independent task to a child agent using an optional role, model selection, and tool list.",
+      "description": "Run an independent task as a child agent.",
+      "promptGuidelines": [
+        "Use run_agent to delegate an independent task. Include the context the child needs in task because its conversation is independent.",
+        "It accepts optional role, model selection (provider, modelId, effort), and tool list values; the result includes executionId and outcome, with optional finalText or error."
+      ],
       "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"},"model":{"type":"object","properties":{"provider":{"type":"string"},"modelId":{"type":"string"},"effort":{"type":"string"}}},"tools":{"type":"array","items":{"type":"string"}}},"required":["task"]},
       "module": "run-agent.js",
       "export": "runAgent"
@@ -184,7 +188,11 @@
     {
       "name": "spawn_agent",
       "revision": "1",
-      "description": "Start an independent child agent and return its execution ID.",
+      "description": "Start a child agent.",
+      "promptGuidelines": [
+        "Use spawn_agent to start independent child work. Its conversation is independent, so include necessary context in task. It returns an executionId while running and accepts optional role, model selection (provider, modelId, effort), and tools list values.",
+        "Start independent children before collecting when useful, and continue your own work between starting and collecting."
+      ],
       "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"},"model":{"type":"object","properties":{"provider":{"type":"string"},"modelId":{"type":"string"},"effort":{"type":"string"}}},"tools":{"type":"array","items":{"type":"string"}}},"required":["task"]},
       "module": "agent-control.js",
       "export": "spawnAgent"
@@ -192,7 +200,12 @@
     {
       "name": "agent_status",
       "revision": "1",
-      "description": "Read a child agent's state, progress, latest instruction receipts, and saved assistant reports. Pass the previous nextCursor as after to read newer reports; omit after to read from the beginning.",
+      "description": "Read a child agent's current state.",
+      "promptGuidelines": [
+        "Use agent_status after starting independent work to read the child's state, progress, latest instruction receipts, and saved assistant reports. Omit after to receive all reports, then pass nextCursor as after to read newer ones.",
+        "Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. Do not poll status to wait for completion.",
+        "Steer receipts can be accepted, applied, or unapplied. Accepted means the guidance was saved; applied means it entered the child's loop. Neither means the model followed it."
+      ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"},"after":{"type":"integer"}},"required":["executionId"]},
       "module": "agent-control.js",
       "export": "agentStatus"
@@ -200,7 +213,11 @@
     {
       "name": "steer_agent",
       "revision": "1",
-      "description": "Send additional guidance to an active child agent and return its saved accepted receipt. The child finishes its current model request and tools, then receives the instruction at its next loop boundary.",
+      "description": "Send additional guidance to an active child agent.",
+      "promptGuidelines": [
+        "Use steer_agent to save additional guidance for an active child and receive its accepted receipt.",
+        "The child finishes its current model request and tools before receiving the guidance at a loop boundary."
+      ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"},"text":{"type":"string"}},"required":["executionId","text"]},
       "module": "agent-control.js",
       "export": "steerAgent"
@@ -208,7 +225,10 @@
     {
       "name": "collect_agent",
       "revision": "1",
-      "description": "Wait for and return a child agent's settled result.",
+      "description": "Collect a child agent's result.",
+      "promptGuidelines": [
+        "Use collect_agent when you need a spawned child's settled result; it waits for that child to finish."
+      ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"}},"required":["executionId"]},
       "module": "agent-control.js",
       "export": "collectAgent"
@@ -216,7 +236,10 @@
     {
       "name": "cancel_agent",
       "revision": "1",
-      "description": "Cancel a child agent and return its settled result.",
+      "description": "Cancel a child agent.",
+      "promptGuidelines": [
+        "Use cancel_agent when a started child should stop; it waits for and returns the child's settled result."
+      ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"}},"required":["executionId"]},
       "module": "agent-control.js",
       "export": "cancelAgent"

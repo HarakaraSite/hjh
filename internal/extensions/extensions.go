@@ -54,12 +54,13 @@ type RoleCatalog struct {
 }
 
 type Tool struct {
-	Name        string          `json:"name"`
-	Revision    string          `json:"revision"`
-	Description string          `json:"description"`
-	InputSchema json.RawMessage `json:"inputSchema"`
-	Module      string          `json:"module"`
-	Export      string          `json:"export"`
+	Name             string          `json:"name"`
+	Revision         string          `json:"revision"`
+	Description      string          `json:"description"`
+	InputSchema      json.RawMessage `json:"inputSchema"`
+	PromptGuidelines []string        `json:"promptGuidelines,omitempty"`
+	Module           string          `json:"module"`
+	Export           string          `json:"export"`
 }
 
 type LegacyAgent struct {
@@ -93,13 +94,14 @@ type LegacyPaths struct {
 }
 
 type LegacyTool struct {
-	Name       string         `json:"name"`
-	Revision   string         `json:"revision"`
-	Source     string         `json:"source"`
-	Entry      string         `json:"entry,omitempty"`
-	Contract   LegacyContract `json:"contract"`
-	FileAccess string         `json:"fileAccess"`
-	Paths      LegacyPaths    `json:"paths"`
+	Name             string         `json:"name"`
+	Revision         string         `json:"revision"`
+	Source           string         `json:"source"`
+	Entry            string         `json:"entry,omitempty"`
+	Contract         LegacyContract `json:"contract"`
+	PromptGuidelines []string       `json:"promptGuidelines,omitempty"`
+	FileAccess       string         `json:"fileAccess"`
+	Paths            LegacyPaths    `json:"paths"`
 }
 
 type LegacyHook struct {
@@ -173,34 +175,49 @@ func RunJSDefinition(delegation bool) contracts.ToolDefinition {
 // RunJSDefinitionForTools describes only the child operations available to
 // generated JavaScript through the selected external tool composition.
 func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
+	return runJSToolForTools(selected).definition()
+}
+
+func runJSToolForTools(selected []string) Tool {
 	description := "Run generated JavaScript that can call selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
-	description += " " + runJSPurposeInstruction + " " + runJSRuntimeInstruction
+	guidelines := []string{
+		"Use run_js to compose selected tools with JavaScript. Its code input is an async JavaScript function body; selected tools are available as tools.NAME(arguments). Await calls and return useful results.",
+		runJSPurposeInstruction,
+		runJSRuntimeInstruction,
+	}
 	if containsTool(selected, "run_agent") {
-		description += " It can delegate with api.agents.run({task, role?, model?, tools?}), returning a child result with executionId, outcome, and optional finalText or error; await results or use Promise.all for independent delegations."
+		guidelines = append(guidelines, "From generated JavaScript, call api.agents.run({task, role?, model?, tools?}) to use the selected run_agent tool. Await results, or use Promise.all for independent delegations.")
 	}
 	if containsTool(selected, "spawn_agent") {
-		description += " It can start independent children with api.agents.spawn({task, role?, model?, tools?}), continue its own work, check progress when useful, and collect results when needed."
+		guidelines = append(guidelines, "From generated JavaScript, call api.agents.spawn({task, role?, model?, tools?}) to use the selected spawn_agent tool.")
 	}
 	if containsTool(selected, "agent_status") {
-		description += " Use api.agents.status({executionId, after?}) after starting independent work to read state, progress, latest instruction receipts, and saved assistant reports; reuse nextCursor as after to read new reports. Return the reports you need so they enter your next model input; status is for progress and reports, not waiting for completion."
+		guidelines = append(guidelines, "From generated JavaScript, call api.agents.status({executionId, after?}) to use the selected agent_status tool. Return the reports you need so they enter your next model input.")
 	}
 	if containsTool(selected, "steer_agent") {
-		description += " api.agents.steer({executionId, text}) saves additional guidance for an active child and returns its accepted receipt; the child's current model request and tools finish before it receives the guidance at a loop boundary."
+		guidelines = append(guidelines, "From generated JavaScript, call api.agents.steer({executionId, text}) to use the selected steer_agent tool.")
 	}
 	if containsTool(selected, "collect_agent") {
-		description += " In generated JavaScript, await api.agents.collect({executionId}) to wait for and return a spawned child's settled result."
+		guidelines = append(guidelines, "From generated JavaScript, await api.agents.collect({executionId}) to use the selected collect_agent tool.")
 	}
 	if containsTool(selected, "cancel_agent") {
-		description += " api.agents.cancel({executionId}) cancels a child and returns its settled result."
+		guidelines = append(guidelines, "From generated JavaScript, call api.agents.cancel({executionId}) to use the selected cancel_agent tool.")
 	}
 	if containsTool(selected, "command") {
-		description += " For an explicit delay, await tools.command({program:\"sleep\",args:[\"SECONDS\"]})."
+		guidelines = append(guidelines, "For an explicit delay from generated JavaScript, await tools.command({program:\"sleep\",args:[\"SECONDS\"]}).")
 	}
-	return contracts.ToolDefinition{
-		Name:        "run_js",
-		Description: description,
-		InputSchema: append(json.RawMessage(nil), runJSInputSchema...),
+	return Tool{
+		Name:             "run_js",
+		Revision:         buildinfo.Version,
+		Description:      description,
+		InputSchema:      append(json.RawMessage(nil), runJSInputSchema...),
+		PromptGuidelines: guidelines,
 	}
+}
+
+func (tool Tool) definition() contracts.ToolDefinition {
+	return contracts.ToolDefinition{Name: tool.Name, Description: tool.Description,
+		InputSchema: append(json.RawMessage(nil), tool.InputSchema...)}
 }
 
 func Capture(configPath string, role ...string) (Snapshot, error) {
@@ -337,7 +354,7 @@ func capture(root, configPath, selectedRole string, toolOverride *[]string) (Sna
 		Agent:                 LegacyAgent{Name: roleName, Revision: roleRevision, Instruction: role.Instruction, Tools: toolNames, Agents: agents},
 		Catalog:               catalog.Roles,
 		Source:                LegacySource{Kind: "external", File: configPath},
-		InstructionComponents: cfg.InstructionComponents,
+		InstructionComponents: append([]json.RawMessage{}, cfg.InstructionComponents...),
 		ToolPaths:             cfg.ToolPaths,
 		Tools:                 selectedTools,
 		Hooks:                 legacyHooks,
@@ -346,7 +363,12 @@ func capture(root, configPath, selectedRole string, toolOverride *[]string) (Sna
 		Resources:             resources,
 		Root:                  root,
 	}
-	snapshot.SystemInstruction = assembleInstruction(cfg.SystemInstruction, role, roleName, selectedTools, catalog.Roles)
+	activeGuidelines := toolGuidelinesSection(selectedTools)
+	snapshot.SystemInstruction = assembleInstruction(cfg.SystemInstruction, role, roleName, selectedTools, activeGuidelines, catalog.Roles)
+	if activeGuidelines != "" {
+		snapshot.InstructionComponents = append(snapshot.InstructionComponents,
+			contracts.JSON(map[string]string{"identity": "instruction:active-tool-guidelines", "text": activeGuidelines}))
+	}
 	snapshot.BaseInstruction = instructionBase(cfg, configPath)
 	return snapshot, nil
 }
@@ -512,9 +534,7 @@ func resolveTools(cfg Config, roleName string, role Role) ([]Tool, error) {
 			if len(external[name]) != 0 {
 				return nil, fmt.Errorf("extension role %q selects built-in tool %q, which is also defined externally", roleName, name)
 			}
-			definition := RunJSDefinitionForTools(role.Tools)
-			selected = append(selected, Tool{Name: definition.Name, Revision: buildinfo.Version, Description: definition.Description,
-				InputSchema: append(json.RawMessage(nil), definition.InputSchema...)})
+			selected = append(selected, runJSToolForTools(role.Tools))
 			continue
 		}
 		matches := external[name]
@@ -529,68 +549,28 @@ func resolveTools(cfg Config, roleName string, role Role) ([]Tool, error) {
 	return selected, nil
 }
 
-func assembleInstruction(configInstruction string, role Role, roleName string, tools []Tool, catalog []RoleInfo) string {
+func toolGuidelinesSection(tools []Tool) string {
+	var guidelines []string
+	for _, tool := range tools {
+		for _, guideline := range tool.PromptGuidelines {
+			guidelines = append(guidelines, "- "+tool.Name+": "+guideline)
+		}
+	}
+	if len(guidelines) == 0 {
+		return ""
+	}
+	return "## Active tool guidelines\n" + strings.Join(guidelines, "\n")
+}
+
+func assembleInstruction(configInstruction string, role Role, roleName string, tools []Tool, activeGuidelines string, catalog []RoleInfo) string {
 	var sections []string
 	sections = append(sections, "You are a generic agent executing role \""+roleName+"\". Use the registered tool definitions to perform the requested work and report the result.")
-	sections = append(sections, "During multi-step work, share useful findings and progress as concise ordinary assistant text before continuing with tools. A parent can read saved child assistant reports through agent_status; no separate reporting tool is needed.")
+	sections = append(sections, "During multi-step work, share useful findings and progress as concise ordinary assistant text before continuing with tools.")
+	if activeGuidelines != "" {
+		sections = append(sections, activeGuidelines)
+	}
 	if role.Description != "" {
 		sections = append(sections, "Role description: "+role.Description)
-	}
-	if containsToolFromTools(tools, "run_js") {
-		sections = append(sections, "Use run_js to compose the selected tools with JavaScript. Its code input is an async JavaScript function body; in that body, selected tools are available as tools.NAME(arguments). Await calls and return useful results. "+runJSPurposeInstruction+" "+runJSRuntimeInstruction)
-		if containsToolFromTools(tools, "command") {
-			sections = append(sections, "For an explicit delay from generated JavaScript, await tools.command({program:\"sleep\",args:[\"SECONDS\"]}).")
-		}
-	}
-	if containsToolFromTools(tools, "run_agent") {
-		sections = append(sections, "Use run_agent to delegate an independent task; it accepts a task, optional role, optional model selection (provider, modelId, effort), and optional tool list, and returns the recorded child result. Pass necessary context in the task; child conversations are independent.")
-	}
-	if containsToolFromTools(tools, "spawn_agent") {
-		sections = append(sections, "Use spawn_agent to start an independent child and receive its executionId while it works. Start independent children before collecting when useful, and continue your own work between start and collection.")
-	}
-	if containsToolFromTools(tools, "agent_status") {
-		sections = append(sections, "Use agent_status after starting independent work when you need a child's state, progress, latest instruction receipts, or saved ordinary assistant reports; it reads these without waiting for completion. Omit after for all reports, then pass nextCursor as after for newer reports. Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. Do not poll status to wait for completion.")
-		if containsToolFromTools(tools, "collect_agent") {
-			sections = append(sections, "Use collect_agent, or await api.agents.collect({executionId}) from generated JavaScript, to wait for a spawned child's settled result.")
-		}
-	}
-	if containsToolFromTools(tools, "steer_agent") {
-		sections = append(sections, "Use steer_agent to save additional guidance for an active child and receive its accepted receipt. The child finishes its current model request and tools before receiving the instruction at a loop boundary.")
-		if containsToolFromTools(tools, "agent_status") {
-			sections = append(sections, "Use agent_status to check whether each instruction is accepted, applied, or unapplied; applied means the message entered the child loop, not that the model followed it.")
-		}
-	}
-	if containsToolFromTools(tools, "collect_agent") {
-		if !containsToolFromTools(tools, "agent_status") {
-			sections = append(sections, "Use collect_agent when you need a child's settled result; it waits for that child to finish.")
-		}
-	}
-	if containsToolFromTools(tools, "cancel_agent") {
-		sections = append(sections, "Use cancel_agent when a started child should stop; it waits for and returns the child's settled result.")
-	}
-	if containsToolFromTools(tools, "run_js") {
-		var operations []string
-		if containsToolFromTools(tools, "run_agent") {
-			operations = append(operations, "run with api.agents.run({task, role?, model?, tools?})")
-		}
-		if containsToolFromTools(tools, "spawn_agent") {
-			operations = append(operations, "spawn with api.agents.spawn({task, role?, model?, tools?})")
-		}
-		if containsToolFromTools(tools, "agent_status") {
-			operations = append(operations, "read reports and progress with api.agents.status({executionId, after?})")
-		}
-		if containsToolFromTools(tools, "steer_agent") {
-			operations = append(operations, "send additional child guidance with api.agents.steer({executionId, text})")
-		}
-		if containsToolFromTools(tools, "collect_agent") {
-			operations = append(operations, "collect with api.agents.collect({executionId})")
-		}
-		if containsToolFromTools(tools, "cancel_agent") {
-			operations = append(operations, "cancel with api.agents.cancel({executionId})")
-		}
-		if len(operations) != 0 {
-			sections = append(sections, "From generated JavaScript, "+strings.Join(operations, "; ")+". These calls use the selected external child-operation tools through their normal hook and history path.")
-		}
 	}
 	if role.Instruction != "" {
 		sections = append(sections, "Role instruction:\n"+role.Instruction)
@@ -639,8 +619,9 @@ func (s Snapshot) JSON() ([]byte, error) {
 		}
 		tools = append(tools, LegacyTool{
 			Name: tool.Name, Revision: tool.Revision, Source: source, Entry: entry,
-			Contract:   LegacyContract{Name: tool.Name, Description: tool.Description, InputSchema: append(json.RawMessage(nil), tool.InputSchema...)},
-			FileAccess: "unmanaged", Paths: LegacyPaths{Allow: []string{}, Deny: []string{}},
+			Contract:         LegacyContract{Name: tool.Name, Description: tool.Description, InputSchema: append(json.RawMessage(nil), tool.InputSchema...)},
+			PromptGuidelines: append([]string(nil), tool.PromptGuidelines...),
+			FileAccess:       "unmanaged", Paths: LegacyPaths{Allow: []string{}, Deny: []string{}},
 		})
 	}
 	toolPathSource := ""

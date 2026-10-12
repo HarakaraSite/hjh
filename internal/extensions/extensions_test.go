@@ -9,12 +9,13 @@ import (
 )
 
 type legacyToolSnapshotView struct {
-	Name       string                     `json:"name"`
-	Source     string                     `json:"source"`
-	Entry      string                     `json:"entry"`
-	Contract   map[string]json.RawMessage `json:"contract"`
-	FileAccess string                     `json:"fileAccess"`
-	Paths      struct {
+	Name             string                     `json:"name"`
+	Source           string                     `json:"source"`
+	Entry            string                     `json:"entry"`
+	Contract         map[string]json.RawMessage `json:"contract"`
+	PromptGuidelines []string                   `json:"promptGuidelines"`
+	FileAccess       string                     `json:"fileAccess"`
+	Paths            struct {
 		Allow []string `json:"allow"`
 		Deny  []string `json:"deny"`
 	} `json:"paths"`
@@ -91,14 +92,15 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		!strings.Contains(string(hooksSource), "runtime.startedAt") || !strings.Contains(string(hooksSource), "runtime.timeZone") {
 		t.Fatalf("default hooks.js does not demonstrate the Go-provided start time: %s", hooksSource)
 	}
-	if !strings.Contains(snapshot.Tools[0].Description, "api.agents.run") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.spawn") ||
-		!strings.Contains(snapshot.Tools[0].Description, "api.agents.status") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.steer") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.collect") ||
-		!strings.Contains(snapshot.Tools[0].Description, "api.agents.cancel") {
-		t.Fatalf("run_js definition omits selected child operation guidance: %s", snapshot.Tools[0].Description)
+	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
+	if !strings.Contains(runJSGuidelines, "api.agents.run") || !strings.Contains(runJSGuidelines, "api.agents.spawn") ||
+		!strings.Contains(runJSGuidelines, "api.agents.status") || !strings.Contains(runJSGuidelines, "api.agents.steer") || !strings.Contains(runJSGuidelines, "api.agents.collect") ||
+		!strings.Contains(runJSGuidelines, "api.agents.cancel") {
+		t.Fatalf("run_js prompt guidelines omit selected child operation guidance: %s", runJSGuidelines)
 	}
-	for _, expected := range []string{"Promise", "setTimeout", "setInterval", "api.agents.collect", "not waiting for completion", `tools.command({program:"sleep",args:["SECONDS"]})`} {
-		if !strings.Contains(snapshot.Tools[0].Description, expected) {
-			t.Errorf("run_js description omits selected runtime guidance %q: %s", expected, snapshot.Tools[0].Description)
+	for _, expected := range []string{"Promise", "setTimeout", "setInterval", "api.agents.collect", "Do not poll status to wait for completion", `tools.command({program:"sleep",args:["SECONDS"]})`} {
+		if !strings.Contains(runJSGuidelines+"\n"+snapshot.SystemInstruction, expected) {
+			t.Errorf("run_js prompt omits selected runtime guidance %q: %s", expected, snapshot.SystemInstruction)
 		}
 	}
 	for _, expected := range []string{"setTimeout", "setInterval", "api.agents.collect", "Do not poll status", `tools.command({program:"sleep",args:["SECONDS"]})`} {
@@ -106,7 +108,13 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 			t.Errorf("system instruction omits selected runtime guidance %q: %s", expected, snapshot.SystemInstruction)
 		}
 	}
-	if !strings.Contains(snapshot.Tools[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
+	for _, expected := range []string{"optional role", "model selection", "tools list", "nextCursor as after", "accepted, applied, or unapplied",
+		"current model request and tools", "collect_agent when you need", "cancel_agent when a started child should stop"} {
+		if !strings.Contains(snapshot.SystemInstruction, expected) {
+			t.Errorf("system instruction omits declared child tool guidance %q: %s", expected, snapshot.SystemInstruction)
+		}
+	}
+	if strings.Contains(snapshot.Tools[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
 		t.Fatal("run_js does not instruct the working role to write an English purpose comment")
 	}
 	if !strings.Contains(snapshot.SystemInstruction, "Use steer_agent") || !strings.Contains(snapshot.SystemInstruction, "api.agents.steer") ||
@@ -115,6 +123,27 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	}
 	if !strings.Contains(snapshot.SystemInstruction, "Available roles for run_agent") || !strings.Contains(snapshot.SystemInstruction, "reviewer:") {
 		t.Fatalf("default role instruction omits the available role catalog: %s", snapshot.SystemInstruction)
+	}
+	if !strings.Contains(snapshot.SystemInstruction, "## Active tool guidelines") {
+		t.Fatalf("selected tool guidelines were not composed into one common section: %s", snapshot.SystemInstruction)
+	}
+	var activeGuidelines struct {
+		Identity string `json:"identity"`
+		Text     string `json:"text"`
+	}
+	foundGuidelines := false
+	for _, raw := range snapshot.InstructionComponents {
+		var component struct {
+			Identity string `json:"identity"`
+			Text     string `json:"text"`
+		}
+		if json.Unmarshal(raw, &component) == nil && component.Identity == "instruction:active-tool-guidelines" {
+			activeGuidelines = component
+			foundGuidelines = true
+		}
+	}
+	if !foundGuidelines || activeGuidelines.Text != snapshot.SystemInstruction[strings.Index(snapshot.SystemInstruction, "## Active tool guidelines"):strings.Index(snapshot.SystemInstruction, "\n\nRole description:")] {
+		t.Fatalf("saved active tool guideline component does not match the request instruction: found=%v component=%+v instruction=%s", foundGuidelines, activeGuidelines, snapshot.SystemInstruction)
 	}
 
 	encoded, err := snapshot.JSON()
@@ -177,6 +206,9 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	}
 	if builtin == nil || builtin.Source != "bundled" || builtin.Entry != "" {
 		t.Fatalf("unexpected built-in tool metadata: %+v", builtin)
+	}
+	if len(builtin.PromptGuidelines) == 0 {
+		t.Fatal("legacy snapshot omitted built-in run_js prompt guidelines")
 	}
 	if external == nil || external.Source != "external" || external.Entry != "index.js" || external.FileAccess != "unmanaged" {
 		t.Fatalf("unexpected legacy external tool metadata: %+v", external)
@@ -245,20 +277,20 @@ func TestSpawnOnlyRoleCapturesRoleCatalogAndSelectedJSOperations(t *testing.T) {
 		!strings.Contains(snapshot.SystemInstruction, "Available roles for spawn_agent") {
 		t.Fatalf("spawn-only role omitted its role catalog: agent=%+v instruction=%s", snapshot.Agent, snapshot.SystemInstruction)
 	}
-	description := snapshot.Tools[0].Description
+	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
 	for _, selected := range []string{"api.agents.spawn", "api.agents.status", "api.agents.collect", "api.agents.cancel", "setTimeout", "setInterval", "await api.agents.collect"} {
-		if !strings.Contains(description, selected) {
-			t.Errorf("run_js description omitted selected operation %s: %s", selected, description)
+		if !strings.Contains(runJSGuidelines, selected) {
+			t.Errorf("run_js guidelines omitted selected operation %s: %s", selected, runJSGuidelines)
 		}
 	}
 	if !strings.Contains(snapshot.SystemInstruction, "await api.agents.collect") || !strings.Contains(snapshot.SystemInstruction, "Do not poll status") {
 		t.Errorf("spawn role does not direct JavaScript to collect results and use status for reports: %s", snapshot.SystemInstruction)
 	}
-	if strings.Contains(description, `tools.command({program:"sleep"`) {
-		t.Errorf("run_js description advertises a delay tool that was not selected: %s", description)
+	if strings.Contains(runJSGuidelines, `tools.command({program:"sleep"`) {
+		t.Errorf("run_js guidelines advertise a delay tool that was not selected: %s", runJSGuidelines)
 	}
-	if strings.Contains(description, "api.agents.run") || strings.Contains(description, "api.agents.steer") || snapshot.HasTool("run_agent") {
-		t.Fatalf("spawn-only role advertised unselected synchronous run: description=%s tools=%+v", description, snapshot.Agent.Tools)
+	if strings.Contains(runJSGuidelines, "api.agents.run") || strings.Contains(runJSGuidelines, "api.agents.steer") || snapshot.HasTool("run_agent") {
+		t.Fatalf("spawn-only role advertised unselected synchronous run: guidelines=%s tools=%+v", runJSGuidelines, snapshot.Agent.Tools)
 	}
 }
 
@@ -299,11 +331,11 @@ func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	if len(definitions) != len(snapshot.Tools) || definitions[0].Name != "run_js" || definitions[1].Name != "read_file" {
 		t.Fatalf("definitions diverged from captured tools: %+v", definitions)
 	}
-	if !strings.Contains(definitions[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
+	if strings.Contains(definitions[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
 		t.Fatal("run_js does not instruct the reviewing role to write an English purpose comment")
 	}
-	if !strings.Contains(definitions[0].Description, "setTimeout") || strings.Contains(definitions[0].Description, "tools.command({program:\"sleep\"") {
-		t.Fatalf("reviewer run_js guidance does not match its selected capabilities: %q", definitions[0].Description)
+	if !strings.Contains(snapshot.Tools[0].PromptGuidelines[2], "setTimeout") || strings.Contains(strings.Join(snapshot.Tools[0].PromptGuidelines, "\n"), "tools.command({program:\"sleep\"") {
+		t.Fatalf("reviewer run_js guidelines do not match its selected capabilities: %+v", snapshot.Tools[0].PromptGuidelines)
 	}
 	if strings.Contains(definitions[0].Description, "api.agents.run") || strings.Contains(snapshot.SystemInstruction, "Available roles for run_agent") {
 		t.Fatalf("non-delegating role advertises delegation: definition=%q instruction=%q", definitions[0].Description, snapshot.SystemInstruction)
@@ -430,6 +462,130 @@ func TestCaptureOptionsReplaceToolsWithoutChangingConfigurationBytes(t *testing.
 	}
 }
 
+func TestPromptGuidelinesFollowSelectedToolOrderAndAreSaved(t *testing.T) {
+	dir := t.TempDir()
+	if err := InstallDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(dir, "config.json")
+	original, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config Config
+	if err = json.Unmarshal(original, &config); err != nil {
+		t.Fatal(err)
+	}
+	config.Tools = append(config.Tools,
+		Tool{Name: "future_a", Revision: "1", Description: "First future tool.", InputSchema: json.RawMessage(`{"type":"object"}`),
+			PromptGuidelines: []string{"alpha guidance"}, Module: "index.js", Export: "readFile"},
+		Tool{Name: "future_b", Revision: "1", Description: "Second future tool.", InputSchema: json.RawMessage(`{"type":"object"}`),
+			PromptGuidelines: []string{"beta guidance one", "beta guidance two"}, Module: "index.js", Export: "readFile"},
+	)
+	config.Roles["ordered"] = Role{Revision: "1", Tools: []string{"future_b", "future_a"}}
+	config.Roles["plain"] = Role{Revision: "1", Tools: []string{"read_file"}}
+	encoded, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(configPath, encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot, err := Capture(configPath, "ordered")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Join([]string{
+		"## Active tool guidelines",
+		"- future_b: beta guidance one",
+		"- future_b: beta guidance two",
+		"- future_a: alpha guidance",
+	}, "\n")
+	if !strings.Contains(snapshot.SystemInstruction, want) {
+		t.Fatalf("active guidelines do not follow selected tool and array order: %s", snapshot.SystemInstruction)
+	}
+	for _, definition := range snapshot.Definitions() {
+		data, marshalErr := json.Marshal(definition)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		if strings.Contains(string(data), "promptGuidelines") {
+			t.Fatalf("prompt guidelines leaked into the provider tool definition: %s", data)
+		}
+	}
+	data, err := snapshot.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved struct {
+		InstructionComponents []struct {
+			Identity string `json:"identity"`
+			Text     string `json:"text"`
+		} `json:"instructionComponents"`
+		Tools []legacyToolSnapshotView `json:"tools"`
+	}
+	if err = json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	componentFound := false
+	for _, component := range saved.InstructionComponents {
+		if component.Identity == "instruction:active-tool-guidelines" {
+			componentFound = true
+			if component.Text != want {
+				t.Fatalf("saved guideline component differs from the model instruction: got %q want %q", component.Text, want)
+			}
+		}
+	}
+	if !componentFound {
+		t.Fatalf("saved snapshot omitted active tool guidelines: %+v", saved.InstructionComponents)
+	}
+	if len(saved.Tools) != 2 || saved.Tools[0].Name != "future_b" || strings.Join(saved.Tools[0].PromptGuidelines, ",") != "beta guidance one,beta guidance two" ||
+		saved.Tools[1].Name != "future_a" || strings.Join(saved.Tools[1].PromptGuidelines, ",") != "alpha guidance" {
+		t.Fatalf("legacy tool snapshot omitted selected prompt guidelines: %+v", saved.Tools)
+	}
+
+	selected := []string{"future_a"}
+	overridden, err := CaptureWithOptions(configPath, CaptureOptions{Role: "ordered", Tools: &selected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(overridden.SystemInstruction, "- future_a: alpha guidance") || strings.Contains(overridden.SystemInstruction, "beta guidance") {
+		t.Fatalf("tool override did not recompose guidelines from its selected tool: %s", overridden.SystemInstruction)
+	}
+	empty := []string{}
+	emptySnapshot, err := CaptureWithOptions(configPath, CaptureOptions{Role: "ordered", Tools: &empty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(emptySnapshot.SystemInstruction, "## Active tool guidelines") {
+		t.Fatalf("empty tool override received active guidelines: %s", emptySnapshot.SystemInstruction)
+	}
+	plain, err := Capture(configPath, "plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(plain.SystemInstruction, "## Active tool guidelines") {
+		t.Fatalf("tool without a promptGuidelines declaration received active guidelines: %s", plain.SystemInstruction)
+	}
+	current, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(current) != string(encoded) {
+		t.Fatal("capturing selected or overridden prompt guidelines rewrote the source configuration")
+	}
+	var archived []byte
+	for _, resource := range overridden.Resources {
+		if resource.Path == "config.json" {
+			archived = resource.Bytes
+		}
+	}
+	if string(archived) != string(encoded) || string(archived) == string(original) {
+		t.Fatal("tool override changed the archived configuration or failed to archive its declared guidelines")
+	}
+}
+
 func TestEmptyRoleHasNoModelToolsOrSnapshotTools(t *testing.T) {
 	dir := t.TempDir()
 	if err := InstallDefaults(dir); err != nil {
@@ -459,6 +615,9 @@ func TestEmptyRoleHasNoModelToolsOrSnapshotTools(t *testing.T) {
 	}
 	if len(snapshot.Tools) != 0 || len(snapshot.Definitions()) != 0 || snapshot.Agent.Tools == nil || snapshot.HasTool("run_js") {
 		t.Fatalf("empty role received tools: agent=%+v tools=%+v definitions=%+v", snapshot.Agent, snapshot.Tools, snapshot.Definitions())
+	}
+	if strings.Contains(snapshot.SystemInstruction, "## Active tool guidelines") {
+		t.Fatalf("empty role received active tool guidelines: %s", snapshot.SystemInstruction)
 	}
 	if strings.Contains(snapshot.SystemInstruction, "Use run_js") || strings.Contains(snapshot.SystemInstruction, "api.agents.run") {
 		t.Fatalf("empty role instruction advertises unselected tools: %s", snapshot.SystemInstruction)

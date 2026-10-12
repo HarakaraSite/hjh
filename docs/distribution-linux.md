@@ -137,6 +137,11 @@ TUIの`/context`で有効予算、出典、選択した履歴と保存元を確�
 configのdefaultRoleとrolesでinstruction・利用toolを定義する。親も子も共通genericへroleを渡す。
 既定defaultは作業と委譲、reviewerはrun_js・read_fileを選ぶ。
 
+外部toolの使い方はconfig.toolsの`promptGuidelines: string[]`へ記述できる。
+有効なtoolの指示だけが親・子の共通model instructionへ入り、snapshotにも保存される。
+run_jsの基本操作と選択済みJS API、標準子agent操作も同じ仕組みを使う。
+既存configの子toolへは配布configの同fieldを追加する。編集は次run・子開始時から反映される。
+
 ## Workspaceの指示とskills
 
 AGENTS.mdはユーザー共通の`${XDG_CONFIG_HOME:-$HOME/.config}/hjh/AGENTS.md`、

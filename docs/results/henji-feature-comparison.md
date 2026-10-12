@@ -74,7 +74,7 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 | ライフサイクルhook | runtime開始と終了、turn前後、tool前後の六種類 | **完了（I-20）**。親子共通の六hook、保存・採用後のafterTurn、終了記録とnoticeを実装・確認済み。afterToolは現行の成功時だけの契約を維持し、旧側のエラー結果加工は追加していない |
 | hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **完了（I-20）**。runtimeStart/beforeTurnの追加文脈、予算管理、hook結果と実requestのattributionを実装・確認済み。次turnへ累積しない |
 | 要約checkpointの保存と再利用 | `after_turn`から要約と対象turn境界を返し、後続会話へ渡せる | **未実装**。現在は予算内に収まる履歴を選んで送る方式 |
-| tool自身が持つ利用指示 | `promptGuidelines`を有効toolから集めて共通指示へ追加 | **専用機構なし**。現在はtoolのdescriptionやrole指示へ書く |
+| tool自身が持つ利用指示 | `promptGuidelines`を有効toolから集めて共通指示へ追加 | **完了（I-21）**。任意外部toolの宣言から親・子の有効tool分だけ収集し、run_js・子操作も同じ経路を使う。snapshot・実requestへ保存。[確認結果](i21-tool-guidelines.md) |
 | 基本指示全体の差替え | ユーザーの`instruction.md`で組込み基本指示を置換 | **未実装**。現在の`systemInstruction`、role指示、AGENTS.mdは追加する方式 |
 | 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **完了（I-20）**。標準runtimeStart例がGo由来の開始日時・UTC offset・timezone表示名を文脈へ渡す。編集済みhookを自動上書きしない |
 

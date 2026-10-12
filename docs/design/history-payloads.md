@@ -62,6 +62,11 @@ configurationIdはUUIDであり、内容digestとは別の識別子。
 agent、source、systemInstruction、instructionComponents、toolPaths、tools、hooks、rejectionsを保持する。
 fileAccess／paths等のfieldの存在から旧permission機能の実装を必須にしない。
 
+I-21の有効tool利用指示は、各snapshot.toolsのoptional `promptGuidelines`と、
+`instruction:active-tool-guidelines` componentへ保存する。同じ集約本文をsystemInstructionへ組み込み、
+実model requestの通常context attributionから辿れる。providerのtool definitionには追加fieldを入れない。
+未選択toolの指示は含めず、宣言元configのexact bytesは従来のresource保存経路で保持する。
+
 実際に読み込む各source・依存bytesはcontentsへ保存する。
 resource_revisionのpayloadにconfigurationId、logicalIdentity、sourceLocator、contentDigestを記録し、
 content_digestでも当該bytesを参照する。使用sourceの場所とbytesをexecutionから辿れるようにする。

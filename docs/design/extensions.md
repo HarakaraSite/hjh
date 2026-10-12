@@ -27,6 +27,7 @@
   "tools": [
     {"name":"read_file","revision":"1","description":"Read a text file.",
      "inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]},
+     "promptGuidelines":["Preserve exact identifiers from the file when reporting."],
      "module":"index.js","export":"readFile"},
     {"name":"run_agent","revision":"1","description":"Delegate to a role.",
      "inputSchema":{"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"}},"required":["task"]},
@@ -59,6 +60,25 @@ selection優先順位、credential形式は[provider・model設定](providers.md
 外部moduleは相対ESM importを使う。Goはcaptureしたresource bytesをmodule loaderから返すため、
 capture後に元ファイルを編集しても現在のWorkerには反映されない。次Workerで新しいcaptureを作ると反映される。
 Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMとして拡張directoryへ配置する。
+
+## I-21：tool自身の利用指示
+
+外部toolは任意の`promptGuidelines: string[]`に利用方針を書く。省略・空配列は指示なし。
+role.toolsと子の明示tools上書きの解決後、有効tool順・配列順に
+`## Active tool guidelines`へ集め、各行を`- tool名: 指示`として共通systemInstructionへ加える。
+今後追加するtoolも同じfieldを宣言すれば使える。親・子とも同じcapture経路を使う。
+
+built-in run_jsもこのfieldを持つ。async本文、英文目的コメント、QuickJSの待機方法と、
+選択された子操作に対応するJS APIを案内する。標準の六つの子操作は外部config側で指示を持つ。
+無効なtoolのguidelinesは加えない。role本文・共通の途中報告指示・子role catalogは別の指示として扱う。
+既存workspaceの外部configは自動上書きしないため、既存子toolには配布configのguidelinesを反映する。
+このrepositoryの利用workspaceには反映済み。
+
+組立済み欄は`instruction:active-tool-guidelines` componentへ保存し、snapshot.toolsの各宣言にも
+optional `promptGuidelines`を保存する。元configは従来どおりexact source bytesを捕捉する。
+provider tool definitionはname/description/inputSchemaのままで、専用fieldをwireへ送らない。
+集約した指示は通常のcontext budgetとmodel request保存・attributionの対象になる。
+編集は次Workerのcaptureから反映し、現在のWorkerや過去の保存履歴を変更しない。
 
 ## 保存snapshot
 
@@ -123,7 +143,7 @@ model向けにはrole.toolsで選んだbuilt-in `run_js` と外部toolを定義�
 外部toolを `tools.read_file(...)` のように呼び出せる。直接のmodel tool callと生成JS内tool callは、
 同じ外部module実装とhook処理を使う。
 
-利用者指定によりrun_jsのtool descriptionと共通実行instructionは、codeの先頭へ目的を
+利用者指定によりrun_jsのpromptGuidelinesから組み立てた共通実行instructionは、codeの先頭へ目的を
 短い英文の1行`//`コメントとして書くようモデルへ指示する。親・子roleに共通して適用する。
 共通toolactivityが最初の空行以外の行の`//`本文をpreviewにし、実行開始・結果・履歴復元へ
 同じ説明を渡す。表示は既存の薄い通常色。コメントなしは説明を付けずtool名だけを表示し、
@@ -203,7 +223,7 @@ checkpoint、要約、追加turnへの文脈再利用は行わない。
 
 生成JSの `api.agents.run({role?,task,model?,tools?})` は選択したrun_agentを呼び、Promiseを返す。
 外部tool／hookの同名APIは実装用のraw AgentRunnerに接続する。
-モデルには実行instructionと `run_js` のdescriptionで入力・結果とawait方法を提示する。
+モデルにはtool definitionで機能と引数を、共通instructionのtool guidelinesで使い方とawait方法を提示する。
 
 ```js
 const results = await Promise.all([
