@@ -4,6 +4,10 @@
 Coreの責務である。TUIはCoreから受け取った通知と`/context`の結果を表示する。
 CLIの直接runも同じCoreの共通実行処理を使う。
 
+I-18で追加したAGENTS.mdとskill manifestはinstructionの一部として同じwire計測へ入る。
+利用時に取得したskill本文は通常のtool結果であり、ターン内・ターン間の履歴投影も同じ経路を使う。
+詳細は[workspace指示とskills](workspace-instructions-skills.md)を参照する。
+
 ## Web読取り
 
 `web_fetch({url, save_to?})`は最終URL、HTTP status、Content-Typeと本文を可読文字列で返す。

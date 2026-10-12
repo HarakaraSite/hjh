@@ -26,7 +26,9 @@ import (
 	"hjh/internal/corerun"
 	"hjh/internal/credentials"
 	"hjh/internal/history"
+	"hjh/internal/historyview"
 	"hjh/internal/httpapi"
+	"hjh/internal/sessionid"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
@@ -72,6 +74,7 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		f.Usage = func() {
 			fmt.Fprintln(f.Output(), "Usage: hjh run [options] TASK (or supply TASK on stdin)")
 			f.PrintDefaults()
+			fmt.Fprintln(f.Output(), "--session accepts a full Session ID or a unique case-insensitive prefix (8 characters by default).")
 			fmt.Fprintln(f.Output(), "\nWith --connect, omitted workspace/max-steps/from-turn use Core settings.")
 			fmt.Fprintln(f.Output(), "Relative workspace paths are Core-side; resuming uses the saved Session workspace.")
 			fmt.Fprintln(f.Output(), "DB/config/credential/favorites paths belong to Core startup (hjh serve).")
@@ -84,7 +87,8 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	}
 	workspace := f.String("workspace", cwd, "workspace directory")
 	dbPath := f.String("db", "", "history database (default: WORKSPACE/.hjh/history.sqlite3)")
-	sessionID := f.String("session", "", "Session ID to resume or view")
+	sessionID := f.String("session", "", "Session ID or unique case-insensitive prefix to resume (8 characters by default)")
+	asJSON := f.Bool("json", false, "write full Session IDs as JSON (sessions only)")
 	executionID := f.String("execution", "", "execution ID to inspect")
 	modelID := f.String("model", "", "model ID on the selected connection")
 	providerID := f.String("provider", "", "provider ID from external config")
@@ -245,7 +249,19 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		if err != nil {
 			break
 		}
-		output := runOutput{stdout: stdout, stderr: stderr, stream: *stream}
+		var sessions []history.Session
+		sessions, err = service.Sessions(ctx)
+		if err != nil {
+			break
+		}
+		knownSessionIDs := historySessionIDs(sessions)
+		if *sessionID != "" {
+			*sessionID, err = sessionid.Resolve(*sessionID, knownSessionIDs)
+			if err != nil {
+				break
+			}
+		}
+		output := runOutput{stdout: stdout, stderr: stderr, stream: *stream, knownSessionIDs: knownSessionIDs}
 		var result app.RunResult
 		result, err = service.Run(ctx, app.RunRequest{Task: task, SessionID: *sessionID, ModelID: *modelID,
 			ProviderID: *providerID, Effort: *effort, AuthProfile: *authProfile, Workspace: *workspace, Role: *role, Progress: output.observe})
@@ -258,7 +274,11 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		var sessions []history.Session
 		sessions, err = service.Sessions(ctx)
 		if err == nil {
-			err = writeJSON(sessions)
+			if *asJSON {
+				err = writeJSON(sessions)
+			} else {
+				_, err = io.WriteString(stdout, historyview.RenderSessions(sessions))
+			}
 		}
 	case "inspect":
 		if *executionID == "" {

@@ -25,7 +25,7 @@ func TestDetachWaitsForDurableSessionAndNeverCancels(t *testing.T) {
 	}
 	state := api.RunState{CoreID: "core-1", RunID: call.request.RunID, Phase: "preparing", SessionID: "durable-session"}
 	cmd := deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.snapshot", State: state, Conversation: &api.ConversationSnapshot{ViewID: "v", Entities: map[string]api.ConversationEntity{}}})
-	if cmd == nil || !m.quitting || !m.detached || !strings.Contains(m.exitNotice, "durable-session") {
+	if cmd == nil || !m.quitting || !m.detached || !strings.Contains(m.exitNotice, "durable-") {
 		t.Fatal("detach did not leave its reconnection address")
 	}
 	m.shutdown()
@@ -146,7 +146,7 @@ func TestDetachNoticeIsFlushedAfterStreamingBody(t *testing.T) {
 	if err := m.writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(output.String(), "detached:") != 1 || !strings.Contains(output.String(), "saved-streaming") || !strings.Contains(strings.ReplaceAll(output.String(), "\r\n", ""), call.request.RunID) {
+	if strings.Count(output.String(), "detached:") != 1 || !strings.Contains(output.String(), "saved-st") || !strings.Contains(strings.ReplaceAll(output.String(), "\r\n", ""), call.request.RunID) {
 		t.Fatalf("detach notice lost at writer close: %q", output.String())
 	}
 }

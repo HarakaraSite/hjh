@@ -8,7 +8,7 @@ const cliUsage = `Usage: hjh COMMAND [options]
   core        List, inspect or stop Cores (list/status/stop)
   run         Execute a task or resume a Session (--connect URL uses a Core)
   history     Read history locally or via --connect
-  sessions    List saved Sessions
+  sessions    List saved Sessions (human IDs; --json writes full IDs)
   inspect     Read one execution's records and configuration
   roles       List roles
   providers   List providers

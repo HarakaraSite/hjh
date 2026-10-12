@@ -26,6 +26,10 @@ func (d *delegation) RunAgent(ctx context.Context, request contracts.AgentRunReq
 	if err != nil {
 		return output, err
 	}
+	workspaceContext, orientation, err := prepareWorkspaceContext(ctx, d.input.workspace, &snapshot)
+	if err != nil {
+		return output, err
+	}
 	registry, err := capturedRegistry(snapshot, d.input.configPath)
 	if err != nil {
 		return output, err
@@ -60,6 +64,7 @@ func (d *delegation) RunAgent(ctx context.Context, request contracts.AgentRunReq
 	}
 	childInput := d.input
 	childInput.execution, childInput.snapshot, childInput.session = child, snapshot, nil
+	childInput.workspaceContext, childInput.orientation = workspaceContext, orientation
 	childInput.recall = nil
 	childInput.model = model
 	childInput.spawnRecordID = d.journal.startReference(request.CallID)

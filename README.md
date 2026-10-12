@@ -57,6 +57,17 @@ I-16では`run --connect URL`でCLIから既存Coreへ依頼し、同じSession�
 I-17ではJS実行基盤を`github.com/go-quickjs/go-quickjs v0.25.2`へ移行した。
 Worker APIと既存の終了保存・非同期処理を維持する。[移行計画](docs/plans/i17-go-quickjs.md)と
 [互換性・実作業・配布の確認結果](docs/results/i17-go-quickjs.md)を参照する。
+人向けSession IDはTUI・CLIで原則8文字の短縮形を使い、そのまま再開・historyへ指定できる。
+`sessions --json`やAPI・保存履歴は完全IDを保つ。[操作契約](docs/design/session-ids.md)と
+[実CLI/TUIの確認結果](docs/results/short-session-ids.md)を参照する。
+TUI headerは会話を開いた時点の情報を枠で一度表示し、現在SessionのID・タイトルはfooterへ表示する。
+[表示契約](docs/design/tui-header.md)と[確認結果](docs/results/tui-header.md)を参照する。
+
+I-18ではAGENTS.mdとPi方式のskillsを共通実行層へ接続した。
+指示とskill一覧は各親/子開始時に読み、skill本文は必要になった時にread_fileで取得する。
+Coreのorientation APIからTUIのheaderと/contextへ出典・一覧を表示する。
+[読込みと表示の契約](docs/design/workspace-instructions-skills.md)を参照する。
+[実装・実モデル・配布の確認結果](docs/results/i18-workspace-instructions-skills.md)を参照する。
 S-01〜S-05スパイクは実施済み。[実験コード](spikes/s01/README.md)、
 [S-01の結果](docs/spikes/s01-results.md)、[S-02の結果](docs/spikes/s02-results.md)、
 [S-03の結果](docs/spikes/s03-results.md)、[S-04の結果](docs/spikes/s04-results.md)、

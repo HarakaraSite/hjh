@@ -15,6 +15,7 @@ import (
 	"hjh/internal/history"
 	"hjh/internal/jsruntime"
 	"hjh/internal/recall"
+	"hjh/internal/workspacecontext"
 )
 
 // executionControl belongs to one root run and is shared by its descendants.
@@ -65,6 +66,8 @@ func (p *progressSink) observe(o contracts.Observation) error {
 type executionInput struct {
 	execution                            history.Execution
 	snapshot                             extensions.Snapshot
+	workspaceContext                     workspacecontext.Snapshot
+	orientation                          contracts.Orientation
 	workspace, configPath, rootSessionID string
 	rootExecutionID                      string
 	model                                contracts.ModelSelection
@@ -171,10 +174,16 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		}
 	}()
 	if err = j.observe(contracts.Observation{ID: execution.ID, Kind: "execution", Name: "run", Phase: "started",
-		Input: contracts.JSON(map[string]any{"task": execution.Task, "sessionId": input.rootSessionID, "model": input.model, "role": input.snapshot.Agent.Name})}); err != nil {
+		Input: contracts.JSON(map[string]any{"task": execution.Task, "sessionId": input.rootSessionID, "model": input.model,
+			"role": input.snapshot.Agent.Name, "context": input.orientation})}); err != nil {
 		return result, err
 	}
-	for _, resource := range input.snapshot.Resources {
+	resources := append([]extensions.Resource(nil), input.snapshot.Resources...)
+	for _, instruction := range input.workspaceContext.Instructions {
+		resources = append(resources, extensions.Resource{LogicalIdentity: "workspace-instruction:" + instruction.Path,
+			SourceLocator: instruction.Path, ContentDigest: instruction.Digest, Bytes: instruction.Bytes})
+	}
+	for _, resource := range resources {
 		_, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{Kind: "resource_revision", Payload: contracts.JSON(map[string]any{
 			"configurationId": input.snapshot.ConfigurationID, "logicalIdentity": resource.LogicalIdentity, "sourceLocator": resource.SourceLocator,
 			"contentDigest": resource.ContentDigest}), Content: resource.Bytes})

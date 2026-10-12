@@ -15,6 +15,7 @@ import (
 	"hjh/internal/api"
 	"hjh/internal/contracts"
 	"hjh/internal/history"
+	"hjh/internal/sessionid"
 )
 
 func SessionFromAPI(session api.Session) history.Session {
@@ -80,26 +81,42 @@ func InspectionFromAPI(inspection api.Inspection) Inspection {
 	return result
 }
 
-// SelectSession resolves a unique ID prefix globally, or returns the newest
+// RenderSessions formats Session metadata for human-readable CLI output.
+// Session IDs are shortened to eight characters unless known IDs share that prefix.
+func RenderSessions(sessions []history.Session) string {
+	if len(sessions) == 0 {
+		return "No saved Sessions.\n"
+	}
+	ids := make([]string, len(sessions))
+	for i, session := range sessions {
+		ids[i] = session.ID
+	}
+	var out strings.Builder
+	for _, session := range sessions {
+		fmt.Fprintf(&out, "%s · %s · %s · %d turns · updated %s\n",
+			sessionid.Short(session.ID, ids...), sessionTitle(session), session.WorkspaceRoot,
+			session.TurnCount, session.UpdatedAt)
+	}
+	return out.String()
+}
+
+// SelectSession resolves an exact ID or unique ID prefix globally, or returns the newest
 // Session in workspace when selector is empty. Newest is updatedAt descending,
 // then Session ID ascending, matching the legacy CLI's stable tie-break.
 func SelectSession(sessions []history.Session, workspace, selector string) (history.Session, bool, error) {
 	if selector != "" {
-		originalSelector := selector
-		selector = strings.ToLower(selector)
-		matches := make([]history.Session, 0, 2)
-		for _, session := range sessions {
-			if strings.HasPrefix(strings.ToLower(session.ID), selector) {
-				matches = append(matches, session)
-			}
+		ids := make([]string, len(sessions))
+		for i, session := range sessions {
+			ids[i] = session.ID
 		}
-		switch len(matches) {
-		case 0:
-			return history.Session{}, false, fmt.Errorf("Session %q not found", originalSelector)
-		case 1:
-			return matches[0], true, nil
-		default:
-			return history.Session{}, false, fmt.Errorf("Session prefix %q is ambiguous", originalSelector)
+		resolved, err := sessionid.Resolve(selector, ids)
+		if err != nil {
+			return history.Session{}, false, err
+		}
+		for _, session := range sessions {
+			if session.ID == resolved {
+				return session, true, nil
+			}
 		}
 	}
 	filtered := make([]history.Session, 0, len(sessions))
@@ -246,12 +263,12 @@ func RenderSession(snapshot api.ConversationSnapshot, executions []history.Execu
 	return out.String() + "\n"
 }
 
-func RenderCanonical(session history.Session, messages []history.Message) string {
+func RenderCanonical(session history.Session, messages []history.Message, knownIDs ...string) string {
 	var out strings.Builder
 	out.WriteString("# hjh Session History\n\n")
 	out.WriteString("- Title: " + markdownInline(sessionTitle(session)) + "\n")
 	out.WriteString("- Created: " + markdownInline(session.CreatedAt) + "\n")
-	out.WriteString("- Session: " + markdownInline(session.ID) + "\n")
+	out.WriteString("- Session: " + markdownInline(sessionid.Short(session.ID, knownIDs...)) + "\n")
 	out.WriteString("- Agent: " + markdownInline(session.Agent) + "\n")
 	committedTurn := session.NextTurn - 1
 	if committedTurn < 0 {

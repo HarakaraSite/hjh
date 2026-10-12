@@ -461,6 +461,13 @@ func TestSessionSwitchWaitsForInputChainSettlementAfterRunTerminal(t *testing.T)
 		t.Fatalf("run state did not establish the receipt revision scope: core=%q session=%q", m.runtimeDesiredCore, m.runtimeDesiredSession)
 	}
 	m.handleCommand("/resume saved")
+	for {
+		msg := receive(t, messages)
+		update(m, msg)
+		if _, ok := msg.(sessionResolvedMsg); ok {
+			break
+		}
+	}
 	if target := <-backend.cancelChainCalls; target.coreID != "core-1" || target.runID != run.request.RunID {
 		t.Fatalf("Session switch cancelled the wrong input chain: %+v", target)
 	}

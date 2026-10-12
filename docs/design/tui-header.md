@@ -1,0 +1,28 @@
+# TUIのheaderと現在Session表示
+
+2026-10-12。旧Henjiのheaderを参考に、利用者の指定によりhjhのheaderを整備する。
+agentとruntimeはheaderへ載せない。Session IDの表示・指定は[短縮ID契約](session-ids.md)に従う。
+
+headerは製品名とTUIのversion、Sessionのタイトル・作成日時、Core／Sessionの短縮ID、
+workspaceを枠にまとめる。タイトル未設定は(untitled)。日時は保存されたCreatedAtを
+実行環境のlocal timeへ変換し、timezoneも表示する。
+64列未満または16行未満では2行に縮め、workspaceは末尾を優先して省略する。
+日本語・絵文字をterminal cell幅で扱い、長い値は表示幅へ収める。
+
+headerは会話を開いた時点の情報をscrollbackへ一度だけ表示する。
+Sessionの作成、名前変更、metadata更新、resizeで同じ会話のheaderを追加しない。
+現在のSession短縮IDとタイトルはfooterへ表示し、長いタイトルでもIDを先に表示する。
+/newや別Sessionの/resumeでは、新しく開いた会話のheaderを一度表示する。
+保存Sessionの読込み中はheaderを確定せず、読込み後の保存metadataを使う。
+
+新規起動と/new直後はまだSessionがないため、Session new／new conversation／not created yetを表示する。
+最初の依頼でCoreがSessionを作った後はfooterへ実際の短縮IDを表示する。
+この作成によってheaderをもう一つ追加しない。保存Sessionを開き直すと、実際の作成日時がheaderに出る。
+headerの都合でSessionを先に作らない。
+
+I-18では[workspace指示・skills契約](workspace-instructions-skills.md)に従い、
+通常幅headerへbase・context・skillsを追加する。Coreのorientation APIから取得した
+previewと、実runが固定したactual metadataを区別する。本文はheaderへ表示しない。
+起動時preview待機中も入力を送信でき、headerが確定するまで会話のscrollback移動を保留する。
+実metadataが先に届いた場合はそれで確定する。後の更新でheaderを追加しない。
+狭幅headerは2行を維持し、Session未作成でも/contextから出典と利用可能skillを確認できる。

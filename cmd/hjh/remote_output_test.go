@@ -10,7 +10,7 @@ import (
 
 func TestRemoteRunOutputStreamsRootAssistantAndCoalescedProgressOnce(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	output := remoteRunOutput{stdout: &stdout, stderr: &stderr, stream: true}
+	output := remoteRunOutput{stdout: &stdout, stderr: &stderr, stream: true, knownSessionIDs: []string{"session-1", "session-2"}}
 	state := api.RunState{CoreID: "core-1", RunID: "run-1", Phase: "running", SessionID: "session-1",
 		ExecutionID: "root-1", ActualRole: "builder"}
 	rootAnswer := api.ConversationEntity{ID: "answer-1", Kind: "assistant", ExecutionID: "root-1", Text: "Hel", Status: "streaming"}

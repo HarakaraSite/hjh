@@ -40,6 +40,7 @@ type RunState struct {
 	ExecutionID     string                    `json:"executionId,omitempty"`
 	ActualSelection *contracts.ModelSelection `json:"actualSelection,omitempty"`
 	ActualRole      string                    `json:"actualRole,omitempty"`
+	ActualContext   *contracts.Orientation    `json:"actualContext,omitempty"`
 	NextRunID       string                    `json:"nextRunId,omitempty"`
 	InputRevision   uint64                    `json:"inputRevision"`
 	InputAcceptance InputAcceptance           `json:"inputAcceptance"`

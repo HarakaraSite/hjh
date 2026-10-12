@@ -225,29 +225,37 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 		if doc.sealPlainLimit >= 0 {
 			safeRow = rowBoundaryForOffset(doc.rowStarts, doc.plain, doc.sealPlainLimit)
 		}
-		committedThrough = doc.startRow
-		for _, part := range doc.parts {
-			if part.mutable || part.rowEnd > safeRow {
-				break
+		if m.headerPrinted || !m.deferTranscriptUntilHeader {
+			committedThrough = doc.startRow
+			for _, part := range doc.parts {
+				if part.mutable || part.rowEnd > safeRow {
+					break
+				}
+				if part.rowEnd <= committedThrough {
+					continue
+				}
+				// Only complete, immutable parts advance the scrollback boundary.
+				committedThrough = part.rowEnd
 			}
-			if part.rowEnd <= committedThrough {
-				continue
-			}
-			// Only complete, immutable parts advance the scrollback boundary.
-			committedThrough = part.rowEnd
 		}
 		bodyStart = committedThrough
 		if committedThrough > doc.startRow {
 			committed = append(committed, doc.rows[doc.startRow:committedThrough]...)
 		}
 		bodyEnd := len(doc.rows)
-		for _, part := range doc.parts {
-			if part.mutable {
-				// Keep the preview inside the first mutable source block so later
-				// conversation text cannot push its newest tail out of the live band.
-				bodyStart = max(bodyStart, part.rowStart)
-				bodyEnd = part.rowEnd
-				break
+		if m.deferTranscriptUntilHeader && !m.headerPrinted {
+			// Keep the whole unsealed conversation in the live band until the
+			// opening header has been written ahead of it in scrollback.
+			bodyStart = doc.startRow
+		} else {
+			for _, part := range doc.parts {
+				if part.mutable {
+					// Keep the preview inside the first mutable source block so later
+					// conversation text cannot push its newest tail out of the live band.
+					bodyStart = max(bodyStart, part.rowStart)
+					bodyEnd = part.rowEnd
+					break
+				}
 			}
 		}
 		bodyEnd = min(bodyEnd, len(doc.rows))

@@ -297,6 +297,7 @@ func (m *Manager) progress(r *managedRun, observation contracts.Observation) {
 		SessionID string                   `json:"sessionId"`
 		Model     contracts.ModelSelection `json:"model"`
 		Role      string                   `json:"role"`
+		Context   *contracts.Orientation   `json:"context"`
 	}
 	_ = json.Unmarshal(observation.Input, &input)
 	m.mu.Lock()
@@ -309,6 +310,10 @@ func (m *Manager) progress(r *managedRun, observation contracts.Observation) {
 	}
 	if input.Role != "" {
 		r.state.ActualRole = input.Role
+	}
+	if input.Context != nil {
+		orientation := input.Context.Clone()
+		r.state.ActualContext = &orientation
 	}
 	if input.Model != (contracts.ModelSelection{}) {
 		selection := input.Model

@@ -12,6 +12,7 @@ import (
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
 	"hjh/internal/contracts"
+	"hjh/internal/sessionid"
 	"hjh/internal/tui/renderer"
 )
 
@@ -75,6 +76,9 @@ type fakeBackend struct {
 	selection                api.SelectionPreview
 	selectionFunc            func(context.Context, api.SelectionRequest) (api.SelectionPreview, error)
 	selectionCalls           chan api.SelectionRequest
+	orientation              api.Orientation
+	orientationFunc          func(context.Context, api.OrientationRequest) (api.Orientation, error)
+	orientationCalls         chan api.OrientationRequest
 	providers                []api.ProviderDefinition
 	models                   []api.ModelInfo
 	modelsCalls              chan modelsCall
@@ -246,6 +250,22 @@ func (f *fakeBackend) Roles(context.Context, apiclient.Scope) (api.RoleCatalog, 
 	return f.roles, nil
 }
 func (f *fakeBackend) Sessions(context.Context) ([]api.Session, error) { return f.sessions, nil }
+func (f *fakeBackend) ResolveSession(ctx context.Context, selector string) (api.Session, error) {
+	ids := make([]string, 0, len(f.sessions)+1)
+	if f.session.ID != "" {
+		ids = append(ids, f.session.ID)
+	}
+	for _, session := range f.sessions {
+		if session.ID != f.session.ID {
+			ids = append(ids, session.ID)
+		}
+	}
+	id, err := sessionid.Resolve(selector, ids)
+	if err != nil {
+		return api.Session{}, err
+	}
+	return f.Session(ctx, id)
+}
 func (f *fakeBackend) Session(_ context.Context, id string) (api.Session, error) {
 	if f.session.ID == id {
 		return f.session, nil
@@ -280,6 +300,25 @@ func (f *fakeBackend) Record(_ context.Context, executionID string, ordinal int6
 		}
 	}
 	return api.Record{}, context.Canceled
+}
+func (f *fakeBackend) Orientation(ctx context.Context, request api.OrientationRequest) (api.Orientation, error) {
+	if f.orientationCalls != nil {
+		f.orientationCalls <- request
+	}
+	if f.orientationFunc != nil {
+		return f.orientationFunc(ctx, request)
+	}
+	value := f.orientation
+	if value.Mode == "" {
+		value.Mode = "preview"
+	}
+	if value.Workspace == "" {
+		value.Workspace = request.Workspace
+	}
+	if value.Role == "" {
+		value.Role = request.Role
+	}
+	return value, nil
 }
 func (f *fakeBackend) Selection(ctx context.Context, request api.SelectionRequest) (api.SelectionPreview, error) {
 	if f.selectionCalls != nil {
@@ -684,7 +723,7 @@ func TestResizeKeepsStreamingMarkdownBlockMutableAcrossWidths(t *testing.T) {
 			t.Fatalf("live tail at width %d omitted the unfinished source", width)
 		}
 	}
-	if got := strings.Count(output.String(), "hjh · workspace:"); got != 1 {
+	if got := strings.Count(output.String(), "hjh v"); got != 1 {
 		t.Fatalf("initial identity header was emitted %d times, want once", got)
 	}
 	if got := strings.Count(renderer.ReceiptText(output.String()), "Q"); got == 0 {
@@ -695,7 +734,7 @@ func TestResizeKeepsStreamingMarkdownBlockMutableAcrossWidths(t *testing.T) {
 	update(m, tea.WindowSizeMsg{Width: 44, Height: 24})
 	m.View()
 	assertStreamingTail(44)
-	if got := strings.Count(output.String(), "hjh · workspace:"); got != 0 {
+	if got := strings.Count(output.String(), "hjh v"); got != 0 {
 		t.Fatalf("resize re-emitted the scrollback header %d times", got)
 	}
 
@@ -818,7 +857,7 @@ func TestExitFlushCommitsOnlyVisibleConversationBody(t *testing.T) {
 	if strings.Contains(renderer.ReceiptText(sealed), "短い最終回答") {
 		t.Fatalf("exit flush duplicated the already committed answer: %q", sealed)
 	}
-	for _, chrome := range []string{"hjh · workspace:", "Enter send", "依頼を入力", "status:"} {
+	for _, chrome := range []string{"hjh v", "Enter send", "依頼を入力", "status:"} {
 		if strings.Contains(sealed, chrome) {
 			t.Errorf("exit flush committed mutable UI chrome %q: %q", chrome, sealed)
 		}
@@ -881,18 +920,36 @@ func TestSessionSwitchWaitsForFinalRunConversation(t *testing.T) {
 	initialState := api.RunState{CoreID: "core-1", RunID: call.request.RunID, Seq: 1, Phase: "running", SessionID: "created"}
 	deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.snapshot", State: initialState, Conversation: &initialSnapshot})
 	m.handleCommand("/resume saved")
+	for {
+		msg := receive(t, messages)
+		update(m, msg)
+		if _, ok := msg.(sessionResolvedMsg); ok {
+			break
+		}
+	}
 	if m.sessionID != "created" || m.pendingSession == nil || m.pendingSession.resumeID != "saved" {
 		t.Fatalf("Session switched before terminal settlement: id=%q pending=%+v", m.sessionID, m.pendingSession)
 	}
-	settlement, ok := receive(t, messages).(runtimeInputChainSettledMsg)
-	if !ok || settlement.state.Phase != "settled" {
-		t.Fatalf("Session switch did not wait on the input chain: %+v", settlement)
+	for {
+		msg := receive(t, messages)
+		update(m, msg)
+		if settlement, ok := msg.(runtimeInputChainSettledMsg); ok {
+			if settlement.state.Phase != "settled" {
+				t.Fatalf("Session switch did not wait on the input chain: %+v", settlement)
+			}
+			break
+		}
 	}
-	update(m, settlement)
 
 	terminal := api.RunState{CoreID: "core-1", RunID: call.request.RunID, Seq: 1, Phase: "terminal", SessionID: "created", Result: &api.RunResult{OK: false, Error: &api.Error{Code: "cancelled", Message: "cancelled"}}}
 	call.handle.finish(terminal, nil)
-	update(m, receive(t, messages)) // Wait result is held until the final snapshot event.
+	for {
+		msg := receive(t, messages)
+		update(m, msg)
+		if _, ok := msg.(runDoneMsg); ok { // Wait result is held until the final snapshot event.
+			break
+		}
+	}
 	if m.activeRun == nil {
 		t.Fatal("run settled before its terminal conversation snapshot")
 	}
@@ -904,11 +961,13 @@ func TestSessionSwitchWaitsForFinalRunConversation(t *testing.T) {
 		t.Fatal("final snapshot settled the run before independent run.terminal")
 	}
 	deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.terminal", State: terminal})
-	loaded, ok := receive(t, messages).(sessionLoadedMsg)
-	if !ok {
-		t.Fatal("pending Session resume did not begin after terminal conversation was applied")
+	for {
+		msg := receive(t, messages)
+		update(m, msg)
+		if _, ok := msg.(sessionLoadedMsg); ok {
+			break
+		}
 	}
-	update(m, loaded)
 	<-backend.queryCalls
 	if m.sessionID != "saved" || m.workspace != "/saved" || !strings.Contains(m.renderTranscript(), "保存済み") {
 		t.Fatalf("Session did not load after terminal settlement: session=%q workspace=%q transcript=%q", m.sessionID, m.workspace, m.renderTranscript())

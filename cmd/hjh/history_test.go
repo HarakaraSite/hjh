@@ -77,8 +77,8 @@ func TestRunHistorySelectsLatestInWorkspaceAndExplicitPrefixGlobally(t *testing.
 	stdout.Reset()
 	stderr.Reset()
 	code = runHistory(context.Background(), []string{"--db", dbPath, "--workspace", workspace,
-		"--session", "e", "--view", "canonical"}, &stdout, &stderr)
-	if code != 0 || !strings.Contains(stderr.String(), "# session external-newest") {
+		"--session", "external", "--view", "canonical"}, &stdout, &stderr)
+	if code != 0 || !strings.Contains(stderr.String(), "# session external") {
 		t.Fatalf("explicit prefix exit = %d, stderr %q", code, stderr.String())
 	}
 
@@ -106,6 +106,9 @@ func TestRunHistoryCanonicalAndJSONUseAdoptedMessagesAndTurnRange(t *testing.T) 
 		if !strings.Contains(stdout.String(), expected) {
 			t.Errorf("canonical history does not contain %q: %s", expected, stdout.String())
 		}
+	}
+	if !strings.Contains(stdout.String(), "- Session: `saved-se`") || strings.Contains(stdout.String(), "- Session: `saved-session`") {
+		t.Fatalf("canonical Session identity was not shortened: %s", stdout.String())
 	}
 
 	stdout.Reset()
@@ -206,6 +209,9 @@ func TestRunHistoryDetailPreservesPersistedToolDataAndPartialThinking(t *testing
 		t.Fatalf("detail history exit = %d: %s", code, stderr.String())
 	}
 	text := stdout.String()
+	if !strings.Contains(text, `"identity":"detail-session"`) {
+		t.Fatal("detail output did not preserve the complete Session ID")
+	}
 	for _, expected := range []string{"\"executionId\":\"detail-session-execution\"", "full/path.txt", "full tool result body",
 		"unfinished answer", "unfinished public thought", "\"callId\":\"call-17\"", "captured context",
 		"\"snapshot\":{\"kind\":\"test\"}"} {

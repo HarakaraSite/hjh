@@ -165,6 +165,10 @@ func cloneRunState(state api.RunState) api.RunState {
 		selection := *state.ActualSelection
 		copy.ActualSelection = &selection
 	}
+	if state.ActualContext != nil {
+		orientation := state.ActualContext.Clone()
+		copy.ActualContext = &orientation
+	}
 	if state.Result != nil {
 		result := *state.Result
 		copy.Result = &result

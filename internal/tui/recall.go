@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	"hjh/internal/api"
+	"hjh/internal/sessionid"
 )
 
 type recallUIOperation struct {
@@ -30,30 +31,42 @@ func (m *model) contextCommand(fields []string) {
 		m.status = "usage: /context"
 		return
 	}
-	if m.sessionID == "" {
-		m.status = "start or resume a Session before viewing context"
-		return
+	request := m.orientationRequest()
+	coreID, sessionID, generation := m.core.CoreID, m.sessionID, m.sessionGeneration
+	runID := currentRunID(m.activeRun)
+	selection := m.selectionRequest()
+	ctx, cancel := context.WithCancel(m.ctx)
+	job := m.newJob(cancel)
+	m.contextRequestID++
+	requestID := m.contextRequestID
+	m.contextJobID = job.id
+	title := "context"
+	if sessionID != "" {
+		title += " · " + m.shortSessionID(sessionID)
 	}
-	coreID, sessionID := m.core.CoreID, m.sessionID
-	next := m.selectionRequest()
-	m.query("context · "+sessionID, func(ctx context.Context) (string, error) {
-		state, err := m.backend.SessionContext(ctx, coreID, sessionID)
-		if err != nil {
-			return "", err
+	m.status = "loading " + title
+	m.launch(job, func() tea.Msg {
+		orientation, orientationErr := m.backend.Orientation(ctx, request)
+		var state api.SessionContext
+		var stateErr error
+		var preview api.SelectionPreview
+		var selectionErr error
+		if sessionID != "" {
+			state, stateErr = m.backend.SessionContext(ctx, coreID, sessionID)
+			preview, selectionErr = m.backend.Selection(ctx, selection)
 		}
-		text := formatSessionContext(state)
-		preview, err := m.backend.Selection(ctx, next)
-		if err != nil {
-			return text + "\nNext selection at query · unresolved: " + err.Error(), nil
+		return contextLoadedMsg{
+			jobID: job.id, requestID: requestID, generation: generation,
+			coreID: coreID, request: request, sessionID: sessionID, runID: runID,
+			orientation: orientation, orientErr: orientationErr,
+			state: state, stateErr: stateErr, selection: preview, selectErr: selectionErr,
 		}
-		return text + fmt.Sprintf("\nNext selection at query · %s / %s · effort %s · role %s",
-			preview.Selection.Provider, preview.Selection.ModelID, preview.Selection.Effort, preview.Role), nil
 	})
 }
 
-func formatSessionContext(state api.SessionContext) string {
+func formatSessionContext(state api.SessionContext, knownIDs ...string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Session %s\nAdopted · %d turns · %d messages · revision %d", state.SessionID,
+	fmt.Fprintf(&b, "Session %s\nAdopted · %d turns · %d messages · revision %d", sessionid.Short(state.SessionID, knownIDs...),
 		state.Canonical.TurnCount, state.Canonical.MessageCount, state.Canonical.StateRevision)
 	if state.ActiveRunID != "" {
 		fmt.Fprintf(&b, "\nActive run · %s", state.ActiveRunID)

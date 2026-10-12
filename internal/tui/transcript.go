@@ -399,6 +399,9 @@ func receiptOffset(parts []transcriptPart, receipts map[string]int) int {
 // sealTranscriptDocument moves the complete stable prefix to scrollback. The
 // final streaming Markdown block and everything after it remain mutable.
 func (m *model) sealTranscriptDocument() {
+	if m.deferTranscriptUntilHeader && !m.headerPrinted {
+		return
+	}
 	doc := m.transcript
 	if doc == nil {
 		if len(m.lastBodyRows) > 0 {

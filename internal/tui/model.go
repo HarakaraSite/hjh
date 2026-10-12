@@ -36,6 +36,8 @@ type activeRun struct {
 	coreID                string
 	id                    string
 	session               string
+	phase                 string
+	attached              bool
 	model                 string
 	provider              string
 	effort                string
@@ -47,6 +49,7 @@ type activeRun struct {
 	actualModel           string
 	actualSelection       contracts.ModelSelection
 	hasActualSelection    bool
+	actualContext         *contracts.Orientation
 	lastSeq               uint64
 	admitted              bool
 	scopeID               string
@@ -121,44 +124,55 @@ type model struct {
 	status        string
 	draftRevision uint64
 
-	sessionEntities     map[string]api.ConversationEntity
-	transcript          *transcriptDocument
-	transcriptDirty     bool
-	receiptByPart       map[string]int
-	markdownSourceCache map[string]markdownSourceCacheEntry
-	markdownBlockCache  map[markdownBlockKey]markdownBlockCache
-	transcriptLineCache map[transcriptLineKey]transcriptLineCache
-	receiptOffset       int
-	lastTranscriptBytes int
-	lastBodyRows        []string
-	lastBodyStartRow    int
-	pendingSealRows     []string
-	printedHeader       string
-	renderErr           error
+	sessionEntities            map[string]api.ConversationEntity
+	transcript                 *transcriptDocument
+	transcriptDirty            bool
+	receiptByPart              map[string]int
+	markdownSourceCache        map[string]markdownSourceCacheEntry
+	markdownBlockCache         map[markdownBlockKey]markdownBlockCache
+	transcriptLineCache        map[transcriptLineKey]transcriptLineCache
+	receiptOffset              int
+	lastTranscriptBytes        int
+	lastBodyRows               []string
+	lastBodyStartRow           int
+	pendingSealRows            []string
+	headerPrinted              bool
+	deferTranscriptUntilHeader bool
+	renderErr                  error
 
-	sessionID        string
-	sessionTitle     string
-	modelID          string
-	providerID       string
-	effort           string
-	authProfile      string
-	maxSteps         *int
-	fromTurn         *int64
-	core             api.Core
-	modelSet         bool
-	roleID           string
-	roleSet          bool
-	lastRunModel     string
-	lastRunRole      string
-	lastSelection    contracts.ModelSelection
-	workspace        string
-	authUI           *authUIState
-	authGeneration   uint64
-	recallOperations map[string]*recallUIOperation
+	sessionID                string
+	sessionTitle             string
+	sessionCreatedAt         string
+	modelID                  string
+	providerID               string
+	effort                   string
+	authProfile              string
+	maxSteps                 *int
+	fromTurn                 *int64
+	core                     api.Core
+	headerOrientation        api.Orientation
+	headerOrientationSet     bool
+	headerOrientationPending bool
+	headerOrientationFailed  bool
+	headerOrientationJobID   uint64
+	contextRequestID         uint64
+	contextJobID             uint64
+	modelSet                 bool
+	roleID                   string
+	roleSet                  bool
+	lastRunModel             string
+	lastRunRole              string
+	lastSelection            contracts.ModelSelection
+	workspace                string
+	authUI                   *authUIState
+	authGeneration           uint64
+	recallOperations         map[string]*recallUIOperation
 
 	sessionGeneration      uint64
 	selectionGeneration    uint64
 	sessionLoading         bool
+	resumeRequest          uint64
+	resumePending          bool
 	sessions               []api.Session
 	pickerIndex            int
 	pickerOpen             bool
@@ -291,6 +305,31 @@ type operationResultMsg struct {
 	err        error
 }
 
+type orientationLoadedMsg struct {
+	jobID      uint64
+	generation uint64
+	coreID     string
+	request    api.OrientationRequest
+	value      api.Orientation
+	err        error
+}
+
+type contextLoadedMsg struct {
+	jobID       uint64
+	requestID   uint64
+	generation  uint64
+	coreID      string
+	request     api.OrientationRequest
+	sessionID   string
+	runID       string
+	orientation api.Orientation
+	orientErr   error
+	state       api.SessionContext
+	stateErr    error
+	selection   api.SelectionPreview
+	selectErr   error
+}
+
 type runtimeInputSubmittedMsg struct {
 	jobID   uint64
 	input   runtimeInputOperation
@@ -372,6 +411,8 @@ func (m *model) Init() tea.Cmd {
 	if m.sessionID != "" && m.sessionGeneration == 0 {
 		m.sessionGeneration++
 		m.loadSession(m.sessionID, m.sessionGeneration)
+	} else if m.sessionID == "" {
+		m.requestHeaderOrientation()
 	}
 	return nil
 }
@@ -395,6 +436,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case runDoneMsg:
 		return m, m.acceptRunDone(msg)
+	case orientationLoadedMsg:
+		m.acceptHeaderOrientation(msg)
+		return m, nil
+	case contextLoadedMsg:
+		m.acceptContextResult(msg)
+		return m, nil
 	case runCancelMsg:
 		if m.activeRun != nil && msg.runID == m.activeRun.id {
 			if msg.err != nil {
@@ -411,16 +458,32 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.acceptRuntimeInputs(msg)
 	case runtimeInputChainSettledMsg:
 		return m, m.acceptInputChainSettlement(msg)
+	case sessionResolvedMsg:
+		if msg.generation == m.sessionGeneration && msg.request == m.resumeRequest {
+			m.resumePending = false
+			if msg.err != nil {
+				m.status = "session resolution failed: " + msg.err.Error()
+			} else {
+				m.changeSession(sessionAction{resumeID: msg.id})
+			}
+		}
+		return m, nil
 	case sessionLoadedMsg:
 		if msg.generation == m.sessionGeneration {
 			m.sessionLoading = false
 			if msg.err != nil {
 				m.status = "session load failed: " + msg.err.Error()
 				m.rebaseAuthUIForCurrentRoute()
+				if !m.headerPrinted {
+					m.requestHeaderOrientation()
+				}
 			} else {
+				if m.sessionID != msg.session.ID {
+					m.headerPrinted = false
+					m.resetHeaderOrientation()
+				}
 				m.sessionID = msg.session.ID
-				m.sessionTitle = sessionTitle(msg.session)
-				m.workspace = msg.session.WorkspaceRoot
+				m.setSessionMetadata(msg.session)
 				m.lastRunModel = ""
 				m.lastRunRole = msg.session.Agent
 				_ = json.Unmarshal(msg.session.ActiveModel, &m.lastSelection)
@@ -432,6 +495,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.status = fmt.Sprintf("resumed · %d turns", msg.session.TurnCount)
 				if msg.run != nil {
 					m.attachRun(*msg.run)
+				}
+				if !m.headerPrinted && !m.headerOrientationSet && !m.headerOrientationPending {
+					m.requestHeaderOrientation()
 				}
 				m.rebaseAuthUIForCurrentRoute()
 				m.refreshViewport(false)
@@ -744,7 +810,7 @@ func (m *model) submitDraft() {
 		m.status = "waiting to disconnect · draft kept"
 		return
 	}
-	if m.sessionLoading {
+	if m.sessionLoading || m.resumePending {
 		m.status = "session is loading · draft kept"
 		return
 	}
@@ -814,6 +880,9 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 	}
 	if state.Seq >= run.lastSeq {
 		run.lastSeq = state.Seq
+		if state.Phase != "" {
+			run.phase = state.Phase
+		}
 		run.inputRevision = state.InputRevision
 		run.inputAcceptance = state.InputAcceptance
 		run.nextRunID = state.NextRunID
@@ -825,6 +894,11 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 			run.actualModel = modelSelectionLabel(*state.ActualSelection)
 			run.actualSelection = *state.ActualSelection
 			run.hasActualSelection = true
+		}
+		if state.ActualContext != nil {
+			actual := state.ActualContext.Clone()
+			run.actualContext = &actual
+			m.adoptActualOrientation(actual)
 		}
 	}
 	if state.SessionID != "" {
@@ -842,7 +916,11 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 			m.nextSelectionChanged()
 			m.loadRuntimeInputs(state.SessionID, true)
 		}
+		if changedSession && m.deferTranscriptUntilHeader && !m.headerPrinted {
+			m.requestHeaderOrientation()
+		}
 	}
+	m.releaseAttachedOrientationWait(run)
 	m.noteRuntimeInputRevision(run.coreID, run.session, run.inputRevision)
 	if run.actualRole != "" {
 		m.lastRunRole = run.actualRole
@@ -924,6 +1002,11 @@ func (m *model) acceptRunDone(msg runDoneMsg) tea.Cmd {
 	if sessionID == "" {
 		sessionID = run.session
 	}
+	if msg.value.ActualContext != nil {
+		actual := msg.value.ActualContext.Clone()
+		run.actualContext = &actual
+		m.adoptActualOrientation(actual)
+	}
 	m.noteRuntimeInputRevision(coreID, sessionID, msg.value.InputRevision)
 	if msg.err == nil && (!run.terminalSnapshotSeen || !run.terminalEventSeen) {
 		copyOf := msg
@@ -940,8 +1023,13 @@ func (m *model) finishRun(msg runDoneMsg) tea.Cmd {
 		return nil
 	}
 	m.cancelJob(msg.jobID)
+	run.phase = "terminal"
 	if msg.value.SessionID != "" {
+		changedSession := m.sessionID != msg.value.SessionID
 		m.sessionID = msg.value.SessionID
+		if changedSession && m.deferTranscriptUntilHeader && !m.headerPrinted {
+			m.requestHeaderOrientation()
+		}
 	}
 	for id, entity := range run.entities {
 		m.sessionEntities[id] = entity
@@ -983,6 +1071,8 @@ func (m *model) finishRun(msg runDoneMsg) tea.Cmd {
 	if shouldAttachNext {
 		m.attachRun(api.RunState{CoreID: coreID, RunID: nextRunID, SessionID: sessionID, Phase: "preparing"})
 		m.status = "following up · attached to Core-started run " + nextRunID
+	} else if run.attached && run.actualContext == nil {
+		m.releaseAttachedOrientationWait(run)
 	}
 	return nil
 }
@@ -1165,14 +1255,6 @@ func (m *model) selectSession() {
 }
 
 func (m *model) View() tea.View {
-	session := m.sessionID
-	if session == "" {
-		session = "new (created on first run)"
-	}
-	workspace := m.workspace
-	if workspace == "" {
-		workspace = "(current directory)"
-	}
 	modelLabel := "from config or Session"
 	if m.modelSet {
 		modelLabel = m.modelID
@@ -1194,10 +1276,6 @@ func (m *model) View() tea.View {
 		}
 		modelLabel += " · next: " + nextModel
 	}
-	if m.sessionTitle != "" {
-		session = m.sessionTitle + " · " + session
-	}
-	header := []string{"hjh · workspace: " + workspace + " · session: " + session}
 	footerStatus := m.status
 	if m.runtimeLatestStatus != "" && !strings.Contains(footerStatus, m.runtimeLatestStatus) {
 		footerStatus += " · input: " + m.runtimeLatestStatus
@@ -1206,25 +1284,25 @@ func (m *model) View() tea.View {
 		footerStatus += " · " + outcome
 	}
 	footer := []string{
+		m.sessionFooter(),
 		"model: " + modelLabel,
 		"connection: " + m.connectionStatusLabel(),
 		"role: " + m.currentRoleLabel() + " → " + m.nextRoleLabel(),
 		"status: " + footerStatus,
 	}
-	headerText := strings.Join(header, "\n")
-	headerRows := renderer.WrapText(headerText, max(1, m.width))
-	headerChanged := headerText != m.printedHeader
+	printHeader := !m.headerPrinted && !m.sessionLoading && !m.resumePending && !m.headerOrientationPending
 	frame, cursor, content, committedThrough, bodyStart, bodyRows := m.screenFrame(footer)
 	frame.SealedRows = append(frame.SealedRows, m.pendingSealRows...)
-	if headerChanged {
-		frame.SealedRows = append(frame.SealedRows, headerRows...)
+	if printHeader {
+		frame.SealedRows = append(frame.SealedRows, m.headerRows()...)
 	}
 	if m.writer != nil {
 		if err := m.writer.Render(frame); err != nil {
 			m.renderErr = errors.Join(m.renderErr, err)
 		} else {
-			if headerChanged {
-				m.printedHeader = headerText
+			if printHeader {
+				m.headerPrinted = true
+				m.deferTranscriptUntilHeader = false
 			}
 			doc := m.ensureTranscript()
 			if !m.pickerOpen {
@@ -1295,19 +1373,19 @@ func modelSelectionLabel(selection contracts.ModelSelection) string {
 
 func (m *model) loadSession(id string, generation uint64) {
 	m.sessionLoading = true
-	m.status = "loading Session " + id
+	m.status = "loading Session " + m.shortSessionID(id)
 	ctx, cancel := context.WithCancel(m.ctx)
 	job := m.newJob(cancel)
 	m.launch(job, func() tea.Msg {
-		run, err := m.backend.ActiveSessionRun(ctx, m.core.CoreID, id)
+		session, err := m.backend.ResolveSession(ctx, id)
 		if err != nil {
 			return sessionLoadedMsg{jobID: job.id, generation: generation, err: err}
 		}
-		session, err := m.backend.Session(ctx, id)
+		run, err := m.backend.ActiveSessionRun(ctx, m.core.CoreID, session.ID)
 		if err != nil {
 			return sessionLoadedMsg{jobID: job.id, generation: generation, err: err}
 		}
-		view, err := m.backend.SessionView(ctx, id)
+		view, err := m.backend.SessionView(ctx, session.ID)
 		return sessionLoadedMsg{jobID: job.id, generation: generation, session: session, view: view, run: run, err: err}
 	})
 }

@@ -20,6 +20,7 @@ type RunHandle = apiclient.RunHandle
 // JSON contract values and never imports Core implementation packages.
 type Backend interface {
 	Core(context.Context) (api.Core, error)
+	Orientation(context.Context, api.OrientationRequest) (api.Orientation, error)
 	StartRun(api.StartRunRequest, func(apiclient.RunEvent)) RunHandle
 	AttachRun(string, string, func(apiclient.RunEvent)) RunHandle
 	ActiveSessionRun(context.Context, string, string) (*api.RunState, error)
@@ -35,6 +36,7 @@ type Backend interface {
 	ShutdownCore(context.Context, string) error
 	Roles(context.Context, apiclient.Scope) (api.RoleCatalog, error)
 	Sessions(context.Context) ([]api.Session, error)
+	ResolveSession(context.Context, string) (api.Session, error)
 	Session(context.Context, string) (api.Session, error)
 	SessionView(context.Context, string) (api.ConversationSnapshot, error)
 	Conversation(context.Context, string, int64, int64) ([]api.Message, error)
@@ -92,10 +94,34 @@ func Run(ctx context.Context, backend Backend, options Options, input io.Reader,
 		options.Workspace = core.Workspace
 	}
 	options.Core = core
+	sessions, err := backend.Sessions(ctx)
+	if err != nil {
+		if closer, ok := backend.(io.Closer); ok {
+			err = errors.Join(err, closer.Close())
+		}
+		return err
+	}
+	if options.SessionID != "" {
+		session, resolveErr := backend.ResolveSession(ctx, options.SessionID)
+		if resolveErr != nil {
+			if closer, ok := backend.(io.Closer); ok {
+				resolveErr = errors.Join(resolveErr, closer.Close())
+			}
+			return resolveErr
+		}
+		options.SessionID = session.ID
+	}
 	uiCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	m := newModel(uiCtx, cancel, backend, options)
+	m.sessions = sessions
+	for _, session := range sessions {
+		if session.ID == m.sessionID {
+			m.setSessionMetadata(session)
+			break
+		}
+	}
 	m.writer = renderer.New(output)
 	if err := m.writer.Start(); err != nil {
 		m.shutdown()
@@ -128,6 +154,13 @@ func (m *model) flushVisibleBody() error {
 	if m.writer == nil {
 		return nil
 	}
+	if !m.headerPrinted {
+		m.headerOrientationPending = false
+		m.headerOrientationFailed = true
+		m.pendingSealRows = append(m.pendingSealRows, m.headerRows()...)
+		m.headerPrinted = true
+	}
+	m.deferTranscriptUntilHeader = false
 	m.sealTranscriptDocument()
 	if m.exitNotice != "" {
 		m.pendingSealRows = append(m.pendingSealRows, renderer.WrapText(m.exitNotice, max(1, m.width))...)

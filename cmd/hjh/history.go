@@ -18,6 +18,7 @@ import (
 	"hjh/internal/conversation"
 	"hjh/internal/history"
 	"hjh/internal/historyview"
+	"hjh/internal/sessionid"
 )
 
 type historyView string
@@ -172,7 +173,7 @@ func parseHistoryCommand(args []string, stderr io.Writer) (historyCommand, error
 	workspace := f.String("workspace", "", "workspace to select latest history from")
 	dbPath := f.String("db", "", "history database (default: WORKSPACE/.hjh/history.sqlite3)")
 	connect := f.String("connect", "", "read history from an existing Core URL")
-	session := f.String("session", "", "Session ID or unique prefix")
+	session := f.String("session", "", "Session ID or unique case-insensitive prefix (8 characters by default)")
 	latest := f.Bool("latest", false, "select the latest Session")
 	view := f.String("view", string(historyViewSession), "history view: session, canonical or detail")
 	fromTurn := f.Int64("from-turn", 0, "first turn to include (inclusive)")
@@ -298,7 +299,8 @@ func renderHistory(ctx context.Context, reader historyReader, workspace string, 
 		fmt.Fprintln(stderr, "# no history")
 		return 0
 	}
-	fmt.Fprintf(stderr, "# session %s\n", session.ID)
+	knownSessionIDs := historySessionIDs(sessions)
+	fmt.Fprintf(stderr, "# session %s\n", sessionid.Short(session.ID, knownSessionIDs...))
 	if command.json {
 		messages, err := reader.conversation(ctx, session.ID, command.fromTurn, command.toTurn)
 		if err != nil {
@@ -339,7 +341,7 @@ func renderHistory(ctx context.Context, reader historyReader, workspace string, 
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		text := historyview.RenderCanonical(session, messages)
+		text := historyview.RenderCanonical(session, messages, knownSessionIDs...)
 		if _, err := io.WriteString(stdout, text); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1

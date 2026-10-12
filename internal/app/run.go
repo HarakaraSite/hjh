@@ -86,6 +86,10 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if err != nil {
 		return output, err
 	}
+	workspaceContext, orientation, err := prepareWorkspaceContext(ctx, workspace, &snapshot)
+	if err != nil {
+		return output, err
+	}
 	registry, err := capturedRegistry(snapshot, configPath)
 	if err != nil {
 		return output, err
@@ -151,6 +155,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	progress := &progressSink{observer: options.Progress}
 	output.Result, err = execute(workCtx, store, provider, executionInput{execution: execution, snapshot: snapshot,
 		workspace: workspace, configPath: configPath, model: model, maxSteps: options.MaxSteps, recall: options.Recall,
+		workspaceContext: workspaceContext, orientation: orientation,
 		rootSessionID: session.ID, rootExecutionID: execution.ID, session: &session, previousModel: active, fromTurn: options.FromTurn,
 		connections: factory, injectedProvider: injected, executionDataOwner: options.ExecutionDataOwner,
 		steering: options.Steering}, control, progress)

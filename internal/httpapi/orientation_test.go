@@ -1,0 +1,68 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"hjh/internal/api"
+	"hjh/internal/apiclient"
+	"hjh/internal/app"
+	"hjh/internal/corerun"
+	"hjh/internal/history"
+)
+
+func TestOrientationHTTPBeforeSessionAndAttachActualContext(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, "AGENTS.md"), []byte("HTTP_WORKSPACE_INSTRUCTION"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := history.Open(filepath.Join(workspace, "history.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := app.NewService(store, snapshotProvider{}, app.RunOptions{Workspace: workspace})
+	manager := corerun.New(service, workspace)
+	handler := New(service, manager)
+	server := httptest.NewServer(handler)
+	defer func() { server.Close(); _ = handler.Close(); _ = store.Close() }()
+	client, err := apiclient.New(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	preview, err := client.Orientation(context.Background(), api.OrientationRequest{})
+	if err != nil || preview.Mode != "preview" || len(preview.Instructions) == 0 || preview.Base.BuiltinVersion == "" {
+		t.Fatalf("orientation HTTP: %+v %v", preview, err)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".hjh", "extensions")); !os.IsNotExist(err) {
+		t.Fatalf("query installed extensions: %v", err)
+	}
+	sessions, _ := store.ListSessions(context.Background())
+	if len(sessions) != 0 {
+		t.Fatal("query created session")
+	}
+	core, _ := client.Core(context.Background())
+	run := client.StartRun(api.StartRunRequest{CoreID: core.CoreID, RunID: "context-run", Task: "confirm instruction"}, nil)
+	state, err := run.Wait()
+	if err != nil || state.ActualContext == nil || state.ActualContext.Mode != "actual" {
+		t.Fatalf("actual context: %+v %v", state, err)
+	}
+	attached := client.AttachRun(core.CoreID, state.RunID, nil)
+	reattached, err := attached.Wait()
+	if err != nil || reattached.ActualContext == nil || len(reattached.ActualContext.Instructions) == 0 {
+		t.Fatalf("reconnect context: %+v %v", reattached, err)
+	}
+	before, _ := json.Marshal(state.ActualContext)
+	state.ActualContext.Instructions[0].Path = "changed-client-copy"
+	current, err := manager.Get(core.CoreID, state.RunID)
+	after, _ := json.Marshal(current.ActualContext)
+	if err != nil || string(before) != string(after) {
+		t.Fatal("client metadata mutated manager state")
+	}
+}

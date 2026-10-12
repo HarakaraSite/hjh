@@ -145,6 +145,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.selection(w, r)
 		return
 	}
+	if len(parts) == 1 && parts[0] == "orientation" {
+		if !requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		s.orientation(w, r)
+		return
+	}
 	if len(parts) >= 2 && parts[0] == "auth" {
 		s.authRoute(w, r, parts[1:])
 		return

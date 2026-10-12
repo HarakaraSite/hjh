@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
+	"hjh/internal/sessionid"
 	"hjh/internal/tui/renderer"
 )
 
@@ -19,6 +20,42 @@ type sessionRenamedMsg struct {
 }
 
 type coreShutdownMsg struct{ err error }
+
+func (m *model) knownSessionIDs() []string {
+	ids := make([]string, len(m.sessions))
+	for i, session := range m.sessions {
+		ids[i] = session.ID
+	}
+	return ids
+}
+
+func (m *model) shortSessionID(id string) string {
+	return sessionid.Short(id, m.knownSessionIDs()...)
+}
+
+type sessionResolvedMsg struct {
+	generation uint64
+	request    uint64
+	id         string
+	err        error
+}
+
+// Resolve before deciding whether to stop the current run. Resuming its own
+// short ID must leave the attached run in place.
+func (m *model) resolveResume(selector string) {
+	ctx, cancel := context.WithCancel(m.ctx)
+	job := m.newJob(cancel)
+	generation := m.sessionGeneration
+	m.resumeRequest++
+	m.resumePending = true
+	m.pendingSession = nil
+	request := m.resumeRequest
+	m.status = "resolving Session " + m.shortSessionID(selector)
+	m.launch(job, func() tea.Msg {
+		session, err := m.backend.ResolveSession(ctx, selector)
+		return sessionResolvedMsg{generation: generation, request: request, id: session.ID, err: err}
+	})
+}
 
 func sessionTitle(session api.Session) string {
 	if session.Title != nil {
@@ -32,7 +69,6 @@ func (m *model) openSessionPicker() {
 	m.closeSessionPicker()
 	m.sealCurrentFrame()
 	m.pickerOpen = true
-	m.sessions = nil
 	m.pickerIndex = 0
 	m.refreshViewport(false)
 	ctx, cancel := context.WithCancel(m.ctx)
@@ -81,9 +117,15 @@ func (m *model) attachRun(state api.RunState) {
 	}
 	run := &activeRun{
 		jobID: job.id, coreID: coreID, id: state.RunID, session: state.SessionID, workspace: m.workspace,
+		phase: state.Phase, attached: true,
 		admitted: state.SessionID != "",
 		entities: make(map[string]api.ConversationEntity), inputRevision: state.InputRevision,
 		inputAcceptance: state.InputAcceptance,
+	}
+	if state.ActualContext != nil {
+		actual := state.ActualContext.Clone()
+		run.actualContext = &actual
+		m.adoptActualOrientation(actual)
 	}
 	if m.chainCancel != nil && m.chainCancelSettled {
 		m.chainCancel = nil
@@ -102,6 +144,8 @@ func (m *model) attachRun(state api.RunState) {
 }
 
 func (m *model) requestDetach() {
+	m.resumeRequest++
+	m.resumePending = false
 	if m.shutdownPending {
 		m.status = "waiting for Core to stop and save"
 		return
@@ -120,7 +164,7 @@ func (m *model) finishDetach() {
 	m.detached, m.quitting = true, true
 	text := "Core continues running"
 	if m.sessionID != "" {
-		text += " · Session " + m.sessionID
+		text += " · Session " + m.shortSessionID(m.sessionID)
 	}
 	if m.activeRun != nil {
 		text += " · run " + m.activeRun.id
@@ -129,6 +173,8 @@ func (m *model) finishDetach() {
 }
 
 func (m *model) requestCoreShutdown() {
+	m.resumeRequest++
+	m.resumePending = false
 	if m.shutdownPending {
 		return
 	}
@@ -149,6 +195,10 @@ func (m *model) requestCoreShutdown() {
 func sessionPickerRows(sessions []api.Session, selected, width int) ([]string, []int) {
 	rows := renderer.WrapText("Saved Sessions · ↑/↓ or j/k · PgUp/PgDn · Home/End · Enter resumes · Esc closes", max(1, width))
 	starts := make([]int, len(sessions))
+	ids := make([]string, len(sessions))
+	for i, session := range sessions {
+		ids[i] = session.ID
+	}
 	for i, session := range sessions {
 		rows = append(rows, "")
 		starts[i] = len(rows)
@@ -164,7 +214,7 @@ func sessionPickerRows(sessions []api.Session, selected, width int) ([]string, [
 		if session.ActiveRunID != "" {
 			running = " · running"
 		}
-		text := fmt.Sprintf("%s%s · %s%s\n  model: %s · turns: %d · updated: %s\n  workspace: %s", marker, title, session.ID, running, selectedModel(session.ActiveModel), session.TurnCount, session.UpdatedAt, session.WorkspaceRoot)
+		text := fmt.Sprintf("%s%s · %s%s\n  model: %s · turns: %d · updated: %s\n  workspace: %s", marker, title, sessionid.Short(session.ID, ids...), running, selectedModel(session.ActiveModel), session.TurnCount, session.UpdatedAt, session.WorkspaceRoot)
 		rows = append(rows, renderer.WrapText(strings.TrimSuffix(text, "\n"), max(1, width))...)
 	}
 	return rows, starts

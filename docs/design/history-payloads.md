@@ -67,6 +67,13 @@ resource_revisionのpayloadにconfigurationId、logicalIdentity、sourceLocator�
 content_digestでも当該bytesを参照する。使用sourceの場所とbytesをexecutionから辿れるようにする。
 独自のasset表・旧snapshotを包む新しい保存形式は作らない。
 
+I-18のAGENTS.mdも、このresource_revision/contents経路へexact bytesと出典・digestを記録する。
+組立済みsystemInstructionにworkspace指示とskill manifestを追加し、生成した指示componentを
+instructionComponentsへ保存する。未利用skill本文は新カタログへ保持しない。
+利用時のread_file本文は通常のtool結果/messageへ保存し、生成JS経由なら外側returnにも含める。
+既存config source捕捉とskill配置が重なる場合のarchiveは
+[workspace指示・skill契約](workspace-instructions-skills.md)に従う。
+
 生成JSの外側callと内側tool／hook／host操作は普通のGo観測値から意味記録へ対応付ける。
 tool_call／tool_result、context_update、effect_observation等の旧kindを使い、
 各callの開始record、終了record、親call開始recordをrelationで結ぶ。

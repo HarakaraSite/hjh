@@ -89,7 +89,7 @@ func TestRunOutputKeepsChildProgressOffRootTextStream(t *testing.T) {
 			t.Fatalf("stderr missing child progress %q: %s", fragment, stderr.String())
 		}
 	}
-	if !strings.Contains(stderr.String(), "Session: root-session") || !strings.Contains(stderr.String(), "Execution: root-1") || !strings.Contains(stderr.String(), "Role: default") {
+	if !strings.Contains(stderr.String(), "Session: root-ses") || !strings.Contains(stderr.String(), "Execution: root-1") || !strings.Contains(stderr.String(), "Role: default") {
 		t.Fatalf("root execution identifiers missing: %s", stderr.String())
 	}
 	if strings.Contains(stderr.String(), "child-session") || strings.Contains(stderr.String(), "child-only body") || strings.Contains(stderr.String(), "Session: child") || strings.Contains(stderr.String(), "Execution: child") {

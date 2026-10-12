@@ -51,7 +51,7 @@ func (m *model) handleCommand(line string) {
 			m.status = "usage: /resume SESSION_ID"
 			return
 		}
-		m.changeSession(sessionAction{resumeID: fields[1]})
+		m.resolveResume(fields[1])
 	case "/sessions":
 		if len(fields) != 1 {
 			m.status = "usage: /sessions"
@@ -80,7 +80,7 @@ func (m *model) handleCommand(line string) {
 			}
 		}
 		sessionID := m.sessionID
-		m.query("history · "+sessionID, func(ctx context.Context) (string, error) {
+		m.query("history · "+m.shortSessionID(sessionID), func(ctx context.Context) (string, error) {
 			messages, err := m.backend.Conversation(ctx, sessionID, from, to)
 			if err != nil {
 				return "", err
@@ -97,7 +97,7 @@ func (m *model) handleCommand(line string) {
 			return
 		}
 		sessionID := m.sessionID
-		m.query("runtime inputs · "+sessionID, func(ctx context.Context) (string, error) {
+		m.query("runtime inputs · "+m.shortSessionID(sessionID), func(ctx context.Context) (string, error) {
 			page, err := m.backend.Inputs(ctx, sessionID, "", 0, false)
 			if err != nil {
 				return "", err
@@ -118,7 +118,7 @@ func (m *model) handleCommand(line string) {
 			return
 		}
 		sessionID := m.sessionID
-		m.query("executions · "+sessionID, func(ctx context.Context) (string, error) {
+		m.query("executions · "+m.shortSessionID(sessionID), func(ctx context.Context) (string, error) {
 			executions, err := m.backend.Executions(ctx, sessionID)
 			if err != nil {
 				return "", err
@@ -230,6 +230,9 @@ func (m *model) handleCommand(line string) {
 		m.roleSet = true
 		if before != m.selectionRequest() {
 			m.nextSelectionChanged()
+			if !m.headerPrinted {
+				m.requestHeaderOrientation()
+			}
 		}
 		m.status = "next run role: " + m.roleID
 		if m.activeRun != nil {
@@ -272,8 +275,10 @@ func (m *model) query(title string, operation func(context.Context) (string, err
 }
 
 func (m *model) changeSession(action sessionAction) {
+	m.resumeRequest++
+	m.resumePending = false
 	if !action.newSession && action.resumeID == m.sessionID {
-		m.status = "current Session · " + m.sessionID
+		m.status = "current Session · " + m.shortSessionID(m.sessionID)
 		return
 	}
 	if m.activeRun != nil {
@@ -282,7 +287,7 @@ func (m *model) changeSession(action sessionAction) {
 		if action.newSession {
 			m.status = "stopping current run chain before starting a new Session"
 		} else {
-			m.status = "stopping current run chain before resuming " + action.resumeID
+			m.status = "stopping current run chain before resuming " + m.shortSessionID(action.resumeID)
 		}
 		return
 	}
@@ -298,10 +303,13 @@ func (m *model) changeSession(action sessionAction) {
 func (m *model) applySessionAction(action sessionAction) {
 	m.closeConnectionPicker()
 	m.closeSessionPicker()
+	m.sealOpeningHeaderForSessionSwitch()
 	m.sealCurrentFrame()
 	m.sessionGeneration++
 	m.selectionGeneration++
+	m.resetHeaderOrientation()
 	m.sessionTitle = ""
+	m.sessionCreatedAt = ""
 	m.sessionEntities = make(map[string]api.ConversationEntity)
 	m.clearRuntimeInputs()
 	m.runtimeReadPending = false
@@ -311,6 +319,7 @@ func (m *model) applySessionAction(action sessionAction) {
 	m.lastTranscriptBytes = 0
 	m.invalidateTranscript()
 	if action.newSession {
+		m.headerPrinted = false
 		m.sessionLoading = false
 		m.sessionID = ""
 		m.lastRunModel = ""
@@ -319,6 +328,7 @@ func (m *model) applySessionAction(action sessionAction) {
 		m.entries = nil
 		m.status = "new conversation · Session is created on the first run"
 		m.rebaseAuthUIForCurrentRoute()
+		m.requestHeaderOrientation()
 		m.refreshViewport(true)
 		return
 	}

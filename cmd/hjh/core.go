@@ -10,6 +10,7 @@ import (
 
 	"hjh/internal/apiclient"
 	"hjh/internal/corecatalog"
+	"hjh/internal/sessionid"
 )
 
 const coreUsage = `Usage: hjh core list [--workspace PATH] [--json]
@@ -146,7 +147,7 @@ func runCore(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	_, err = fmt.Fprintf(stdout, "Phase: %s · Sessions: %d · active runs: %d\n", status.Phase, count, len(status.ActiveRuns))
 	for _, active := range status.ActiveRuns {
 		if err == nil {
-			_, err = fmt.Fprintf(stdout, "Run %s · %s · Session %s\n", active.RunID, active.Phase, active.SessionID)
+			_, err = fmt.Fprintf(stdout, "Run %s · %s · Session %s\n", active.RunID, active.Phase, sessionid.Short(active.SessionID, apiSessionIDs(sessions)...))
 		}
 	}
 	if err != nil {

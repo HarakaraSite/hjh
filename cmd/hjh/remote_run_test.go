@@ -125,6 +125,16 @@ func TestConnectedRunSharesActiveSessionAndPreservesCLIOutput(t *testing.T) {
 				return len(manager.Status().ActiveRuns) == 1 && strings.Contains(stderr.String(), "Session:")
 			})
 			active := manager.Status().ActiveRuns[0]
+			if got, want := stderr.String(), "Session: "+active.SessionID[:8]; !strings.Contains(got, want) {
+				t.Fatalf("connected run Session display omitted short ID %q: %s", want, got)
+			}
+			var coreOut, coreErr bytes.Buffer
+			if code := runCore(context.Background(), []string{"status", "--connect", endpoint}, &coreOut, &coreErr); code != 0 {
+				t.Fatalf("Core status exit %d: %s", code, coreErr.String())
+			}
+			if !strings.Contains(coreOut.String(), "Session "+active.SessionID[:8]) {
+				t.Fatalf("Core status omitted short active Session ID: %s", coreOut.String())
+			}
 			client, err := apiclient.New(endpoint)
 			if err != nil {
 				t.Fatal(err)
@@ -199,7 +209,7 @@ func TestConnectedRunSharesActiveSessionAndPreservesCLIOutput(t *testing.T) {
 			}
 			stdout.buffer.Reset()
 			stderr.buffer.Reset()
-			if code := run([]string{"run", "--connect", endpoint, "--session", active.SessionID, "--workspace", "ignored-on-resume", "次の依頼"}, io.NopCloser(strings.NewReader("")), &stdout, &stderr); code != 0 {
+			if code := run([]string{"run", "--connect", endpoint, "--session", active.SessionID[:8], "--workspace", "ignored-on-resume", "次の依頼"}, io.NopCloser(strings.NewReader("")), &stdout, &stderr); code != 0 {
 				t.Fatalf("resume exit %d: %s", code, stderr.String())
 			}
 			request = <-requests

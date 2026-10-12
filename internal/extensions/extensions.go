@@ -136,6 +136,7 @@ type Snapshot struct {
 	Catalog               []RoleInfo
 	Source                LegacySource
 	SystemInstruction     string
+	BaseInstruction       contracts.BaseInstruction
 	InstructionComponents []json.RawMessage
 	ToolPaths             []string
 	Tools                 []Tool
@@ -290,7 +291,38 @@ func capture(root, configPath, selectedRole string) (Snapshot, error) {
 		Root:                  root,
 	}
 	snapshot.SystemInstruction = assembleInstruction(cfg.SystemInstruction, role, roleName, selectedTools, catalog.Roles)
+	snapshot.BaseInstruction = instructionBase(cfg, configPath)
 	return snapshot, nil
+}
+
+func instructionBase(cfg Config, configPath string) contracts.BaseInstruction {
+	return contracts.BaseInstruction{BuiltinVersion: buildinfo.Version, ConfigPath: configPath,
+		HasSystemInstruction: cfg.SystemInstruction != ""}
+}
+
+// InstructionProfile resolves the metadata needed for context discovery without
+// evaluating modules, installing extensions or resolving model credentials.
+type InstructionProfile struct {
+	Role     string
+	ReadFile bool
+	Base     contracts.BaseInstruction
+}
+
+func ResolveInstructionProfile(data []byte, configPath, selectedRole string) (InstructionProfile, error) {
+	cfg, err := decodeConfig(data, configPath)
+	if err != nil {
+		return InstructionProfile{}, err
+	}
+	name, err := selectedRoleName(cfg, configPath, selectedRole)
+	if err != nil {
+		return InstructionProfile{}, err
+	}
+	tools, err := resolveTools(cfg, name, cfg.Roles[name])
+	if err != nil {
+		return InstructionProfile{}, err
+	}
+	return InstructionProfile{Role: name, ReadFile: containsToolFromTools(tools, "read_file"),
+		Base: instructionBase(cfg, configPath)}, nil
 }
 
 // EmbeddedConfig returns the built-in configuration bytes without installing

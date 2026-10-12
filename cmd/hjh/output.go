@@ -7,16 +7,18 @@ import (
 	"strings"
 
 	"hjh/internal/contracts"
+	"hjh/internal/sessionid"
 )
 
 // runOutput owns only the CLI's display state. app serializes observations and
 // joins its observers before returning; no provider or history state lives here.
 type runOutput struct {
-	stdout   io.Writer
-	stderr   io.Writer
-	stream   bool
-	lastText string
-	lineOpen bool
+	stdout          io.Writer
+	stderr          io.Writer
+	stream          bool
+	lastText        string
+	lineOpen        bool
+	knownSessionIDs []string
 }
 
 func (out *runOutput) observe(o contracts.Observation) error {
@@ -49,7 +51,7 @@ func (out *runOutput) observe(o contracts.Observation) error {
 		}
 	}
 	if o.Kind == "execution" {
-		if _, err := fmt.Fprintf(out.stderr, "Session: %s\nExecution: %s\n", extractSession(o.Input), o.ID); err != nil {
+		if _, err := fmt.Fprintf(out.stderr, "Session: %s\nExecution: %s\n", sessionid.Short(extractSession(o.Input), out.knownSessionIDs...), o.ID); err != nil {
 			return err
 		}
 		if role := startedRole(o); role != "" {

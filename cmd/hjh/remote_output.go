@@ -8,14 +8,16 @@ import (
 
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
+	"hjh/internal/sessionid"
 )
 
 // remoteRunOutput owns only display metadata for one Core-owned run. The Core
 // remains the owner of execution state and conversation contents.
 type remoteRunOutput struct {
-	stdout io.Writer
-	stderr io.Writer
-	stream bool
+	stdout          io.Writer
+	stderr          io.Writer
+	stream          bool
+	knownSessionIDs []string
 
 	sessionPrinted   bool
 	executionPrinted bool
@@ -79,7 +81,7 @@ func (out *remoteRunOutput) observe(event apiclient.RunEvent) error {
 func (out *remoteRunOutput) observeIdentity(state api.RunState) error {
 	var lines []string
 	if state.SessionID != "" && !out.sessionPrinted {
-		lines = append(lines, "Session: "+state.SessionID)
+		lines = append(lines, "Session: "+sessionid.Short(state.SessionID, out.knownSessionIDs...))
 	}
 	if state.ExecutionID != "" && !out.executionPrinted {
 		lines = append(lines, "Execution: "+state.ExecutionID)

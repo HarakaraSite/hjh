@@ -68,6 +68,10 @@ Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMと
 snapshot.agentには実role名・revision・instruction・選択toolsを保存し、
 agent.agentsはrun_agentを選んだWorkerのcatalog名、それ以外は空配列とする。
 source.fileは使用したconfigの絶対locator。組立済みsystemInstructionとmodel requestが実際の操作説明を保持する。
+I-18では共通実行層が[workspace指示とskills](workspace-instructions-skills.md)を追加する。
+AGENTS.md本文とskill manifestは実指示へ組み込み、生成componentをinstructionComponentsへ記録する。
+設定に書かれた既存instructionComponentsを命令入力として解釈する処理は追加しない。
+新loaderのAGENTS sourceは実行context側で保存し、JS module loaderのresourceへ追加しない。
 run_jsは選択時だけsource bundledとして保存する。
 各toolのsnapshot `contract` は `{name,description,inputSchema}` で、`name` にtool名を記録する。
 runtimeの外部tool API contract versionは別に `hjh-tool/v1` とする。
@@ -142,6 +146,8 @@ return results;
 結果は `{executionId, outcome, finalText?, error?}`。子の作業失敗は、終了証拠を保存できた場合に
 構造化結果として返す。取消はrejection、履歴保存の失敗は共通Go実行側へ伝える。
 親の会話を暗黙に渡さず、必要な文脈はtaskへ書く。
+AGENTS.mdとskill一覧は子の開始時にも同じworkspaceから読み直す。
+skill本文は子が必要時に標準read_fileを呼んで取得する。
 子のroleは明示値、子開始時のconfig.defaultRoleの順で選ぶ。親のrole instructionをコピーしない。
 親も同じgenericへ外部roleを渡し、同じroleをroot／子のどちらにも使える。
 子は独立した会話・loop・VM・journalを持ち、親のworkspace・実model／effort・各executionのstep上限を使う。

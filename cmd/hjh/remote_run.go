@@ -55,10 +55,21 @@ func runConnected(ctx context.Context, endpoint string, request api.StartRunRequ
 	if request.Workspace != "" && !filepath.IsAbs(request.Workspace) {
 		request.Workspace = filepath.Join(core.Workspace, request.Workspace)
 	}
+	if request.SessionID != "" {
+		session, err := client.ResolveSession(ctx, request.SessionID)
+		if err != nil {
+			return fail(err)
+		}
+		request.SessionID = session.ID
+	}
+	sessions, err := client.Sessions(ctx)
+	if err != nil {
+		return fail(err)
+	}
 	if _, err := fmt.Fprintf(stderr, "Core: %s\nRun: %s\n", request.CoreID, request.RunID); err != nil {
 		return fail(err)
 	}
-	output := remoteRunOutput{stdout: stdout, stderr: stderr, stream: stream}
+	output := remoteRunOutput{stdout: stdout, stderr: stderr, stream: stream, knownSessionIDs: apiSessionIDs(sessions)}
 	var outputErr error
 	handle := client.StartRun(request, func(event apiclient.RunEvent) {
 		if outputErr == nil {

@@ -77,6 +77,13 @@ stopはCoreの取消・終了保存・HTTP停止を待つ。Coreを新規起動�
 異常終了の登録は到達不能として表示する。既存Coreには再起動で反映する。
 
 `hjh history --latest`は既定で統一会話テキスト。`--session`は一意な短縮IDも使える。
+Session IDの人向け表示は原則8文字。既知のprefix衝突は区別できるまで延長する。
+そのIDをrun／historyの`--session`、TUIの`--session`／`/resume`へ渡せる。
+`hjh sessions`は短縮IDの一覧、`hjh sessions --json`は完全IDの構造化一覧。
+API／保存履歴／JSON／detail NDJSONは完全IDを保持する。
+TUIは製品名・version、保存タイトル・日時、Core／Sessionの短縮ID、workspaceのheaderを
+会話を開いた時点で一度表示する。現在のSession IDとタイトルはfooterへ表示する。
+新規Sessionは最初の依頼で作成され、その時のID変更やrename・resizeではheaderを追加しない。
 `--view canonical`は採用会話Markdown、`--view detail`は保存実行証拠のNDJSON。
 detailのrecord contentはbase64で保存bytesを保持する。
 `--json`は採用message配列。`--connect URL`はCore側の履歴を読み、未指定ならローカルDBを
@@ -106,6 +113,42 @@ TUIの`/context`で有効予算、出典、選択した履歴と保存元を確�
 生成JSでは `await tools.read_file({path:"input.txt"})` のようにtoolを組み合わせる。
 configのdefaultRoleとrolesでinstruction・利用toolを定義する。親も子も共通genericへroleを渡す。
 既定defaultは作業と委譲、reviewerはrun_js・read_fileを選ぶ。
+
+## Workspaceの指示とskills
+
+AGENTS.mdはユーザー共通の`${XDG_CONFIG_HOME:-$HOME/.config}/hjh/AGENTS.md`、
+filesystemの祖先、workspaceの順に適用する。近いscopeの指示を優先する。
+各ターン・子Agent開始時に読み、その実行中は固定する。
+
+skillsは次の順にSKILL.mdを再帰探索し、同名は先順位を使う。
+
+1. `WORKSPACE/.hjh/skills/`
+2. `WORKSPACE/.agents/skills/`
+3. `${XDG_CONFIG_HOME:-$HOME/.config}/hjh/skills/`
+4. `$HOME/.agents/skills/`
+
+例えば`.hjh/skills/report/SKILL.md`を次のように配置する。
+
+```markdown
+---
+name: report
+description: 作業結果のレポートを作成するときに使う
+---
+必要なファイルを読み、結果と確認方法をレポートにまとめてください。
+```
+
+名前・説明・pathだけを最初にモデルへ提示し、本文は必要になった時にread_fileで読む。
+本文内の相対referenceはSKILL.mdのdirectoryから解決する。
+生成JSで読む場合は`return await tools.read_file({path: absoluteSkillPath});`のように本文をモデルへ返す。
+標準read_fileを選んだroleで利用できる。`disable-model-invocation: true`は自動選択一覧から除く。
+
+TUIの通常幅headerには基本指示・AGENTS出典・利用可能skillを表示する。
+`preview`は起動時候補、`actual`は実runの開始時に固定した情報。
+狭幅画面や最新の情報は`/context`で確認でき、Session未作成でも使える。
+この機能の反映にはCoreとTUIの両方を新binaryで起動する。
+
+## toolとTUIの操作
+
 run_jsもrole.toolsで選択する。run_agentを選んだ生成JSは
 `await api.agents.run({role:"reviewer",task:"読む対象と必要な文脈"})` で委譲できる。
 成功rootのroleはSessionへ保存され、明示--roleがなければ再開時に現在configから保存roleを解決する。

@@ -9,6 +9,7 @@ require (
 	github.com/go-quickjs/go-quickjs v0.25.2
 	github.com/google/uuid v1.6.0
 	github.com/yuin/goldmark v1.7.8
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.60.1
 )
 
