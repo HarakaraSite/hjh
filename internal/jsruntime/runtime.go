@@ -143,8 +143,13 @@ func (o *vmOwner) installBindings() error {
 	}); err != nil {
 		return err
 	}
-	return o.rt.Set("__agent", func(parent, input string) quickjs.Value {
+	if err := o.rt.Set("__agent", func(parent, input string) quickjs.Value {
 		return o.startAgentValue(parent, input)
+	}); err != nil {
+		return err
+	}
+	return o.rt.Set("__agentControl", func(operation, parent, input string) quickjs.Value {
+		return o.startAgentControlValue(operation, parent, input)
 	})
 }
 

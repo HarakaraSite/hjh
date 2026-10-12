@@ -736,8 +736,7 @@ func nullableString(value *string) any {
 }
 
 func putContent(ctx context.Context, tx *sql.Tx, content []byte) (string, error) {
-	digestBytes := sha256.Sum256(content)
-	digest := "sha256:" + hex.EncodeToString(digestBytes[:])
+	digest := contentDigest(content)
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO contents(content_digest, byte_length, content_bytes)
 		VALUES(?, ?, ?) ON CONFLICT(content_digest) DO NOTHING`,
@@ -746,4 +745,9 @@ func putContent(ctx context.Context, tx *sql.Tx, content []byte) (string, error)
 		return "", fmt.Errorf("history save content: %w", err)
 	}
 	return digest, nil
+}
+
+func contentDigest(content []byte) string {
+	digestBytes := sha256.Sum256(content)
+	return "sha256:" + hex.EncodeToString(digestBytes[:])
 }

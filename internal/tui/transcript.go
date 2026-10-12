@@ -35,12 +35,16 @@ type transcriptDocument struct {
 }
 
 type markdownSourceCacheEntry struct {
+	width     int
+	kind      string
 	source    string
 	blocks    []markdownBlock
 	blockKeys []markdownBlockKey
 }
 
 type markdownBlockKey struct {
+	width  int
+	kind   string
 	source string
 }
 
@@ -79,7 +83,12 @@ func (m *model) ensureTranscript() *transcriptDocument {
 }
 
 func (m *model) markdownBlocksForSource(id, source string) ([]markdownBlock, []markdownBlockKey) {
-	if cached, ok := m.markdownSourceCache[id]; ok && cached.source == source {
+	return m.bodyBlocksForSource(id, source, "assistant")
+}
+
+func (m *model) bodyBlocksForSource(id, source, kind string) ([]markdownBlock, []markdownBlockKey) {
+	width := max(1, m.width)
+	if cached, ok := m.markdownSourceCache[id]; ok && cached.source == source && cached.width == width && cached.kind == kind {
 		return cached.blocks, cached.blockKeys
 	}
 	if m.markdownSourceCache == nil {
@@ -93,10 +102,14 @@ func (m *model) markdownBlocksForSource(id, source string) ([]markdownBlock, []m
 	keys := make([]markdownBlockKey, 0, len(ranges))
 	for _, sourceBlock := range ranges {
 		raw := source[sourceBlock.start:sourceBlock.end]
-		key := markdownBlockKey{source: raw}
+		key := markdownBlockKey{source: raw, width: width, kind: kind}
 		cached, ok := m.markdownBlockCache[key]
 		if !ok {
-			cached.styled = m.renderMarkdown(raw)
+			if kind == "assistant" {
+				cached.styled = m.renderMarkdown(raw)
+			} else {
+				cached.styled = nativeBody(raw, kind, width)
+			}
 			cached.plain = renderer.ReceiptText(cached.styled)
 			m.markdownBlockCache[key] = cached
 		}
@@ -108,19 +121,23 @@ func (m *model) markdownBlocksForSource(id, source string) ([]markdownBlock, []m
 		keys = append(keys, key)
 	}
 	m.markdownSourceCache[id] = markdownSourceCacheEntry{
-		source: source, blocks: blocks, blockKeys: keys,
+		source: source, blocks: blocks, blockKeys: keys, width: width, kind: kind,
 	}
 	return blocks, keys
 }
 
-func (m *model) renderedMarkdownSource(source string) (markdownBlockCache, markdownBlockKey) {
-	key := markdownBlockKey{source: source}
+func (m *model) renderedMetadataSource(source string, failed bool) (markdownBlockCache, markdownBlockKey) {
+	kind := "metadata"
+	if failed {
+		kind = "failure"
+	}
+	key := markdownBlockKey{source: source, kind: kind}
 	if m.markdownBlockCache == nil {
 		m.markdownBlockCache = make(map[markdownBlockKey]markdownBlockCache)
 	}
 	cached, ok := m.markdownBlockCache[key]
 	if !ok {
-		cached.styled = m.renderMarkdown(source)
+		cached.styled = nativeBody(source, kind, max(1, m.width))
 		cached.plain = renderer.ReceiptText(cached.styled)
 		m.markdownBlockCache[key] = cached
 	}
@@ -134,18 +151,9 @@ func (m *model) wrapTranscriptLines(styled, plain string, width int) ([]string, 
 	nextCache := make(map[transcriptLineKey]transcriptLineCache)
 	var rows []string
 	var offsets []int
-	for lineStart := 0; lineStart <= len(plain); {
-		lineEnd := len(plain)
-		if nextNewline := strings.IndexByte(plain[lineStart:], '\n'); nextNewline >= 0 {
-			lineEnd = lineStart + nextNewline
-		}
-		styledStart := renderer.StyledOffset(styled, plain, lineStart)
-		styledEnd := renderer.StyledOffset(styled, plain, lineEnd)
-		if styledEnd < styledStart {
-			styledEnd = styledStart
-		}
-		plainLine := plain[lineStart:lineEnd]
-		styledLine := styled[styledStart:styledEnd]
+	lineStart := 0
+	for _, styledLine := range renderer.LogicalRows(styled) {
+		plainLine := renderer.ReceiptText(styledLine)
 		key := transcriptLineKey{width: width, styled: styledLine, plain: plainLine}
 		cached, ok := m.transcriptLineCache[key]
 		if !ok {
@@ -157,10 +165,7 @@ func (m *model) wrapTranscriptLines(styled, plain string, width int) ([]string, 
 		for _, offset := range cached.offsets {
 			offsets = append(offsets, lineStart+offset)
 		}
-		if lineEnd == len(plain) {
-			break
-		}
-		lineStart = lineEnd + 1
+		lineStart += len(plainLine) + 1
 	}
 	m.transcriptLineCache = nextCache
 	return rows, offsets
@@ -222,9 +227,9 @@ func (m *model) buildTranscript() *transcriptDocument {
 		activeSources[bodyCacheKey] = true
 		labelKey := "entity:" + entity.ID + ":label"
 		canonicalLabel := entityLabel(entity) + ":\n"
-		appendPart(labelKey, canonicalLabel, 0, len(canonicalLabel), prefix+canonicalLabel, false)
+		appendPart(labelKey, canonicalLabel, 0, len(canonicalLabel), prefix+entityLabelStyle(entity, doc.width), false)
 
-		blocks, cacheKeys := m.markdownBlocksForSource(bodyCacheKey, entity.Text)
+		blocks, cacheKeys := m.bodyBlocksForSource(bodyCacheKey, entity.Text, entity.Kind)
 		currentEntityHasBody := false
 		for _, key := range cacheKeys {
 			activeBlocks[key] = true
@@ -255,7 +260,7 @@ func (m *model) buildTranscript() *transcriptDocument {
 			if meta != "" {
 				metaCacheKey := "entity:" + entity.ID + ":meta"
 				activeSources[metaCacheKey] = true
-				formatted, blockKey := m.renderedMarkdownSource(meta)
+				formatted, blockKey := m.renderedMetadataSource(meta, entity.Error != "" || entity.Status == "incomplete")
 				activeBlocks[blockKey] = true
 				appendPart(metaCacheKey, meta, 0, len(meta), "\n"+formatted.styled, false)
 				currentEntityHasBody = true
@@ -279,8 +284,8 @@ func (m *model) buildTranscript() *transcriptDocument {
 		}
 		labelKey := fmt.Sprintf("entry:%d:label", index)
 		canonicalLabel := entry.role + ":\n"
-		appendPart(labelKey, canonicalLabel, 0, len(canonicalLabel), prefix+canonicalLabel, false)
-		blocks, cacheKeys := m.markdownBlocksForSource(bodyCacheKey, entry.text)
+		appendPart(labelKey, canonicalLabel, 0, len(canonicalLabel), prefix+entryLabelStyle(entry.role), false)
+		blocks, cacheKeys := m.bodyBlocksForSource(bodyCacheKey, entry.text, entryBodyKind(entry.role))
 		for _, key := range cacheKeys {
 			activeBlocks[key] = true
 		}

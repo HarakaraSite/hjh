@@ -11,7 +11,7 @@ workspaceを枠にまとめる。タイトル未設定は(untitled)。日時は�
 
 headerは会話を開いた時点の情報をscrollbackへ一度だけ表示する。
 Sessionの作成、名前変更、metadata更新、resizeで同じ会話のheaderを追加しない。
-現在のSession短縮IDとタイトルはfooterへ表示し、長いタイトルでもIDを先に表示する。
+現在のSessionタイトルと短縮IDは[footer](tui-footer.md)の右側へ表示し、長いタイトルでもIDの表示幅を先に確保する。
 /newや別Sessionの/resumeでは、新しく開いた会話のheaderを一度表示する。
 保存Sessionの読込み中はheaderを確定せず、読込み後の保存metadataを使う。
 
@@ -26,3 +26,7 @@ previewと、実runが固定したactual metadataを区別する。本文はhead
 起動時preview待機中も入力を送信でき、headerが確定するまで会話のscrollback移動を保留する。
 実metadataが先に届いた場合はそれで確定する。後の更新でheaderを追加しない。
 狭幅headerは2行を維持し、Session未作成でも/contextから出典と利用可能skillを確認できる。
+
+Glamour導入後は、実terminalの幅で最初から描画する。
+metadataが確定したframeでheaderに続けて保存済み本文を一度だけ出力し、
+opening前に履歴の末尾だけを画面へ出したり、追加入力まで本文の確定出力を待ったりしない。

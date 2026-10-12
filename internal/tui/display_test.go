@@ -45,7 +45,7 @@ func TestToolProjectionIsCompactOnceAndReopenShowsOutcome(t *testing.T) {
 	reopened, _, reopenCancel := testModel(backend, Options{Core: backend.core})
 	defer func() { reopenCancel(); reopened.shutdown() }()
 	reopened.sessionEntities[tool.ID] = tool
-	transcript := reopened.renderTranscript()
+	transcript := renderer.ReceiptText(reopened.renderTranscript())
 	if strings.Count(transcript, "tool / run_js") != 1 || !strings.Contains(transcript, "node script.js ✓") {
 		t.Fatalf("reopened completed tool did not show its saved state: %q", transcript)
 	}
@@ -60,7 +60,7 @@ func TestToolProjectionIsCompactOnceAndReopenShowsOutcome(t *testing.T) {
 	failed.Error = "write failed"
 	reopened.sessionEntities[failed.ID] = failed
 	reopened.invalidateTranscript()
-	transcript = reopened.renderTranscript()
+	transcript = renderer.ReceiptText(reopened.renderTranscript())
 	if !strings.Contains(transcript, "tool / write_file · node script.js ✗") {
 		t.Fatalf("reopened failed tool did not show its saved failure state: %q", transcript)
 	}
@@ -72,14 +72,14 @@ func TestEmptyAssistantEntityIsHiddenUntilItHasText(t *testing.T) {
 
 	assistant := conversationEntity("assistant", "assistant", "", 1)
 	m.sessionEntities[assistant.ID] = assistant
-	if transcript := m.renderTranscript(); strings.Contains(transcript, "assistant:") {
+	if transcript := renderer.ReceiptText(m.renderTranscript()); strings.Contains(transcript, "assistant:") {
 		t.Fatalf("empty assistant entity created a visible row: %q", transcript)
 	}
 
 	assistant.Text = "answer arrives"
 	m.sessionEntities[assistant.ID] = assistant
 	m.invalidateTranscript()
-	transcript := m.renderTranscript()
+	transcript := renderer.ReceiptText(m.renderTranscript())
 	if !strings.Contains(transcript, "assistant:\nanswer arrives") {
 		t.Fatalf("assistant label/body did not appear after text arrived: %q", transcript)
 	}
@@ -114,7 +114,7 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 		if textareaCursor == nil {
 			t.Fatal("textarea did not calculate its focused cursor position")
 		}
-		frame, cursor, _, _, _, bodyRows := m.screenFrame([]string{"model: test", "status: ready"})
+		frame, cursor, _, _, _, bodyRows := m.screenFrame(m.footerRows())
 		if !strings.Contains(renderer.ReceiptText(strings.Join(frame.CommittedRows, "\n")), conversation.Text) {
 			t.Fatalf("conversation body was not placed before the editor: committed=%v", frame.CommittedRows)
 		}
@@ -122,17 +122,16 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 			t.Fatal("focused editor did not publish a real terminal cursor")
 		}
 		inputRows := renderer.WrapText(m.textarea.View(), width)
-		helpRows := renderer.WrapText("Enter send · Alt+Enter newline · F1 cancel · Ctrl+C clear · /help", width)
-		footerRows := renderer.WrapText("model: test\nstatus: ready", width)
+		footerRows := m.footerRows()
 		editorStart := len(bodyRows) + 1 // divider then the first editor row
 		helpStart := editorStart + len(inputRows)
-		footerStart := helpStart + len(helpRows)
+		footerStart := helpStart
 		if footerStart > len(frame.LiveRows) || len(frame.LiveRows)-footerStart != len(footerRows) {
 			t.Fatalf("footer did not follow the editor controls: rows=%v", frame.LiveRows)
 		}
-		actualHelp := renderer.ReceiptText(strings.Join(frame.LiveRows[helpStart:footerStart], "\n"))
+		actualHelp := renderer.ReceiptText(frame.LiveRows[footerStart])
 		actualFooter := strings.ReplaceAll(renderer.ReceiptText(strings.Join(frame.LiveRows[footerStart:], "\n")), "\n", "")
-		if !strings.Contains(actualHelp, "Enter send") || !strings.Contains(actualFooter, "model: test") || !strings.Contains(actualFooter, "status: ready") {
+		if !strings.Contains(actualHelp, "Enter send") || !strings.Contains(actualFooter, "ready") {
 			t.Fatalf("controls and footer rows were not placed below the editor: rows=%v", frame.LiveRows)
 		}
 		if cursor.Position.X != wantX || frame.Cursor.Cell != wantX {
@@ -157,12 +156,13 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 	m.textarea.SetValue("line 1\nline 2\nline 3\nline 4\nline 5\nline 6\n日本語")
 	m.textarea, _ = m.textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
 	textareaCursor := m.textarea.Cursor()
-	frame, cursor, content, _, _, bodyRows := m.screenFrame([]string{"model: test", "status: ready"})
+	frame, cursor, content, _, _, bodyRows := m.screenFrame(m.footerRows())
+	content = renderer.ReceiptText(content)
 	if textareaCursor == nil || cursor.Position.Y != len(bodyRows)+1+textareaCursor.Position.Y {
 		t.Fatalf("scrolled editor cursor row=%d, relative cursor=%v", cursor.Position.Y, textareaCursor)
 	}
 	if strings.Index(content, "Enter send") < strings.Index(content, "line 6") ||
-		strings.Index(content, "model: test") < strings.Index(content, "Enter send") || len(bodyRows)+1+cursor.Position.Y >= len(frame.LiveRows) {
+		strings.Index(content, "ready") < strings.Index(content, "Enter send") || len(bodyRows)+1+cursor.Position.Y >= len(frame.LiveRows) {
 		t.Fatalf("input, controls, footer, and cursor are not ordered in the live frame: %q", content)
 	}
 }

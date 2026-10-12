@@ -81,9 +81,12 @@ func TestIndependentSubscriptionCancelAndSessionReservation(t *testing.T) {
 	provider := &observedProvider{entered: make(chan struct{}), block: true}
 	m, service := productManager(t, provider, app.RunOptions{})
 	request := api.StartRunRequest{CoreID: m.Core().CoreID, RunID: uuid.NewString(), Task: "途中経過を確認してキャンセル"}
-	_, created, err := m.Start(request)
+	initial, created, err := m.Start(request)
 	if err != nil || !created {
 		t.Fatalf("start: %t %v", created, err)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, initial.StartedAt); err != nil {
+		t.Fatalf("run start time unavailable: %q", initial.StartedAt)
 	}
 	slow, err := m.Subscribe(request.CoreID, request.RunID)
 	if err != nil {
@@ -155,6 +158,9 @@ func TestIndependentSubscriptionCancelAndSessionReservation(t *testing.T) {
 		t.Fatal(err)
 	}
 	finalAssistant := findEntity(final.Conversation, "assistant", "途中の本文")
+	if final.StartedAt != initial.StartedAt {
+		t.Fatal("reattached run reset its start time")
+	}
 	if final.Phase != "terminal" || finalAssistant == nil || finalAssistant.Status != "incomplete" || finalAssistant.ID != assistant.ID {
 		t.Fatalf("final snapshot changed or lost cancelled text identity: %+v", final.Conversation)
 	}

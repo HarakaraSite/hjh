@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"hjh/internal/api"
@@ -301,7 +302,7 @@ func (m *Manager) startFollowUp(previous *managedRun, chain *inputChain, receipt
 	ctx, cancel := context.WithCancel(m.ctx)
 	owner := executiondata.NewOwner()
 	nextRun := &managedRun{fingerprint: fingerprint, sessionReservation: chain.sessionID, cancel: cancel, owner: owner, chain: chain,
-		state:       api.RunState{CoreID: m.core.CoreID, RunID: runID, Phase: "preparing", SessionID: chain.sessionID},
+		state:       api.RunState{CoreID: m.core.CoreID, RunID: runID, Phase: "preparing", StartedAt: time.Now().UTC().Format(time.RFC3339Nano), SessionID: chain.sessionID},
 		subscribers: map[*runStateSubscriber]chan struct{}{}}
 	m.runs[runID] = nextRun
 	m.sessions[chain.sessionID] = runID

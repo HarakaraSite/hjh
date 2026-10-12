@@ -35,15 +35,16 @@ type AssistantResultInput struct {
 }
 
 type ConversationMessageInput struct {
-	RootExecutionID string
-	ExecutionID     string
-	Sequence        uint64
-	Message         json.RawMessage
-	ContentDigest   string
-	Facts           []contracts.ExecutionFact
-	SteeringReceipt *contracts.InputReceipt
-	FinalizeRequest *contracts.RequestIdentity
-	ObservedAt      string
+	RootExecutionID         string
+	ExecutionID             string
+	Sequence                uint64
+	Message                 json.RawMessage
+	ContentDigest           string
+	Facts                   []contracts.ExecutionFact
+	SteeringReceipt         *contracts.InputReceipt
+	ChildInstructionReceipt *contracts.ChildInstructionReceipt
+	FinalizeRequest         *contracts.RequestIdentity
+	ObservedAt              string
 }
 
 // AppendConversationMessage stores a message, its typed semantic mirror, and
@@ -91,9 +92,16 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		}
 	}
 	var appliedReceipt contracts.InputReceipt
+	var appliedChildInstruction contracts.ChildInstructionReceipt
 	if input.SteeringReceipt != nil {
 		if input.SteeringReceipt.Kind != "steering" || input.SteeringReceipt.ContentDigest != digest {
 			return 0, nil, fmt.Errorf("history steering receipt does not match message content")
+		}
+	}
+	if input.ChildInstructionReceipt != nil {
+		receipt := *input.ChildInstructionReceipt
+		if receipt.Status != "accepted" || receipt.ExecutionID != input.ExecutionID || receipt.ContentDigest != digest {
+			return 0, nil, fmt.Errorf("history child instruction receipt does not match message content")
 		}
 	}
 	if _, err := tx.ExecContext(ctx, "INSERT INTO messages(execution_id,message_ordinal,content_digest) VALUES(?,?,?)", input.ExecutionID, messageOrdinal, digest); err != nil {
@@ -252,11 +260,32 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		}
 		appliedReceipt = updated
 	}
+	if input.ChildInstructionReceipt != nil {
+		updated := *input.ChildInstructionReceipt
+		updated.Status = "applied"
+		updated.AppliedSequence = input.Sequence
+		ordinal := messageOrdinal
+		updated.AppliedMessageOrdinal = &ordinal
+		updated.Reason = ""
+		updated.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+		payload := contracts.JSON(map[string]any{
+			"operation": "agent_instruction",
+			"decision":  "applied",
+			"receipt":   updated,
+		})
+		if _, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, "control_decision", payload, observedAt, digest); err != nil {
+			return 0, nil, fmt.Errorf("history save applied child instruction: %w", err)
+		}
+		appliedChildInstruction = updated
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, nil, fmt.Errorf("history commit conversation message: %w", err)
 	}
 	if input.SteeringReceipt != nil {
 		*input.SteeringReceipt = appliedReceipt
+	}
+	if input.ChildInstructionReceipt != nil {
+		*input.ChildInstructionReceipt = appliedChildInstruction
 	}
 	return messageOrdinal, facts, nil
 }

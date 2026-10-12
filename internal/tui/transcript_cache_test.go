@@ -33,7 +33,7 @@ func TestUnclosedMarkdownStaysInBoundedLiveBandUntilClosed(t *testing.T) {
 			if got := m.markdownSourceCache["entity:stream:body"].source; got != source {
 				t.Fatal("the full unfinished Markdown source was not retained in the transcript")
 			}
-			bodyHeight := max(1, m.height-3-1-1-1)
+			bodyHeight := max(1, m.height-3-1-1)
 			if len(m.lastBodyRows) > bodyHeight {
 				t.Fatalf("unfinished body escaped the live terminal band: rows=%d height=%d", len(m.lastBodyRows), bodyHeight)
 			}
@@ -62,9 +62,11 @@ func TestUnclosedMarkdownStaysInBoundedLiveBandUntilClosed(t *testing.T) {
 			m.invalidateTranscript()
 			output.Reset()
 			m.View()
-			if !strings.Contains(m.transcript.plain, strings.TrimSpace(tc.prefix)) ||
-				!strings.Contains(m.transcript.plain, strings.TrimSpace(tc.suffix)) {
-				t.Fatalf("completed transcript dropped the original Markdown markers: %q", m.transcript.plain[:min(len(m.transcript.plain), 120)])
+			if m.sessionEntities[entity.ID].Text != entity.Text || m.markdownSourceCache["entity:stream:body"].source != entity.Text {
+				t.Fatal("completed rendering replaced the original Markdown source")
+			}
+			if !strings.Contains(m.transcript.plain, tc.body[:min(30, len(tc.body))]) {
+				t.Fatal("completed rendering omitted the body content")
 			}
 			m.sealCurrentFrame()
 			if got := m.receiptByPart[bodyKey]; got != len(entity.Text) {

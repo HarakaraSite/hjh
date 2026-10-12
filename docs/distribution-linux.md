@@ -151,6 +151,32 @@ TUIの通常幅headerには基本指示・AGENTS出典・利用可能skillを表
 
 run_jsもrole.toolsで選択する。run_agentを選んだ生成JSは
 `await api.agents.run({role:"reviewer",task:"読む対象と必要な文脈"})` で委譲できる。
+子のmodel/provider/effortは`model:{provider?,modelId?,effort?}`、子のtoolsは`tools:[...]`で指定できる。
+tools省略は子roleの一覧、指定は実行用の一覧を置換し、空配列はtoolなし。
+
+親に「二つの子を並行に開始し、私はその間に別作業を進め、途中報告を読んで必要なら
+追加指示を送り、最後に回収して」と自然文で依頼できる。
+非同期操作は選択済みtoolに対応する生成APIから使う。
+
+```js
+// Start an independent review and read its saved reports.
+const child = await api.agents.spawn({role:"reviewer",task:"srcの主要な責務を調べ、途中のfindingも通常assistant本文で報告して"});
+const status = await api.agents.status({executionId:child.executionId});
+return status;
+```
+
+次の親stepで`api.agents.status({executionId,after:nextCursor})`から新しい報告を取得し、
+`api.agents.steer({executionId,text})`で親から子へ指示を送る。
+statusのinstructionsにあるappliedは取込み済みを意味し、内容への従い方は後の報告で確認する。
+必要な時点で`api.agents.collect({executionId})`が終了保存を待ち、取消は`api.agents.cancel({executionId})`。
+spawnした子は同じ親execution中の後のstepまで続き、親終了では残る子を取消・joinする。
+TUI detach中もCoreで親子が続行し、同じSessionへ再接続できる。
+
+既存workspaceへ追加する場合は、配布の`agent-control.js`を配置し、`spawn_agent`、`agent_status`、
+`steer_agent`、`collect_agent`、`cancel_agent`のdefinitionをconfig.toolsへ、必要なrole.toolsへ追加する。
+既存`run_agent`のschema/説明もmodel/tools指定に合わせて更新する。configとDBは自動変換しない。
+本体とTUIを更新した後、既存Coreを新しいbinaryで起動し直して使う。
+
 成功rootのroleはSessionへ保存され、明示--roleがなければ再開時に現在configから保存roleを解決する。
 旧config.agentの自動変換はない。既存configにはdefaultRole／roles、run_agentのregistryを手動で追加し、
 不足run-agent.jsを配布例から配置する。既存config・DBは自動上書きしない。

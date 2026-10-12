@@ -185,16 +185,7 @@ func (w *Writer) Close() error {
 func WrapText(text string, columns int) []string {
 	columns = max(1, columns)
 	text = strings.ReplaceAll(text, "\r\n", "\n")
-	logicalRows := strings.Split(text, "\n")
-	rows := make([]string, 0, len(logicalRows))
-	for _, logical := range logicalRows {
-		wrapped := ansi.Hardwrap(logical, columns, true)
-		rows = append(rows, strings.Split(wrapped, "\n")...)
-	}
-	if len(rows) == 0 {
-		return []string{""}
-	}
-	return rows
+	return LogicalRows(ansi.Hardwrap(text, columns, true))
 }
 
 // WrapOffsets returns the plain-text byte offset at the start of each terminal

@@ -1,6 +1,6 @@
 # 外部拡張とWorker runtime
 
-この文書は、I-03までで使うJSON設定、外部ESM tool／hook、Worker runtimeの境界を定める。
+この文書はJSON設定、外部ESM tool／hook、Worker runtimeの境界を定める。
 拡張directoryは実行時に編集でき、各Workerは開始時に読んだsource bytesだけを実行する。
 
 ## 設定と外部source
@@ -42,7 +42,7 @@ run_jsは選択できるbuilt-inであり、外部tool registryへのmodule登�
 model向けtool definition、JSのtools、保存snapshotは同じrole解決結果を使う。
 run_agentを選んだ場合だけ生成JSへapi.agents.runを公開し、同じrun_agent tool／hook経路を通す。
 生成JSの公開apiは選択toolの呼出し用で、Go基礎操作は含めない。
-外部tool／hook実装用apiはGo基礎操作とraw AgentRunnerを提供する。
+外部tool／hook実装用apiはGo基礎操作とraw AgentRunner／AgentControllerを提供する。
 これはtool構成の契約であり、JSやOSのsandboxではない。
 
 `config.json`にはprovider registry用の`providers`、credential参照の`credentials`、
@@ -66,7 +66,7 @@ Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMと
 `schemaVersion`、UUIDの `configurationId`、`agent`、`source`、`systemInstruction`、
 `instructionComponents`、`toolPaths`、`tools`、`hooks`、`rejections` を保持する。
 snapshot.agentには実role名・revision・instruction・選択toolsを保存し、
-agent.agentsはrun_agentを選んだWorkerのcatalog名、それ以外は空配列とする。
+agent.agentsはrun_agentまたはspawn_agentを選んだWorkerのcatalog名、それ以外は空配列とする。
 source.fileは使用したconfigの絶対locator。組立済みsystemInstructionとmodel requestが実際の操作説明を保持する。
 I-18では共通実行層が[workspace指示とskills](workspace-instructions-skills.md)を追加する。
 AGENTS.md本文とskill manifestは実指示へ組み込み、生成componentをinstructionComponentsへ記録する。
@@ -87,7 +87,7 @@ configurationIdはcaptureごとのUUIDであり、source digestとは別の識�
 
 `jsruntime.New(ctx, Options) (*Worker, error)` はWorker専用QuickJS VMを作り、capture済みESMを評価してから返す。
 `Options` は `Snapshot`、Session `Workspace`、共通 `contracts.Observer`、
-必要なら `ObserverParent` と `host.Host`、委譲操作の `contracts.AgentRunner` を受け取る。
+必要なら `ObserverParent` と `host.Host`、委譲操作の `contracts.AgentRunner` と非同期操作の `contracts.AgentController` を受け取る。
 `Worker.Call(ctx, name, args)` は `json.RawMessage` の構造化結果を返し、
 `Worker.Definitions()` はroleが選んだbuilt-in／外部toolのmodel向けdefinitionを返す。
 `Worker.Close()` はVMと停止中のhost workを閉じる。
@@ -99,7 +99,7 @@ Go host workは結果をownerへ返し、別goroutineからVM値を操作しな�
 context取消はJSのCallContext／RunJobsContext、HTTP request context、Linux process group停止へつながる。
 commandはgroup停止後に `Wait` してから戻る。取消されたWorkerを閉じた後は新Workerを作成できる。
 host／子AgentのGo完了queueをownerが受け取り、Promiseを明示的にsettleする。
-root決着時に子scopeを取消し、初回join、残るhost／JS jobsのdrain、遅いAgentRunnerの再join、
+外側CallのPromise決着時にblocking run_agentのcall scopeを取消し、初回join、残るhost／JS jobsのdrain、遅いAgentRunnerの再join、
 委譲tool／hookの終端記録を終えてから返す。root決着後の子結果は観測へ保存し、JSを再開させない。
 正常終了したcallの取消contextは次Callへ残さない。
 
@@ -110,12 +110,19 @@ model向けにはrole.toolsで選んだbuilt-in `run_js` と外部toolを定義�
 外部toolを `tools.read_file(...)` のように呼び出せる。直接のmodel tool callと生成JS内tool callは、
 同じ外部module実装とhook処理を使う。
 
+利用者指定によりrun_jsのtool descriptionと共通実行instructionは、codeの先頭へ目的を
+短い英文の1行`//`コメントとして書くようモデルへ指示する。親・子roleに共通して適用する。
+共通toolactivityが最初の空行以外の行の`//`本文をpreviewにし、実行開始・結果・履歴復元へ
+同じ説明を渡す。表示は既存の薄い通常色。コメントなしは説明を付けずtool名だけを表示し、
+JSの実行契約やtool引数・保存原文は変更しない。
+
 `beforeTool({name,args}, api)` が返した値をtool引数として使う。
 toolが成功した場合だけ `afterTool({name,args,result}, api)` を呼び、その返却値をtool結果とする。
 hook自体もcallとしてObserverへ記録し、hook内のGo操作・別toolはhook IDを親に持つ。
 toolまたはhookの例外は呼出し元へそのまま伝える。
 
-標準の外部toolは `run_agent`、`read_file`、`write_file`、`edit_file`、`command`、`http`、`web_fetch`。
+標準の外部toolは `run_agent`、`spawn_agent`、`agent_status`、`collect_agent`、`cancel_agent`、`steer_agent`、
+`read_file`、`write_file`、`edit_file`、`command`、`http`、`web_fetch`。
 file pathとcommand `Dir` はSession workspaceから解決し、プロセス全体のworking directoryを変更しない。
 `edit_file` は `oldText` の全ての完全一致箇所を `newText` に置換して書き込み、置換数とbyte数を返す。
 `command` は `program`、`args`、`stdin` を受け、`exitCode`、`stdout`、`stderr` を返す。
@@ -131,7 +138,7 @@ Observerのsinkが保存形式を所有し、runtimeとhostはDBへ直接依存�
 
 ## I-03：roleを選んで子Agentへ委譲
 
-生成JSの `api.agents.run({role?,task})` は選択したrun_agentを呼び、Promiseを返す。
+生成JSの `api.agents.run({role?,task,model?,tools?})` は選択したrun_agentを呼び、Promiseを返す。
 外部tool／hookの同名APIは実装用のraw AgentRunnerに接続する。
 モデルには実行instructionと `run_js` のdescriptionで入力・結果とawait方法を提示する。
 
@@ -150,7 +157,10 @@ AGENTS.mdとskill一覧は子の開始時にも同じworkspaceから読み直す
 skill本文は子が必要時に標準read_fileを呼んで取得する。
 子のroleは明示値、子開始時のconfig.defaultRoleの順で選ぶ。親のrole instructionをコピーしない。
 親も同じgenericへ外部roleを渡し、同じroleをroot／子のどちらにも使える。
-子は独立した会話・loop・VM・journalを持ち、親のworkspace・実model／effort・各executionのstep上限を使う。
+子は独立した会話・loop・VM・journalを持ち、親のworkspaceと各executionのstep上限を使う。
+modelは親の実selection→子role.model→呼出しmodelの順で既存resolverに渡す。providerが変わると
+省略したmodel/effort/authは指定先providerの既定を使う。tools省略は子roleの一覧、指定はその実行の
+一覧を置換し、空配列はtoolなし。登録済みtoolとrun_jsを指定でき、元configを編集して実現しない。
 親が解決したconfigの絶対pathから子開始時に再captureし、親Workerの既存captureは変更しない。
 
 JS runtimeはAgent専用のcall ID・観測と、外側call単位の子context・Go jobを所有する。
@@ -161,3 +171,37 @@ AgentRunnerは通常のGo値を受け渡しし、VM値の操作は引き続きVM
 JSのfinally／__endが再開することに依存せず、親の正常結果・原例外を維持する。
 親取消は子のモデル接続・JS・HTTP・commandのcontextへ伝播する。
 詳細は[I-03計画](../plans/i03-generic-roles.md)を参照する。
+
+## I-19：非同期の子と報告
+
+`spawn_agent`／`api.agents.spawn({task,role?,model?,tools?})`はadmission保存後にexecutionIdとstateを返す。
+子の実行は親executionのGo ownerに属し、spawnを呼んだJS Callが返った後も続く。
+親は複数子を開始して自分の作業を進め、後のmodel stepでstatus/collect/cancelを呼べる。
+各生成APIは対応するtoolが選択済みの場合だけ公開し、外部tool/hook/履歴の通常経路を使う。
+
+`agent_status`／`api.agents.status({executionId,after?})`はstate、role、実model/tools、progress、
+保存済みassistant reportsとnextCursorを返す。progressのphaseはstarting/model/tool/between_steps/settled。
+after省略は最初から。nextCursorを次回afterへ渡すと新しい報告を取得する。
+reportのsourceはexecutionId/messageOrdinal/textで、本文とcursorは同じSQL cutから読む。
+報告取得で共有既読状態を変更せず、thinking/tool/replay/stream断片を返さない。
+生成JSでは必要な報告を外側returnに含めて次の親モデル入力へ渡す。
+
+`collect_agent`／`api.agents.collect({executionId})`は子の終端保存まで待って構造化結果を返す。
+`cancel_agent`／`api.agents.cancel({executionId})`はその子を取消し、同じく保存終了を待つ。
+終了済み子への繰返し操作は確定結果を返し、再実行しない。
+非同期子の失敗/取消は保存済み結果として判断でき、blocking run_agentのcall単位取消とは区別する。
+親終了では準備中を含む残る子を取消/joinし、子の終了保存の後に親終端と採用を確定する。
+子の履歴はnon-canonicalで、親へは通常tool結果として返した内容だけが入る。
+TUI detachは親子の取消理由にせず、Coreで続行する。
+
+`steer_agent`／`api.agents.steer({executionId,text})`は親から実行中の子へ指示を送る。
+受付保存後にinstructionId、送り手parentExecutionId、steerCallId、sequence、contentDigest、
+accepted/applied/unappliedのreceiptを返し、statusのinstructionsで最新状態を読む。
+指示本文は子のuser/steering messageとして一度保存し、receiptの状態変更は既存semantic記録へ残す。
+子messageとapplied receiptを同じtransactionで保存してから、既存AdditionalInput境界でloopへ渡す。
+生成中request/toolを中断せず、最初のrequest前、tool群結果の保存後、最終応答後に取り込む。
+最終応答後に受付済み指示があれば子は続行し、取消等では未適用理由を終端前に保存する。
+人間のF3受付ownerを子へ継承せず、子ごとに受付中の保存と順序・閉鎖を所有する。
+appliedは入力への取込みを示し、指示どおりの結果かは後の報告とcollectで判断する。
+S5のfocused確認と通常・批判的reviewを完了した。
+[I-19計画](../plans/i19-child-agent-control.md)と[実装結果](../results/i19-child-agent-control.md)を参照する。

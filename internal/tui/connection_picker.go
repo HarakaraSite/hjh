@@ -177,6 +177,7 @@ func (m *model) acceptModelCatalog(msg modelCatalogLoadedMsg) {
 
 func (m *model) nextSelectionChanged() {
 	m.selectionGeneration++
+	m.requestFooterSelection()
 	if m.connectionPicker == nil {
 		return
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
 	textm "github.com/yuin/goldmark/text"
 	"hjh/internal/tui/renderer"
 )
@@ -44,7 +45,7 @@ func markdownSourceBlocks(source string) []markdownSourceBlock {
 		return nil
 	}
 	sourceBytes := []byte(source)
-	doc := goldmark.New().Parser().Parse(textm.NewReader(sourceBytes))
+	doc := goldmark.New(goldmark.WithExtensions(extension.GFM, extension.DefinitionList)).Parser().Parse(textm.NewReader(sourceBytes))
 	var starts []int
 	for node := doc.FirstChild(); node != nil; node = node.NextSibling() {
 		starts = append(starts, markdownNodeStart(sourceBytes, node))

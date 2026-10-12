@@ -53,6 +53,7 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	var source []byte
 	var archivedConfig []byte
 	var runAgentSource []byte
+	var agentControlSource []byte
 	for _, resource := range snapshot.Resources {
 		if resource.Path == "config.json" {
 			archivedConfig = resource.Bytes
@@ -66,6 +67,9 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		if resource.Path == "run-agent.js" {
 			runAgentSource = resource.Bytes
 		}
+		if resource.Path == "agent-control.js" {
+			agentControlSource = resource.Bytes
+		}
 	}
 	if string(source) != "// edited by user\n" {
 		t.Fatalf("capture did not freeze the edited source: %q", source)
@@ -73,11 +77,23 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	if string(archivedConfig) != string(configBytes) {
 		t.Fatal("archived config bytes differ from the bytes read for capture")
 	}
-	if !snapshot.HasTool("run_js") || !snapshot.HasTool("run_agent") || !strings.Contains(string(runAgentSource), "api.agents.run(args)") {
-		t.Fatalf("default role does not capture built-in and external delegation tools: tools=%+v run_agent=%q", snapshot.Tools, runAgentSource)
+	if !snapshot.HasTool("run_js") || !snapshot.HasTool("run_agent") || !snapshot.HasTool("spawn_agent") ||
+		!snapshot.HasTool("agent_status") || !snapshot.HasTool("steer_agent") || !snapshot.HasTool("collect_agent") || !snapshot.HasTool("cancel_agent") ||
+		!strings.Contains(string(runAgentSource), "api.agents.run(args)") || !strings.Contains(string(agentControlSource), "api.agents.spawn(args)") ||
+		!strings.Contains(string(agentControlSource), "api.agents.steer(args)") {
+		t.Fatalf("default role does not capture child control tools: tools=%+v run_agent=%q agent_control=%q", snapshot.Tools, runAgentSource, agentControlSource)
 	}
-	if !strings.Contains(snapshot.Tools[0].Description, "api.agents.run") {
-		t.Fatalf("run_js definition omits delegation guidance when run_agent is selected: %s", snapshot.Tools[0].Description)
+	if !strings.Contains(snapshot.Tools[0].Description, "api.agents.run") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.spawn") ||
+		!strings.Contains(snapshot.Tools[0].Description, "api.agents.status") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.steer") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.collect") ||
+		!strings.Contains(snapshot.Tools[0].Description, "api.agents.cancel") {
+		t.Fatalf("run_js definition omits selected child operation guidance: %s", snapshot.Tools[0].Description)
+	}
+	if !strings.Contains(snapshot.Tools[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
+		t.Fatal("run_js does not instruct the working role to write an English purpose comment")
+	}
+	if !strings.Contains(snapshot.SystemInstruction, "Use steer_agent") || !strings.Contains(snapshot.SystemInstruction, "api.agents.steer") ||
+		!strings.Contains(snapshot.SystemInstruction, "accepted, applied, or unapplied") {
+		t.Fatalf("default instruction omits the selected child steering path: %s", snapshot.SystemInstruction)
 	}
 	if !strings.Contains(snapshot.SystemInstruction, "Available roles for run_agent") || !strings.Contains(snapshot.SystemInstruction, "reviewer:") {
 		t.Fatalf("default role instruction omits the available role catalog: %s", snapshot.SystemInstruction)
@@ -161,6 +177,48 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	}
 }
 
+func TestSpawnOnlyRoleCapturesRoleCatalogAndSelectedJSOperations(t *testing.T) {
+	dir := t.TempDir()
+	if err := InstallDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(dir, "config.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config Config
+	if err = json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	config.Roles["async"] = Role{Revision: "1", Tools: []string{"run_js", "spawn_agent", "agent_status", "collect_agent", "cancel_agent"}}
+	encoded, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(configPath, encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot, err := Capture(configPath, "async")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Agent.Agents) != len(snapshot.Catalog) || len(snapshot.Agent.Agents) == 0 ||
+		!strings.Contains(snapshot.SystemInstruction, "Available roles for spawn_agent") {
+		t.Fatalf("spawn-only role omitted its role catalog: agent=%+v instruction=%s", snapshot.Agent, snapshot.SystemInstruction)
+	}
+	description := snapshot.Tools[0].Description
+	for _, selected := range []string{"api.agents.spawn", "api.agents.status", "api.agents.collect", "api.agents.cancel"} {
+		if !strings.Contains(description, selected) {
+			t.Errorf("run_js description omitted selected operation %s: %s", selected, description)
+		}
+	}
+	if strings.Contains(description, "api.agents.run") || strings.Contains(description, "api.agents.steer") || snapshot.HasTool("run_agent") {
+		t.Fatalf("spawn-only role advertised unselected synchronous run: description=%s tools=%+v", description, snapshot.Agent.Tools)
+	}
+}
+
 func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	dir := t.TempDir()
 	if err := InstallDefaults(dir); err != nil {
@@ -197,6 +255,9 @@ func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	definitions := snapshot.Definitions()
 	if len(definitions) != len(snapshot.Tools) || definitions[0].Name != "run_js" || definitions[1].Name != "read_file" {
 		t.Fatalf("definitions diverged from captured tools: %+v", definitions)
+	}
+	if !strings.Contains(definitions[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
+		t.Fatal("run_js does not instruct the reviewing role to write an English purpose comment")
 	}
 	if strings.Contains(definitions[0].Description, "api.agents.run") || strings.Contains(snapshot.SystemInstruction, "Available roles for run_agent") {
 		t.Fatalf("non-delegating role advertises delegation: definition=%q instruction=%q", definitions[0].Description, snapshot.SystemInstruction)
@@ -241,6 +302,85 @@ func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	}
 	if catalog.Roles[1].Description != snapshot.Catalog[1].Description {
 		t.Fatalf("catalog and captured snapshot disagree: catalog=%+v snapshot=%+v", catalog, snapshot.Catalog)
+	}
+}
+
+func TestCaptureOptionsReplaceToolsWithoutChangingConfigurationBytes(t *testing.T) {
+	dir := t.TempDir()
+	if err := InstallDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(dir, "config.json")
+	original, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	selected := []string{"command"}
+	snapshot, err := CaptureWithOptions(configPath, CaptureOptions{Role: "reviewer", Tools: &selected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Agent.Name != "reviewer" || len(snapshot.Agent.Tools) != 1 || snapshot.Agent.Tools[0] != "command" ||
+		len(snapshot.Tools) != 1 || snapshot.Tools[0].Name != "command" || snapshot.HasTool("run_js") {
+		t.Fatalf("tool override did not replace the role composition: agent=%+v tools=%+v", snapshot.Agent, snapshot.Tools)
+	}
+	if strings.Contains(snapshot.SystemInstruction, "Use run_js") {
+		t.Fatalf("instruction still describes an unselected run_js tool: %s", snapshot.SystemInstruction)
+	}
+	var archived []byte
+	for _, resource := range snapshot.Resources {
+		if resource.Path == "config.json" {
+			archived = resource.Bytes
+			break
+		}
+	}
+	if string(archived) != string(original) {
+		t.Fatal("captured config resource bytes were changed by the runtime tool override")
+	}
+	current, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(current) != string(original) {
+		t.Fatal("runtime tool override rewrote the extension config file")
+	}
+
+	empty := []string{}
+	emptySnapshot, err := CaptureWithOptions(configPath, CaptureOptions{Role: "reviewer", Tools: &empty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if emptySnapshot.Agent.Tools == nil || len(emptySnapshot.Agent.Tools) != 0 || len(emptySnapshot.Tools) != 0 {
+		t.Fatalf("explicit empty tool list was not preserved: agent=%+v tools=%+v", emptySnapshot.Agent, emptySnapshot.Tools)
+	}
+
+	defaultSnapshot, err := CaptureDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var definition Tool
+	for _, tool := range defaultSnapshot.Tools {
+		if tool.Name == "run_agent" {
+			definition = tool
+		}
+	}
+	if len(definition.InputSchema) == 0 {
+		t.Fatal("default extension config omitted run_agent")
+	}
+	var schema struct {
+		Properties map[string]struct {
+			Type       string                     `json:"type"`
+			Properties map[string]json.RawMessage `json:"properties"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(definition.InputSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	model := schema.Properties["model"]
+	if model.Type != "object" || model.Properties["provider"] == nil || model.Properties["modelId"] == nil || model.Properties["effort"] == nil ||
+		schema.Properties["tools"].Type != "array" {
+		t.Fatalf("run_agent schema omitted child selection inputs: %s", definition.InputSchema)
 	}
 }
 

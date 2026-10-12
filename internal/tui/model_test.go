@@ -490,6 +490,24 @@ func receive(t *testing.T, messages <-chan tea.Msg) tea.Msg {
 	}
 }
 
+// Async presentation reads can settle independently of the operation under test.
+func receiveUntil(t *testing.T, m *model, messages <-chan tea.Msg, matches func(tea.Msg) bool) tea.Msg {
+	t.Helper()
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case message := <-messages:
+			if matches(message) {
+				return message
+			}
+			update(m, message)
+		case <-timeout:
+			t.Fatal("timed out waiting for requested UI message")
+			return nil
+		}
+	}
+}
+
 func update(m *model, message tea.Msg) tea.Cmd {
 	_, cmd := m.Update(message)
 	return cmd
@@ -556,7 +574,7 @@ func TestConversationRevisionOrderMergeAndTerminalSnapshot(t *testing.T) {
 	snapshot := api.ConversationSnapshot{ScopeID: call.request.RunID, ViewID: "run-view", Revision: 1, Order: []string{"tool", "task"}, Entities: entities}
 	state := api.RunState{CoreID: "core-1", RunID: call.request.RunID, Seq: 1, Phase: "running", SessionID: "session-1", ActualRole: "reviewer"}
 	deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.snapshot", State: state, Conversation: &snapshot})
-	transcript := m.renderTranscript()
+	transcript := renderer.ReceiptText(m.renderTranscript())
 	if strings.Contains(transcript, "old answer") || !strings.Contains(transcript, "調査中") {
 		t.Fatalf("run entity did not override matching Session entity: %q", transcript)
 	}
@@ -569,8 +587,8 @@ func TestConversationRevisionOrderMergeAndTerminalSnapshot(t *testing.T) {
 		}
 		last = position
 	}
-	if !strings.Contains(transcript, "**調査中**") || strings.Contains(transcript, "\x1b[") {
-		t.Fatalf("conversation did not preserve raw Markdown source: %q", transcript)
+	if !strings.Contains(transcript, "調査中") || strings.Contains(transcript, "**調査中**") || !strings.Contains(m.renderTranscript(), "\x1b[") {
+		t.Fatalf("conversation did not render Markdown with color: %q", transcript)
 	}
 	if !strings.Contains(transcript, "tool / read_file · path=README.md …") || strings.Contains(transcript, "file details") {
 		t.Fatalf("tool conversation was not reduced to its preview: %q", transcript)
@@ -584,17 +602,14 @@ func TestConversationRevisionOrderMergeAndTerminalSnapshot(t *testing.T) {
 		Upserts: []api.ConversationEntity{updated},
 	}
 	deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.update", State: state, Update: &conversationUpdate})
-	transcript = m.renderTranscript()
+	transcript = renderer.ReceiptText(m.renderTranscript())
 	if !strings.Contains(transcript, "調査が完了しました") || strings.Contains(transcript, "調査中") || m.activeRun.revision != 2 {
 		t.Fatalf("same-sequence conversation update was not applied: revision=%d transcript=%q", m.activeRun.revision, transcript)
 	}
 
 	terminal := api.RunState{CoreID: "core-1", RunID: call.request.RunID, Seq: 2, Phase: "terminal", SessionID: "session-1", Result: &api.RunResult{OK: true, AgentResult: &api.AgentResult{FinalText: "調査が完了しました"}}}
 	call.handle.finish(terminal, nil)
-	doneMessage, ok := receive(t, messages).(runDoneMsg)
-	if !ok {
-		t.Fatal("expected Wait result before terminal SSE event")
-	}
+	doneMessage := receiveUntil(t, m, messages, func(message tea.Msg) bool { _, ok := message.(runDoneMsg); return ok }).(runDoneMsg)
 	update(m, doneMessage)
 	if m.activeRun == nil {
 		t.Fatal("Wait completed the run before run.terminal supplied its final conversation snapshot")
@@ -611,7 +626,7 @@ func TestConversationRevisionOrderMergeAndTerminalSnapshot(t *testing.T) {
 	if m.activeRun != nil || m.sessionID != "session-1" {
 		t.Fatalf("terminal snapshot did not settle the run: active=%v session=%q", m.activeRun != nil, m.sessionID)
 	}
-	transcript = m.renderTranscript()
+	transcript = renderer.ReceiptText(m.renderTranscript())
 	if strings.Count(transcript, "調査が完了しました") != 1 || m.View().AltScreen {
 		t.Fatalf("final answer duplicated or TUI used alternate screen: %q", transcript)
 	}
@@ -708,7 +723,7 @@ func TestResizeKeepsStreamingMarkdownBlockMutableAcrossWidths(t *testing.T) {
 	}
 	assertStreamingTail := func(width int) {
 		t.Helper()
-		bodyHeight := max(1, m.height-3-1-1-1)
+		bodyHeight := max(1, m.height-3-1-1)
 		if len(m.lastBodyRows) > bodyHeight {
 			t.Fatalf("unfinished body exceeded the live band at width %d: rows=%d height=%d", width, len(m.lastBodyRows), bodyHeight)
 		}
@@ -792,10 +807,13 @@ func TestMarkdownStreamingKeepsSourceReceiptAndRendersNewBlocks(t *testing.T) {
 		t.Fatalf("new code block was emitted %d times, want once: %q", got, display)
 	}
 	transcript := m.renderTranscript()
-	for _, marker := range []string{"## Heading", "- 項目", "```go", "```"} {
-		if !strings.Contains(transcript, marker) {
-			t.Errorf("updated transcript omitted raw Markdown marker %q: %q", marker, transcript)
+	for _, marker := range []string{"Heading", "項目", "fmt.Println"} {
+		if !strings.Contains(renderer.ReceiptText(transcript), marker) {
+			t.Errorf("rendered transcript omitted %q", marker)
 		}
+	}
+	if m.sessionEntities["markdown"].Text != entity.Text {
+		t.Fatal("rendering replaced the original Markdown")
 	}
 	if next := m.receiptByPart[bodyKey]; next < receipt || next > len(entity.Text) {
 		t.Fatalf("receipt moved outside the entity's source byte range: old=%d new=%d source=%d", receipt, next, len(entity.Text))

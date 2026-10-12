@@ -86,9 +86,9 @@ func (m *model) renderFullTranscript() string {
 			previousEntityEndsWithNewline = true
 			continue
 		}
-		label := prefix + entityLabel(entity) + ":\n"
+		label := prefix + entityLabelStyle(entity, max(1, m.width))
 		styled.WriteString(label)
-		blocks, _ := m.markdownBlocksForSource("entity:"+entity.ID+":body", entity.Text)
+		blocks, _ := m.bodyBlocksForSource("entity:"+entity.ID+":body", entity.Text, entity.Kind)
 		currentEntityHasBody := false
 		for _, block := range blocks {
 			styled.WriteString(block.render)
@@ -96,7 +96,7 @@ func (m *model) renderFullTranscript() string {
 		}
 		if entity.Kind != "execution" {
 			if meta := entityMeta(entity); meta != "" {
-				formatted, _ := m.renderedMarkdownSource(meta)
+				formatted, _ := m.renderedMetadataSource(meta, entity.Error != "" || entity.Status == "incomplete")
 				styled.WriteString("\n" + formatted.styled)
 				currentEntityHasBody = true
 			}
@@ -113,9 +113,9 @@ func (m *model) renderFullTranscript() string {
 			previousEntityEndsWithNewline {
 			prefix = ""
 		}
-		label := prefix + entry.role + ":\n"
+		label := prefix + entryLabelStyle(entry.role)
 		styled.WriteString(label)
-		blocks, _ := m.markdownBlocksForSource(fmt.Sprintf("entry:%d:body", index), entry.text)
+		blocks, _ := m.bodyBlocksForSource(fmt.Sprintf("entry:%d:body", index), entry.text, entryBodyKind(entry.role))
 		for _, block := range blocks {
 			styled.WriteString(block.render)
 		}
@@ -158,12 +158,15 @@ func entityLabel(entity api.ConversationEntity) string {
 }
 
 func toolDisplayLine(entity api.ConversationEntity) string {
-	line := entityLabel(entity)
+	line := styledText(entityLabel(entity), yellowDimSGR)
 	if preview := strings.Join(strings.Fields(entity.Preview), " "); preview != "" {
-		line += " · " + preview
+		line += styledText(" · "+preview, defaultDimSGR)
 	}
-	line += " " + toolStateMarker(entity) + "\n"
-	return line
+	marker := toolStateMarker(entity)
+	if marker == "✗" {
+		marker = styledText(marker, redSGR)
+	}
+	return line + " " + marker + "\n"
 }
 
 func toolStateMarker(entity api.ConversationEntity) string {
@@ -180,32 +183,12 @@ func toolStateMarker(entity api.ConversationEntity) string {
 	return "…"
 }
 
-func (m *model) renderMarkdown(text string) string {
-	return text
-}
-
 func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, string, int, int, []string) {
 	columns := max(1, m.width)
 	rows := max(1, m.height)
 	doc := m.ensureTranscript()
+	openingReady := m.openingHeaderReady()
 	footerRows := renderer.WrapText(strings.Join(footer, "\n"), columns)
-	help := "Enter send · Alt+Enter newline · F1 cancel · F4 Sessions · /help"
-	if run := m.activeRun; run != nil {
-		if run.inputAcceptance.FollowUp {
-			help += " · F2 follow-up"
-		}
-		if run.inputAcceptance.Steering {
-			help += " · F3 steer"
-		}
-	}
-	if m.authUI != nil && m.authUI.open {
-		help = m.authHelp()
-	} else if m.connectionPicker != nil {
-		help = "↑/↓ select · Enter applies to next run · Esc closes"
-	} else if m.pickerOpen {
-		help = "↑/↓ select · Enter resumes · Esc closes"
-	}
-	helpRows := renderer.WrapText(help, columns)
 	inputRows := renderer.WrapText(m.textarea.View(), columns)
 	if m.authUI != nil && m.authUI.open {
 		inputRows = nil
@@ -215,7 +198,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	var bodyRows []string
 	committedThrough := doc.startRow
 	bodyStart := doc.startRow
-	bodyHeight := max(1, rows-len(footerRows)-len(helpRows)-len(inputRows)-1)
+	bodyHeight := max(1, rows-len(footerRows)-len(inputRows)-1)
 	if m.pickerOpen {
 		m.viewport.SetHeight(bodyHeight)
 		m.refreshViewport(false)
@@ -225,7 +208,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 		if doc.sealPlainLimit >= 0 {
 			safeRow = rowBoundaryForOffset(doc.rowStarts, doc.plain, doc.sealPlainLimit)
 		}
-		if m.headerPrinted || !m.deferTranscriptUntilHeader {
+		if m.headerPrinted || !m.deferTranscriptUntilHeader || openingReady {
 			committedThrough = doc.startRow
 			for _, part := range doc.parts {
 				if part.mutable || part.rowEnd > safeRow {
@@ -243,10 +226,10 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 			committed = append(committed, doc.rows[doc.startRow:committedThrough]...)
 		}
 		bodyEnd := len(doc.rows)
-		if m.deferTranscriptUntilHeader && !m.headerPrinted {
-			// Keep the whole unsealed conversation in the live band until the
-			// opening header has been written ahead of it in scrollback.
-			bodyStart = doc.startRow
+		if m.deferTranscriptUntilHeader && !m.headerPrinted && !openingReady {
+			// Input remains usable while orientation is pending. The opening
+			// header and saved body appear together once metadata is ready.
+			bodyStart, bodyEnd = 0, 0
 		} else {
 			for _, part := range doc.parts {
 				if part.mutable {
@@ -267,11 +250,10 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 			bodyRows = append(bodyRows, doc.rows[bodyStart:bodyEnd]...)
 		}
 	}
-	liveRows := make([]string, 0, len(bodyRows)+1+len(footerRows)+len(helpRows)+len(inputRows))
+	liveRows := make([]string, 0, len(bodyRows)+1+len(footerRows)+len(inputRows))
 	liveRows = append(liveRows, bodyRows...)
 	liveRows = append(liveRows, divider)
 	liveRows = append(liveRows, inputRows...)
-	liveRows = append(liveRows, helpRows...)
 	liveRows = append(liveRows, footerRows...)
 	frame := renderer.Frame{
 		CommittedRows: committed,

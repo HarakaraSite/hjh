@@ -261,3 +261,7 @@ APIキー・access/refresh token・Authorization・callbackURLはresponse/SSE/lo
 
 旧Core固定workspace、全体一slot、queue、multi-Core管理を今回引き継がない。
 巨大なcoordinatorを写さず、scope解決・run管理・公開DTO・HTTP配信・client・TUIの責務を分ける。
+
+RunStateの`startedAt`はCoreがrunを作成した時刻（UTCのRFC3339Nano）。
+StartRunとCore起動follow-upの両方で設定し、GETとSSEの各状態で同じ値を保持する。
+TUIの経過時間はこの値を使い、再接続でリセットしない。保存履歴schemaは変更しない。

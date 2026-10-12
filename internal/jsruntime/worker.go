@@ -19,6 +19,7 @@ type Options struct {
 	ObserverParent string
 	Host           *host.Host
 	Agents         contracts.AgentRunner
+	AgentControl   contracts.AgentController
 }
 
 type Worker struct {

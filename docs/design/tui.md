@@ -41,9 +41,10 @@ Session会話はSession view snapshotで読み、現在runのsnapshot／upsert�
 今回の詳細操作は会話末尾への明示出力であり、生成中に取得した詳細はその本文の終了後に表示される。
 旧Henjiのように実行中でも別browse表示で読む操作は、後続の詳細browserで扱う。
 
-2026-10-11の利用者指示により、色とGlamourによる装飾は後回しにする。
-本文はMarkdownの見出し・箇条書き・強調・リンク・コードfence・表の記号と空行を維持し、
-端末cell幅で折り返す。空assistantは出力しない。今回の成立範囲では狭幅tableの再整形は行わない。
+2026-10-12の利用者指示により、assistant本文へGlamourのMarkdown整形を適用する。
+生成中・最終回答・履歴復元を同じ描画経路へ通す。本文の原文とsource receiptを保持する。
+周囲のUIは旧Henjiを基準とし、thinking・tool・metadataの指定配色は
+[Markdown整形・配色契約](tui-rendering.md)に従う。
 
 writerは不変になったMarkdown blockのsource境界をreceiptとして受け取り、表示済み本文を再追記しない。
 Markdownが生成したURL・表・装飾文字から元本文の文字位置を推定しない。
@@ -54,7 +55,7 @@ tool行は旧Henji同様、最初に出力した状態をscrollbackへ一度だ�
 結果全文を追記しないため、tool結果待ちは後続の子・親の本文を確定出力する妨げにならない。
 live previewは最初の未確定本文blockの末尾を追う。
 幅変更・終了時は安全に確定できる未出力本文を取りこぼさずにsealし、未確定部分とeditor/footerを描く。
-workspace／Session headerは通常scrollbackへ流す。更新するmodel／connection／role／実行状態はfooterに置き、
+workspace／Session headerは通常scrollbackへ流す。更新するmodel／connection／実行状態は[3行footer](tui-footer.md)に置き、
 遅れて変わるexecution outcomeを過去の本文位置へ挿入しない。footer／draftは会話として確定しない。
 変更のないbody・metadata・command entryの加工結果を再利用し、全会話のsource連結を毎更新で保持しない。
 HTTPの受信・終了保存は描画ACKを待たない。
@@ -162,8 +163,8 @@ Execution listings and inspection display saved role names.
 
 Provider, model, effort, and credential reference are captured when submitting
 an execution. Selection commands during a run affect the next run. The footer
-shows the running root's actual provider/model/effort separately from the next
-selection. Child progress cannot replace it. Session resume uses the saved
+shows the running root's actual provider/model/effort. A different next
+selection appears beside it; identical values are not repeated. Child progress cannot replace it. Session resume uses the saved
 selection unless explicitly overridden; provider changes use the new route's
 defaults. JSON and OAuth ownership are described in [providers](providers.md).
 Core owns pending OAuth callbacks and their captured workspace/provider/profile.

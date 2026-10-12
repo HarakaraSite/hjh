@@ -81,6 +81,8 @@ type executionInput struct {
 	injectedProvider                     bool
 	executionDataOwner                   *executiondata.Owner
 	steering                             contracts.SteeringSource
+	childInstructions                    *childInstructionOwner
+	childObserve                         contracts.Observer
 }
 
 type guardedExecutor struct {
@@ -109,7 +111,14 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	if owner == nil {
 		owner = executiondata.NewOwner()
 	}
-	j := newJournal(persist, store, execution.ID, input.rootExecutionID, execution.Task, owner, progress.observe)
+	j := newJournal(persist, store, execution.ID, input.rootExecutionID, execution.Task, owner, func(o contracts.Observation) error {
+		if input.childObserve != nil {
+			if e := input.childObserve(o); e != nil {
+				return e
+			}
+		}
+		return progress.observe(o)
+	})
 	j.parentExecutionID, j.control = execution.ParentExecutionID, control
 	j.spawnCallID = execution.SpawnCallID
 	result = agent.Result{Task: execution.Task, Outcome: "contract_failure", StopReason: "contract_failure"}
@@ -122,12 +131,20 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	}
 	j.rootExecutionOrdinal, err = store.ExecutionDisplayOrdinal(persist, input.rootExecutionID)
 	if err != nil {
+		if input.childInstructions != nil {
+			input.childInstructions.attachJournal(nil, err)
+			_ = input.childInstructions.Close(steeringCloseReason(ctx, result, err))
+		}
 		return result, control.storage(err)
+	}
+	if input.childInstructions != nil {
+		input.childInstructions.attachJournal(j, nil)
 	}
 	if input.spawnRecordID != "" {
 		j.link(execution.ID, history.Relation{Relation: "parent_call", TargetRecordID: input.spawnRecordID, Mandatory: true})
 	}
 	var worker *jsruntime.Worker
+	var runner *delegation
 	stopWatcher, watched := make(chan struct{}), make(chan struct{})
 	go func() {
 		defer close(watched)
@@ -138,8 +155,14 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		}
 	}()
 	defer func() {
+		if input.childInstructions != nil {
+			err = errors.Join(err, input.childInstructions.Close(steeringCloseReason(ctx, result, err)))
+		}
 		if worker != nil {
 			err = errors.Join(err, worker.Close())
+		}
+		if runner != nil {
+			runner.children.Close()
 		}
 		close(stopWatcher)
 		<-watched
@@ -228,9 +251,10 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		recallSource = &attribution
 		messages = append(messages, message)
 	}
-	runner := &delegation{store: store, provider: provider, input: input, journal: j, control: control, progress: progress}
+	runner = &delegation{store: store, provider: provider, input: input, journal: j, control: control, progress: progress}
+	runner.children = newChildRuns(ctx, runner)
 	worker, err = jsruntime.New(ctx, jsruntime.Options{Snapshot: input.snapshot, Workspace: input.workspace, Observer: j.observe,
-		ObserverParent: execution.ID, Agents: runner})
+		ObserverParent: execution.ID, Agents: runner, AgentControl: runner.children})
 	if err != nil {
 		return result, err
 	}
@@ -250,6 +274,8 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	var additionalInput agent.AdditionalInput
 	if additional != nil {
 		additionalInput = additional
+	} else if input.childInstructions != nil {
+		additionalInput = input.childInstructions
 	}
 	result, err = agent.Run(ctx, agent.Input{Task: execution.Task, Model: input.model, Instruction: input.snapshot.SystemInstruction,
 		History: messages, Tools: worker.Definitions(), MaxSteps: input.maxSteps, AdditionalInput: additionalInput,

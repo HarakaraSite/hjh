@@ -289,6 +289,77 @@ func (j *journal) appendSteeringMessage(message contracts.Message, body []byte, 
 	return err
 }
 
+func (j *journal) appendChildInstructionMessage(message contracts.Message, body []byte, receipt *contracts.ChildInstructionReceipt) (int64, error) {
+	if receipt == nil {
+		return 0, fmt.Errorf("app journal: missing child instruction receipt")
+	}
+	steering := true
+	message.Steering = &steering
+	message.ExecutionFact = &contracts.ExecutionFact{Kind: "user_message", Role: "user", Text: message.VisibleText(),
+		ParentExecutionID: receipt.ParentExecutionID, ParentCallID: receipt.CallID,
+		Conversation: contracts.ConversationMetadata{EntityKind: "steering", LocalKey: "input/" + receipt.InstructionID}}
+	return j.appendChildInstructionMessageContent(message, body, receipt)
+}
+
+func (j *journal) recordChildInstructionDecision(receipt contracts.ChildInstructionReceipt, decision string, body []byte) (contracts.ChildInstructionReceipt, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	var updated contracts.ChildInstructionReceipt
+	draft := contracts.ExecutionFact{RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, ParentExecutionID: j.parentExecutionID}
+	err := j.owner.Commit(j.ctx, draft, func(sequence uint64) (contracts.ExecutionCommit, error) {
+		var record history.Record
+		var err error
+		updated, record, err = j.store.AppendChildInstructionDecision(j.ctx, history.ChildInstructionDecisionInput{
+			Receipt: receipt, Decision: decision, Content: body,
+		})
+		if err != nil {
+			return contracts.ExecutionCommit{}, err
+		}
+		fact := contracts.ExecutionFact{RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID,
+			ParentExecutionID: j.parentExecutionID, RootExecutionOrdinal: j.rootExecutionOrdinal,
+			Kind: "control_decision", Phase: decision, Name: "agent_instruction",
+			CallID: updated.InstructionID, ParentCallID: updated.CallID,
+			Locator: contracts.ExecutionLocator{ExecutionID: j.executionID, RecordID: record.ID, Ordinal: record.Ordinal}}
+		return contracts.ExecutionCommit{Facts: []contracts.ExecutionFact{fact}, SequenceCount: 1, RootExecutionID: j.rootExecutionID}, nil
+	})
+	if err != nil {
+		return contracts.ChildInstructionReceipt{}, j.control.storage(err)
+	}
+	return updated, nil
+}
+
+func (j *journal) appendChildInstructionMessageContent(message contracts.Message, encoded []byte, receipt *contracts.ChildInstructionReceipt) (int64, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	body := append(json.RawMessage(nil), encoded...)
+	var ordinal int64
+	draft := contracts.ExecutionFact{RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, ParentExecutionID: j.parentExecutionID}
+	err := j.owner.Commit(j.ctx, draft, func(sequence uint64) (contracts.ExecutionCommit, error) {
+		facts := []contracts.ExecutionFact{*message.ExecutionFact}
+		for index := range facts {
+			facts[index].RootExecutionID = j.rootExecutionID
+			facts[index].ExecutionID = j.executionID
+			facts[index].ParentExecutionID = j.parentExecutionID
+			facts[index].RootExecutionOrdinal = j.rootExecutionOrdinal
+		}
+		var saved []contracts.ExecutionFact
+		var err error
+		ordinal, saved, err = j.store.AppendConversationMessage(j.ctx, history.ConversationMessageInput{
+			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
+			Message: body, ContentDigest: receipt.ContentDigest, Facts: facts, ChildInstructionReceipt: receipt,
+		})
+		if err != nil {
+			return contracts.ExecutionCommit{}, err
+		}
+		return contracts.ExecutionCommit{Facts: saved, SequenceCount: 1, RootExecutionID: j.rootExecutionID}, nil
+	})
+	if err != nil {
+		return 0, j.control.storage(err)
+	}
+	j.rememberFirstSequences([]contracts.ExecutionFact{*message.ExecutionFact})
+	return ordinal, nil
+}
+
 func (j *journal) appendMessageContent(message contracts.Message, encoded []byte, contentDigest string, steeringReceipt *contracts.InputReceipt) (int64, error) {
 	j.mu.Lock()
 	var saved []contracts.ExecutionFact

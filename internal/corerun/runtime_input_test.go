@@ -366,7 +366,12 @@ func TestAnchorCancelStopsHandedOffRunButLeavesIndependentRun(t *testing.T) {
 		t.Fatalf("root terminal did not retain successful handoff: %+v", rootTerminal)
 	}
 	childID := rootTerminal.NextRunID
-	awaitRun(t, manager, childID, func(s api.RunState) bool { return s.Phase == "running" })
+	childState := awaitRun(t, manager, childID, func(s api.RunState) bool { return s.Phase == "running" })
+	startedAt, err := time.Parse(time.RFC3339Nano, childState.StartedAt)
+	rootStartedAt, rootTimeErr := time.Parse(time.RFC3339Nano, rootTerminal.StartedAt)
+	if err != nil || rootTimeErr != nil || !startedAt.After(rootStartedAt) {
+		t.Fatalf("follow-up did not get its own Core start time: root=%q next=%q", rootTerminal.StartedAt, childState.StartedAt)
+	}
 
 	independent := api.StartRunRequest{CoreID: root.CoreID, RunID: uuid.NewString(), Task: "independent task"}
 	if _, created, err := manager.Start(independent); err != nil || !created {

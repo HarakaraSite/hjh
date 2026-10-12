@@ -36,6 +36,7 @@ type RunState struct {
 	RunID           string                    `json:"runId"`
 	Seq             uint64                    `json:"seq"`
 	Phase           string                    `json:"phase"`
+	StartedAt       string                    `json:"startedAt,omitempty"`
 	SessionID       string                    `json:"sessionId,omitempty"`
 	ExecutionID     string                    `json:"executionId,omitempty"`
 	ActualSelection *contracts.ModelSelection `json:"actualSelection,omitempty"`

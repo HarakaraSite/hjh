@@ -7,6 +7,7 @@ import (
 	"io"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/term"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
 	"hjh/internal/tui/renderer"
@@ -115,6 +116,15 @@ func Run(ctx context.Context, backend Backend, options Options, input io.Reader,
 	defer cancel()
 
 	m := newModel(uiCtx, cancel, backend, options)
+	// Bubble Tea sends its first size asynchronously. Read the actual output
+	// terminal now so an early restored view cannot spill an 80-column frame
+	// into a narrower terminal's scrollback before that message arrives.
+	if file, ok := output.(interface{ Fd() uintptr }); ok {
+		if width, height, err := term.GetSize(file.Fd()); err == nil {
+			m.width, m.height = width, height
+			m.layout()
+		}
+	}
 	m.sessions = sessions
 	for _, session := range sessions {
 		if session.ID == m.sessionID {

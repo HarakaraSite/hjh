@@ -11,6 +11,10 @@ import (
 	"hjh/internal/sessionid"
 )
 
+func (m *model) openingHeaderReady() bool {
+	return !m.headerPrinted && !m.sessionLoading && !m.resumePending && !m.headerOrientationPending
+}
+
 // headerRows records the opening state once. Current Session facts belong in
 // the live footer, so admission, rename and resize never append another header.
 func (m *model) headerRows() []string {
@@ -70,17 +74,4 @@ func (m *model) setSessionMetadata(session api.Session) {
 	m.sessionTitle = sessionTitle(session)
 	m.sessionCreatedAt = session.CreatedAt
 	m.workspace = session.WorkspaceRoot
-}
-
-func (m *model) sessionFooter() string {
-	id := m.shortSessionID(m.sessionID)
-	if id == "" {
-		return "session: new · created on first run"
-	}
-	title := m.sessionTitle
-	if title == "" {
-		title = "(untitled)"
-	}
-	prefix := "session: " + id + " · "
-	return ansi.Truncate(prefix+ansi.Truncate(title, max(1, m.width-ansi.StringWidth(prefix)), "…"), max(1, m.width), "…")
 }

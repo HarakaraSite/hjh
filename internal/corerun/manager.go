@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"hjh/internal/api"
@@ -181,7 +182,7 @@ func (m *Manager) StartContext(ctx context.Context, request api.StartRunRequest)
 		recall = &reference
 	}
 	r := &managedRun{fingerprint: fingerprint, sessionReservation: reserved, cancel: cancel, owner: owner, chain: chain,
-		state:       api.RunState{CoreID: m.core.CoreID, RunID: request.RunID, Phase: "preparing", SessionID: request.SessionID},
+		state:       api.RunState{CoreID: m.core.CoreID, RunID: request.RunID, Phase: "preparing", StartedAt: time.Now().UTC().Format(time.RFC3339Nano), SessionID: request.SessionID},
 		subscribers: map[*runStateSubscriber]chan struct{}{}}
 	m.runs[request.RunID] = r
 	m.sessions[reserved] = request.RunID

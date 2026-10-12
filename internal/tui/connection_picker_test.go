@@ -351,8 +351,12 @@ func TestPickerSelectionWhileRunActiveDoesNotChangeCapturedRequest(t *testing.T)
 	if m.providerID != "next-provider" || m.modelID != "next-model" || m.effort != "ultra" {
 		t.Fatalf("next-run choices were not retained: provider=%q model=%q effort=%q", m.providerID, m.modelID, m.effort)
 	}
-	connection := m.connectionStatusLabel()
-	if !strings.Contains(connection, "running: original-provider") || !strings.Contains(connection, "next: next-provider") {
+	m.activeRun.actualSelection = contracts.ModelSelection{Provider: "original-provider", ModelID: "original-model", Effort: "low"}
+	m.activeRun.hasActualSelection = true
+	m.footerSelectionSet = true
+	m.footerSelection.Selection = contracts.ModelSelection{Provider: "next-provider", ModelID: "next-model", Effort: "ultra"}
+	connection := m.footerModel(160)
+	if !strings.Contains(connection, "original-provider / original-model / low") || !strings.Contains(connection, "next: next-provider / next-model / ultra") {
 		t.Fatalf("footer does not distinguish the captured run from next selection: %q", connection)
 	}
 	call.handle.finish(api.RunState{RunID: call.request.RunID}, nil)

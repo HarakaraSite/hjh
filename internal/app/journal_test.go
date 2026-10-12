@@ -22,7 +22,7 @@ func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 	}
 	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
 		if len(request.Messages) == 1 {
-			return scriptedJS(`return await tools.read_file({path:"output.txt"});`), nil
+			return scriptedJS("// Read output.txt and return its contents\n" + `return await tools.read_file({path:"output.txt"});`), nil
 		}
 		return contracts.ModelResult{Text: "finished"}, nil
 	})
@@ -50,14 +50,21 @@ func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 
 	mu.Lock()
 	var liveTool *contracts.ExecutionFact
+	var liveScriptPreview string
 	for index := range live {
 		fact := &live[index]
+		if fact.Kind == "tool_call" && fact.Name == "run_js" {
+			liveScriptPreview = fact.Preview
+		}
 		if fact.Kind == "tool_result" && fact.Name == "read_file" && fact.Phase == "completed" {
 			copy := *fact
 			liveTool = &copy
 		}
 	}
 	mu.Unlock()
+	if liveScriptPreview != "Read output.txt and return its contents" {
+		t.Fatalf("live run_js omitted the English purpose: %q", liveScriptPreview)
+	}
 	if liveTool == nil {
 		t.Fatal("live owner did not publish completed read_file result")
 	}
@@ -67,7 +74,11 @@ func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	var replayTool *contracts.ExecutionFact
+	var replayScriptPreview string
 	if err := store.WalkConversationCut(context.Background(), cut, func(fact contracts.ExecutionFact) error {
+		if fact.Kind == "tool_call" && fact.Name == "run_js" {
+			replayScriptPreview = fact.Preview
+		}
 		if fact.Kind == "tool_result" && fact.Name == "read_file" && fact.Phase == "completed" {
 			copy := fact
 			replayTool = &copy
@@ -78,6 +89,9 @@ func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 	}
 	if replayTool == nil {
 		t.Fatal("conversation replay omitted completed read_file result")
+	}
+	if replayScriptPreview != liveScriptPreview {
+		t.Fatalf("saved run_js purpose changed on reopening: live=%q replay=%q", liveScriptPreview, replayScriptPreview)
 	}
 	want := contracts.ExecutionFact{
 		RootExecutionID: liveTool.RootExecutionID, ExecutionID: liveTool.ExecutionID,

@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
 	"github.com/google/uuid"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
@@ -32,6 +34,7 @@ type uiJob struct {
 }
 
 type activeRun struct {
+	startedAt             time.Time
 	jobID                 uint64
 	coreID                string
 	id                    string
@@ -46,7 +49,6 @@ type activeRun struct {
 	handle                RunHandle
 	actualRole            string
 	nextRunID             string
-	actualModel           string
 	actualSelection       contracts.ModelSelection
 	hasActualSelection    bool
 	actualContext         *contracts.Orientation
@@ -128,6 +130,8 @@ type model struct {
 	transcript                 *transcriptDocument
 	transcriptDirty            bool
 	receiptByPart              map[string]int
+	markdownRenderer           *glamour.TermRenderer
+	markdownRendererWidth      int
 	markdownSourceCache        map[string]markdownSourceCacheEntry
 	markdownBlockCache         map[markdownBlockKey]markdownBlockCache
 	transcriptLineCache        map[transcriptLineKey]transcriptLineCache
@@ -160,9 +164,15 @@ type model struct {
 	modelSet                 bool
 	roleID                   string
 	roleSet                  bool
-	lastRunModel             string
 	lastRunRole              string
 	lastSelection            contracts.ModelSelection
+	footerInitialized        bool
+	footerSelectionJobID     uint64
+	footerSelection          api.SelectionPreview
+	footerSelectionSet       bool
+	footerSelectionError     error
+	footerClockJobID         uint64
+	footerClockFrame         uint64
 	workspace                string
 	authUI                   *authUIState
 	authGeneration           uint64
@@ -368,6 +378,7 @@ func newModel(ctx context.Context, cancel context.CancelFunc, backend Backend, o
 	ta.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "shift+enter", "ctrl+enter", "ctrl+j"), key.WithHelp("alt+enter", "改行"))
 	ta.SetHeight(1)
 	ta.SetVirtualCursor(false)
+	ta.SetStyles(editorStyles())
 	ta.Focus()
 
 	vp := viewport.New()
@@ -408,22 +419,46 @@ func newModel(ctx context.Context, cancel context.CancelFunc, backend Backend, o
 }
 
 func (m *model) Init() tea.Cmd {
+	m.footerInitialized = true
 	if m.sessionID != "" && m.sessionGeneration == 0 {
 		m.sessionGeneration++
 		m.loadSession(m.sessionID, m.sessionGeneration)
 	} else if m.sessionID == "" {
+		m.requestFooterSelection()
 		m.requestHeaderOrientation()
 	}
 	return nil
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := m.updateMessage(msg)
+	if m.activeRun != nil && m.footerClockJobID != m.activeRun.jobID {
+		m.footerClockJobID = m.activeRun.jobID
+		m.footerClockFrame = 0
+		cmd = tea.Batch(cmd, m.footerTick())
+	}
+	return next, cmd
+}
+
+func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.sealCurrentFrame()
 		m.width, m.height = msg.Width, msg.Height
 		m.invalidateTranscript()
 		m.layout()
+		return m, nil
+	case footerSelectionLoadedMsg:
+		m.acceptFooterSelection(msg)
+		return m, nil
+	case footerTickMsg:
+		if m.activeRun != nil && msg.jobID == m.activeRun.jobID {
+			m.footerClockFrame++
+			return m, m.footerTick()
+		}
+		if msg.jobID == m.footerClockJobID {
+			m.footerClockJobID = 0
+		}
 		return m, nil
 	case tea.MouseWheelMsg:
 		var cmd tea.Cmd
@@ -484,7 +519,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.sessionID = msg.session.ID
 				m.setSessionMetadata(msg.session)
-				m.lastRunModel = ""
 				m.lastRunRole = msg.session.Agent
 				_ = json.Unmarshal(msg.session.ActiveModel, &m.lastSelection)
 				m.applySessionSnapshot(msg.view)
@@ -846,12 +880,12 @@ func (m *model) startRun(task string) {
 	}
 	providerID, effort, authProfile := m.providerID, m.effort, m.authProfile
 	run := &activeRun{
-		jobID: job.id, coreID: m.core.CoreID, id: uuid.NewString(), session: m.sessionID, model: modelID,
+		startedAt: time.Now(),
+		jobID:     job.id, coreID: m.core.CoreID, id: uuid.NewString(), session: m.sessionID, model: modelID,
 		provider: providerID, effort: effort, authProfile: authProfile,
 		workspace: m.workspace, entities: make(map[string]api.ConversationEntity),
 	}
 	m.activeRun = run
-	m.lastRunModel = ""
 	m.clearDraft()
 	m.status = "starting run · F1 cancels and waits for Core"
 	request := api.StartRunRequest{
@@ -879,6 +913,9 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 		return nil
 	}
 	if state.Seq >= run.lastSeq {
+		if startedAt, err := time.Parse(time.RFC3339Nano, state.StartedAt); err == nil {
+			run.startedAt = startedAt
+		}
 		run.lastSeq = state.Seq
 		if state.Phase != "" {
 			run.phase = state.Phase
@@ -891,7 +928,6 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 		}
 		if state.ActualSelection != nil {
 			m.lastSelection = *state.ActualSelection
-			run.actualModel = modelSelectionLabel(*state.ActualSelection)
 			run.actualSelection = *state.ActualSelection
 			run.hasActualSelection = true
 		}
@@ -924,9 +960,6 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 	m.noteRuntimeInputRevision(run.coreID, run.session, run.inputRevision)
 	if run.actualRole != "" {
 		m.lastRunRole = run.actualRole
-	}
-	if run.actualModel != "" {
-		m.lastRunModel = run.actualModel
 	}
 	conversationApplied := false
 	switch event.Kind {
@@ -1173,7 +1206,7 @@ func (m *model) layout() {
 	}
 	m.textarea.SetWidth(m.width)
 	m.viewport.SetWidth(m.width)
-	viewportHeight := max(1, m.height-8-m.textarea.Height())
+	viewportHeight := max(1, m.height-4-m.textarea.Height())
 	m.viewport.SetHeight(viewportHeight)
 	m.refreshViewport(true)
 }
@@ -1255,42 +1288,8 @@ func (m *model) selectSession() {
 }
 
 func (m *model) View() tea.View {
-	modelLabel := "from config or Session"
-	if m.modelSet {
-		modelLabel = m.modelID
-	} else if m.lastRunModel != "" {
-		modelLabel = "last run used " + m.lastRunModel
-	}
-	if m.activeRun != nil {
-		runningModel := m.activeRun.actualModel
-		if runningModel == "" {
-			runningModel = m.activeRun.model
-			if runningModel == "" {
-				runningModel = "resolving model"
-			}
-		}
-		modelLabel = runningModel + " (running)"
-		nextModel := "from config or Session"
-		if m.modelSet {
-			nextModel = m.modelID
-		}
-		modelLabel += " · next: " + nextModel
-	}
-	footerStatus := m.status
-	if m.runtimeLatestStatus != "" && !strings.Contains(footerStatus, m.runtimeLatestStatus) {
-		footerStatus += " · input: " + m.runtimeLatestStatus
-	}
-	if outcome := m.rootExecutionFooter(); outcome != "" && !strings.Contains(footerStatus, outcome) {
-		footerStatus += " · " + outcome
-	}
-	footer := []string{
-		m.sessionFooter(),
-		"model: " + modelLabel,
-		"connection: " + m.connectionStatusLabel(),
-		"role: " + m.currentRoleLabel() + " → " + m.nextRoleLabel(),
-		"status: " + footerStatus,
-	}
-	printHeader := !m.headerPrinted && !m.sessionLoading && !m.resumePending && !m.headerOrientationPending
+	footer := m.footerRows()
+	printHeader := m.openingHeaderReady()
 	frame, cursor, content, committedThrough, bodyStart, bodyRows := m.screenFrame(footer)
 	frame.SealedRows = append(frame.SealedRows, m.pendingSealRows...)
 	if printHeader {
@@ -1327,26 +1326,6 @@ func (m *model) View() tea.View {
 	return view
 }
 
-func (m *model) rootExecutionFooter() string {
-	entities := m.mergedEntities()
-	for index := len(entities) - 1; index >= 0; index-- {
-		entity := entities[index]
-		if entity.Kind != "execution" || entity.ParentExecutionID != "" {
-			continue
-		}
-		if entity.Error != "" {
-			return "execution error: " + entity.Error
-		}
-		if entity.Outcome != "" {
-			return "outcome: " + entity.Outcome
-		}
-		if entity.Status == "streaming" {
-			return "execution running"
-		}
-	}
-	return ""
-}
-
 func selectedModel(raw json.RawMessage) string {
 	var selection contracts.ModelSelection
 	if json.Unmarshal(raw, &selection) == nil {
@@ -1355,20 +1334,6 @@ func selectedModel(raw json.RawMessage) string {
 	var id string
 	_ = json.Unmarshal(raw, &id)
 	return id
-}
-
-func modelSelectionLabel(selection contracts.ModelSelection) string {
-	parts := make([]string, 0, 3)
-	if selection.ModelID != "" {
-		parts = append(parts, selection.ModelID)
-	}
-	if selection.Provider != "" {
-		parts = append(parts, selection.Provider)
-	}
-	if selection.Effort != "" {
-		parts = append(parts, "effort: "+selection.Effort)
-	}
-	return strings.Join(parts, " · ")
 }
 
 func (m *model) loadSession(id string, generation uint64) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -271,6 +272,206 @@ func TestDelegationUsesSelectedConfigAndFreshChildSource(t *testing.T) {
 			t.Fatalf("%s source bytes were not archived", id)
 		}
 	}
+}
+
+func TestDelegationAppliesChildModelAndToolOverridesToRequestAndSnapshot(t *testing.T) {
+	store, workspace := delegationStore(t)
+	if err := os.WriteFile(filepath.Join(workspace, "input.txt"), []byte("captured child tool"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(workspace, ".hjh", "extensions")
+	if err := extensions.InstallDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(dir, "config.json")
+	original, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]json.RawMessage
+	if err = json.Unmarshal(original, &config); err != nil {
+		t.Fatal(err)
+	}
+	var roles map[string]json.RawMessage
+	if err = json.Unmarshal(config["roles"], &roles); err != nil {
+		t.Fatal(err)
+	}
+	var reviewer map[string]json.RawMessage
+	if err = json.Unmarshal(roles["reviewer"], &reviewer); err != nil {
+		t.Fatal(err)
+	}
+	reviewer["tools"] = json.RawMessage(`["run_js"]`)
+	reviewer["model"] = json.RawMessage(`{"modelId":"role-child-model","effort":"high"}`)
+	roles["reviewer"], err = json.Marshal(reviewer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config["roles"], err = json.Marshal(roles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	configured, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(configPath, configured, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var mu sync.Mutex
+	requested := map[string]contracts.ModelRequest{}
+	provider := delegationProvider(func(ctx context.Context, req contracts.ModelRequest, observe contracts.Observer) (contracts.ModelResult, error) {
+		task := req.Messages[0].VisibleText()
+		if task == "parent" {
+			if len(req.Messages) == 1 {
+				return scriptedJS(`return await Promise.all([
+        api.agents.run({role:"reviewer",task:"role"}),
+        api.agents.run({role:"reviewer",task:"override",model:{provider:"opencode-go-responses",effort:"low"},tools:["run_js","read_file"]}),
+        api.agents.run({role:"reviewer",task:"empty",tools:[]})
+      ]);`), nil
+			}
+			return contracts.ModelResult{Text: "parent complete"}, nil
+		}
+
+		mu.Lock()
+		requested[task] = req
+		mu.Unlock()
+		switch task {
+		case "role":
+			if req.Model.Provider != "openrouter-responses" || req.Model.ModelID != "role-child-model" || req.Model.Effort != "high" {
+				t.Errorf("role child model did not inherit the parent selection before role defaults: %+v", req.Model)
+			}
+			if !sameNames(toolDefinitionNames(req.Tools), []string{"run_js"}) {
+				t.Errorf("role child tools %+v", toolDefinitionNames(req.Tools))
+			}
+			return contracts.ModelResult{Text: "role finished"}, nil
+		case "empty":
+			if req.Model.Provider != "openrouter-responses" || req.Model.ModelID != "role-child-model" || req.Model.Effort != "high" {
+				t.Errorf("empty-tools child model %+v", req.Model)
+			}
+			if len(req.Tools) != 0 {
+				t.Errorf("explicit empty tools list still reached the model: %+v", req.Tools)
+			}
+			return contracts.ModelResult{Text: "empty finished"}, nil
+		case "override":
+			if len(req.Messages) == 1 {
+				if req.Model.Provider != "opencode-go-responses" || req.Model.ModelID != "gpt-6-luna" || req.Model.Effort != "low" {
+					t.Errorf("explicit provider override did not use its default model and requested effort: %+v", req.Model)
+				}
+				if !sameNames(toolDefinitionNames(req.Tools), []string{"run_js", "read_file"}) {
+					t.Errorf("explicit tool override %+v", toolDefinitionNames(req.Tools))
+				}
+				return scriptedJS(`// read the selected child tool
+        return await tools.read_file({path:"input.txt"});`), nil
+			}
+			if !strings.Contains(string(req.Messages[len(req.Messages)-1].Content), "captured child tool") {
+				t.Errorf("selected read_file tool was not available to the child's JavaScript: %+v", req.Messages)
+			}
+			return contracts.ModelResult{Text: "override finished"}, nil
+		default:
+			return contracts.ModelResult{}, fmt.Errorf("unexpected task %q", task)
+		}
+	})
+	result, err := Run(context.Background(), store, provider, RunOptions{Task: "parent", Workspace: workspace,
+		ConfigPath: configPath, ModelID: "parent-selected-model", Effort: "medium"})
+	if err != nil || !result.Result.OK {
+		t.Fatalf("run %+v: %v", result, err)
+	}
+	children, err := store.Children(context.Background(), result.ExecutionID)
+	if err != nil || len(children) != 3 {
+		t.Fatalf("children %+v: %v", children, err)
+	}
+	for _, child := range children {
+		var model contracts.ModelSelection
+		if err := json.Unmarshal(child.Model, &model); err != nil {
+			t.Fatal(err)
+		}
+		mu.Lock()
+		req, ok := requested[child.Task]
+		mu.Unlock()
+		if !ok {
+			t.Fatalf("no provider request was recorded for child %q", child.Task)
+		}
+		if !sameNames(toolDefinitionNames(req.Tools), snapshotToolNames(t, store, child.ConfigurationID)) {
+			t.Errorf("request tools and saved child composition diverged for %q: request=%+v", child.Task, toolDefinitionNames(req.Tools))
+		}
+		if model != req.Model {
+			t.Errorf("saved child model differs from its actual request for %q: saved=%+v request=%+v", child.Task, model, req.Model)
+		}
+	}
+
+	var sourceConfig []byte
+	for _, child := range children {
+		records, err := store.Records(context.Background(), child.ID, 0, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, record := range records {
+			if record.Kind == "resource_revision" && string(record.Content) == string(configured) {
+				found = true
+				break
+			}
+		}
+		sourceConfig = configured
+		if !found {
+			t.Fatalf("child %q did not archive the original captured config bytes", child.Task)
+		}
+	}
+	current, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(current) != string(sourceConfig) || string(current) == string(original) {
+		t.Fatal("child tool overrides rewrote the config file or did not preserve the configured bytes")
+	}
+}
+
+func toolDefinitionNames(definitions []contracts.ToolDefinition) []string {
+	names := make([]string, len(definitions))
+	for i, definition := range definitions {
+		names[i] = definition.Name
+	}
+	return names
+}
+
+func snapshotToolNames(t *testing.T, store *history.Store, configurationID string) []string {
+	t.Helper()
+	configuration, err := store.Configuration(context.Background(), configurationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snapshot struct {
+		Agent struct {
+			Tools []string `json:"tools"`
+		} `json:"agent"`
+		Tools []struct {
+			Name string `json:"name"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(configuration.Snapshot, &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, len(snapshot.Tools))
+	for i, tool := range snapshot.Tools {
+		names[i] = tool.Name
+	}
+	if !sameNames(snapshot.Agent.Tools, names) {
+		t.Fatalf("saved child agent tools and tool definitions diverged: agent=%+v tools=%+v", snapshot.Agent.Tools, names)
+	}
+	return names
+}
+
+func sameNames(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestDelegationFailedChildIsUsableByParent(t *testing.T) {

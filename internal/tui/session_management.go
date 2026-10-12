@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"hjh/internal/api"
@@ -121,6 +122,11 @@ func (m *model) attachRun(state api.RunState) {
 		admitted: state.SessionID != "",
 		entities: make(map[string]api.ConversationEntity), inputRevision: state.InputRevision,
 		inputAcceptance: state.InputAcceptance,
+	}
+	run.startedAt, _ = time.Parse(time.RFC3339Nano, state.StartedAt)
+	if state.ActualSelection != nil {
+		run.actualSelection = *state.ActualSelection
+		run.hasActualSelection = true
 	}
 	if state.ActualContext != nil {
 		actual := state.ActualContext.Clone()

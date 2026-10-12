@@ -1,6 +1,7 @@
 package tui
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"context"
 	"errors"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
 	"hjh/internal/contracts"
@@ -73,12 +75,15 @@ func TestInitialInputCanRunBeforePreviewAndActualWinsHeaderBeforeBody(t *testing
 		"task":      conversationEntity("task", "task", "first request", 1),
 		"assistant": conversationEntity("assistant", "assistant", "actual body", 2),
 	}}
+	task := conversation.Entities["task"]
+	task.Status = "completed"
+	conversation.Entities["task"] = task
 	deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.snapshot", State: state, Conversation: conversation})
 	m.View()
 	if !m.headerPrinted || m.headerOrientation.Mode != "actual" {
 		t.Fatalf("run actual metadata did not settle header: printed=%v orientation=%+v", m.headerPrinted, m.headerOrientation)
 	}
-	rendered := output.String()
+	rendered := ansi.Strip(output.String())
 	actualAt, bodyAt := strings.Index(rendered, "/actual/AGENTS.md"), strings.Index(rendered, "actual body")
 	if actualAt < 0 || bodyAt < 0 || actualAt >= bodyAt {
 		t.Fatalf("header must be written before the live conversation body: transcript=%q output=%q", m.renderTranscript(), rendered)
@@ -350,7 +355,10 @@ func TestSessionSwitchIgnoresDelayedOrientationAndKeepsDraft(t *testing.T) {
 	if newRequest.Workspace != "/new" || newRequest.SessionID != "" || newRequest.Role != "writer" {
 		t.Fatalf("new Session orientation request = %+v", newRequest)
 	}
-	update(m, receive(t, messages))
+	update(m, receiveUntil(t, m, messages, func(message tea.Msg) bool {
+		loaded, ok := message.(orientationLoadedMsg)
+		return ok && loaded.request.Workspace == "/new"
+	}))
 	m.View()
 	if !m.headerPrinted || m.headerOrientation.Workspace != "/new" || !strings.Contains(output.String(), "/new/AGENTS.md") {
 		t.Fatalf("new Session did not settle with its own orientation: %+v\n%s", m.headerOrientation, output.String())
@@ -482,12 +490,11 @@ func TestSessionAdmissionRequeriesPendingPreviewAfterProviderPreparationFailure(
 		t.Fatalf("bound preview did not settle the one-time header after preparation failure: pending=%v printed=%v orientation=%+v output=%q",
 			m.headerOrientationPending, m.headerPrinted, m.headerOrientation, output.String())
 	}
-	if doc := m.ensureTranscript(); doc.startRow != 0 {
-		t.Fatalf("preview response sealed conversation unexpectedly: start=%d", doc.startRow)
+	if doc := m.ensureTranscript(); doc.startRow == 0 {
+		t.Fatal("ready opening header did not commit the saved failure body in the same frame")
 	}
-	m.sealCurrentFrame()
-	if !strings.Contains(strings.Join(m.pendingSealRows, "\n"), "provider preparation failed") {
-		t.Fatalf("settled transcript body was not available to seal after the header: %q", m.pendingSealRows)
+	if !strings.Contains(output.String(), "provider preparation failed") {
+		t.Fatalf("settled failure body was not printed after the header: %q", output.String())
 	}
 }
 
@@ -527,7 +534,7 @@ func TestFailedOrientationPreviewShowsUnconfirmedAndKeepsInput(t *testing.T) {
 	m.Init()
 	m.textarea.SetValue("keep this input")
 	m.View()
-	update(m, receive(t, messages))
+	update(m, receiveUntil(t, m, messages, func(message tea.Msg) bool { _, ok := message.(orientationLoadedMsg); return ok }))
 	m.View()
 	if !m.headerOrientationFailed || m.textarea.Value() != "keep this input" {
 		t.Fatalf("preview failure hid input or was not recorded: failed=%v draft=%q", m.headerOrientationFailed, m.textarea.Value())

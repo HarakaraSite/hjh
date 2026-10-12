@@ -15,13 +15,28 @@ function implementationApiFor(parent) {
       throw error instanceof Error ? error : new Error(String(error));
     }
   };
+  const agentControlCall = async (operation, input) => {
+    try {
+      const encoded = await __agentControl(operation, parent, JSON.stringify(input ?? {}));
+      return JSON.parse(encoded);
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+  };
   return {
     http: input => hostCall('http', input),
     webFetch: input => hostCall('webFetch', input),
     command: input => hostCall('command', input),
     readFile: input => hostCall('readFile', input),
     writeFile: input => hostCall('writeFile', input),
-    agents: { run: agentCall },
+    agents: {
+      run: agentCall,
+      spawn: input => agentControlCall('spawn', input),
+      status: input => agentControlCall('status', input),
+      steer: input => agentControlCall('steer', input),
+      collect: input => agentControlCall('collect', input),
+      cancel: input => agentControlCall('cancel', input),
+    },
     tools: toolsFor(parent),
   };
 }
@@ -29,9 +44,14 @@ function implementationApiFor(parent) {
 function generatedApiFor(parent) {
   const tools = toolsFor(parent);
   const api = { tools };
-  if (globalThis.__selectedToolNames.includes('run_agent')) {
-    api.agents = { run: tools.run_agent };
-  }
+  const agents = {};
+  if (globalThis.__selectedToolNames.includes('run_agent')) agents.run = tools.run_agent;
+  if (globalThis.__selectedToolNames.includes('spawn_agent')) agents.spawn = tools.spawn_agent;
+  if (globalThis.__selectedToolNames.includes('agent_status')) agents.status = tools.agent_status;
+  if (globalThis.__selectedToolNames.includes('steer_agent')) agents.steer = tools.steer_agent;
+  if (globalThis.__selectedToolNames.includes('collect_agent')) agents.collect = tools.collect_agent;
+  if (globalThis.__selectedToolNames.includes('cancel_agent')) agents.cancel = tools.cancel_agent;
+  if (Object.keys(agents).length) api.agents = agents;
   return api;
 }
 

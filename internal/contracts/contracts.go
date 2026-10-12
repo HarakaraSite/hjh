@@ -233,10 +233,18 @@ type ExecutionDataCommit func(sequence uint64) (ExecutionCommit, error)
 // facts only after the persistence transaction has succeeded.
 
 // AgentRunner is injected into a Worker; it owns no VM values.
+type AgentModelOverride struct {
+	Provider string `json:"provider,omitempty"`
+	ModelID  string `json:"modelId,omitempty"`
+	Effort   string `json:"effort,omitempty"`
+}
+
 type AgentRunRequest struct {
-	Role   string `json:"role,omitempty"`
-	Task   string `json:"task"`
-	CallID string `json:"-"`
+	Role   string              `json:"role,omitempty"`
+	Task   string              `json:"task"`
+	Model  *AgentModelOverride `json:"model,omitempty"`
+	Tools  *[]string           `json:"tools,omitempty"`
+	CallID string              `json:"-"`
 }
 type AgentRunResult struct {
 	ExecutionID string `json:"executionId"`

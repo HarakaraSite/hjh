@@ -61,8 +61,10 @@ func (o *vmOwner) startAgent(parent string, input json.RawMessage) (quickjs.Valu
 		return quickjs.Value{}, errors.New("agent operation arguments are not valid JSON")
 	}
 	var arguments struct {
-		Task *string `json:"task"`
-		Role string  `json:"role"`
+		Task  *string                       `json:"task"`
+		Role  string                        `json:"role"`
+		Model *contracts.AgentModelOverride `json:"model"`
+		Tools *[]string                     `json:"tools"`
 	}
 	if err := json.Unmarshal(input, &arguments); err != nil {
 		return quickjs.Value{}, fmt.Errorf("agent operation arguments are not valid: %w", err)
@@ -81,7 +83,7 @@ func (o *vmOwner) startAgent(parent string, input json.RawMessage) (quickjs.Valu
 	job := &agentJob{cancel: cancel, done: make(chan struct{})}
 	o.agentJobs[callID] = job
 	o.jobs.Add(1)
-	request := contracts.AgentRunRequest{Task: *arguments.Task, Role: arguments.Role, CallID: callID}
+	request := contracts.AgentRunRequest{Task: *arguments.Task, Role: arguments.Role, Model: arguments.Model, Tools: arguments.Tools, CallID: callID}
 	go func() {
 		defer close(job.done)
 		defer o.jobs.Done()

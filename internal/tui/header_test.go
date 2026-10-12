@@ -23,14 +23,14 @@ func TestHeaderRecordsOpeningOnceAndFooterTracksSession(t *testing.T) {
 	m.sessionID = "b71a29a6-7552-485d-9922-a1d7ae426706" // Core admission binds the first run.
 	m.sessionTitle = "READMEの要約"
 	m.View()
-	if strings.Contains(out.String(), "hjh v") || !strings.Contains(out.String(), "session: b71a29a6 · READMEの要約") {
+	if strings.Contains(out.String(), "hjh v") || !strings.Contains(out.String(), "READMEの要約 · b71a29a6") {
 		t.Fatalf("admission duplicated header or lost current identity: %s", out.String())
 	}
 	m.sessionTitle = "新しい名前"
 	update(m, tea.WindowSizeMsg{Width: 48, Height: 14})
 	out.Reset()
 	m.View()
-	if strings.Contains(out.String(), "hjh v") || !strings.Contains(out.String(), "session: b71a29a6 · 新しい名前") {
+	if strings.Contains(out.String(), "hjh v") || !strings.Contains(out.String(), "新しい名前 · b71a29a6") {
 		t.Fatalf("rename/resize duplicated header or lost footer: %s", out.String())
 	}
 	m.applySessionAction(sessionAction{newSession: true})

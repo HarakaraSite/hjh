@@ -25,6 +25,150 @@ func (run testAgentRunner) RunAgent(ctx context.Context, request contracts.Agent
 	return run(ctx, request)
 }
 
+type testAgentController struct {
+	spawn   func(context.Context, contracts.AgentRunRequest) (contracts.AgentSpawnResult, error)
+	status  func(context.Context, contracts.AgentQuery) (contracts.AgentStatus, error)
+	steer   func(context.Context, contracts.AgentSteerRequest) (contracts.ChildInstructionReceipt, error)
+	collect func(context.Context, contracts.AgentQuery) (contracts.AgentRunResult, error)
+	cancel  func(context.Context, contracts.AgentQuery) (contracts.AgentRunResult, error)
+}
+
+func (c testAgentController) SpawnAgent(ctx context.Context, request contracts.AgentRunRequest) (contracts.AgentSpawnResult, error) {
+	return c.spawn(ctx, request)
+}
+func (c testAgentController) StatusAgent(ctx context.Context, query contracts.AgentQuery) (contracts.AgentStatus, error) {
+	return c.status(ctx, query)
+}
+func (c testAgentController) SteerAgent(ctx context.Context, request contracts.AgentSteerRequest) (contracts.ChildInstructionReceipt, error) {
+	return c.steer(ctx, request)
+}
+func (c testAgentController) CollectAgent(ctx context.Context, query contracts.AgentQuery) (contracts.AgentRunResult, error) {
+	return c.collect(ctx, query)
+}
+func (c testAgentController) CancelAgent(ctx context.Context, query contracts.AgentQuery) (contracts.AgentRunResult, error) {
+	return c.cancel(ctx, query)
+}
+
+func TestAgentControlBridgeUsesSelectedToolsAndDedicatedCallIDs(t *testing.T) {
+	dir := makeExtensions(t)
+	configPath := filepath.Join(dir, "config.json")
+	configBytes, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config extensions.Config
+	if err = json.Unmarshal(configBytes, &config); err != nil {
+		t.Fatal(err)
+	}
+	config.Roles["async"] = extensions.Role{Revision: "1", Tools: []string{"run_js", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent"}}
+	configBytes, err = json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(configPath, configBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := extensions.CaptureDir(dir, "async")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var received contracts.AgentRunRequest
+	var receivedSteer contracts.AgentSteerRequest
+	var queries []contracts.AgentQuery
+	controller := testAgentController{
+		spawn: func(_ context.Context, request contracts.AgentRunRequest) (contracts.AgentSpawnResult, error) {
+			received = request
+			return contracts.AgentSpawnResult{ExecutionID: "child-1", State: "starting"}, nil
+		},
+		status: func(_ context.Context, query contracts.AgentQuery) (contracts.AgentStatus, error) {
+			queries = append(queries, query)
+			return contracts.AgentStatus{ExecutionID: query.ExecutionID, State: "running", Role: "reviewer",
+				Model: contracts.ModelSelection{Provider: "provider-a", ModelID: "model-a", Effort: "low"}, Tools: []string{"run_js"},
+				Progress: contracts.AgentProgress{Phase: "model", ModelStep: 2}}, nil
+		},
+		steer: func(_ context.Context, request contracts.AgentSteerRequest) (contracts.ChildInstructionReceipt, error) {
+			receivedSteer = request
+			return contracts.ChildInstructionReceipt{InstructionID: "instruction-1", ExecutionID: request.ExecutionID,
+				ParentExecutionID: "parent-1", CallID: request.CallID, Sequence: 1, Status: "accepted", ContentDigest: "sha256:content"}, nil
+		},
+		collect: func(_ context.Context, query contracts.AgentQuery) (contracts.AgentRunResult, error) {
+			queries = append(queries, query)
+			return contracts.AgentRunResult{ExecutionID: query.ExecutionID, Outcome: "completed", FinalText: "finished"}, nil
+		},
+		cancel: func(_ context.Context, query contracts.AgentQuery) (contracts.AgentRunResult, error) {
+			queries = append(queries, query)
+			return contracts.AgentRunResult{ExecutionID: query.ExecutionID, Outcome: "cancelled"}, nil
+		},
+	}
+	var observations []contracts.Observation
+	worker, err := jsruntime.New(context.Background(), jsruntime.Options{Snapshot: snapshot, AgentControl: controller,
+		Observer: func(observation contracts.Observation) error {
+			observations = append(observations, observation)
+			return nil
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer worker.Close()
+
+	result, err := worker.Call(context.Background(), "run_js", json.RawMessage(`{"code":"const spawned=await api.agents.spawn({task:'inspect',role:'reviewer',model:{provider:'provider-b',modelId:'model-b',effort:'medium'},tools:[]}); const steered=await api.agents.steer({executionId:spawned.executionId,text:'include the deadline'}); const status=await api.agents.status({executionId:spawned.executionId}); const collected=await api.agents.collect({executionId:spawned.executionId}); const cancelled=await api.agents.cancel({executionId:'child-2'}); return {methods:Object.keys(api.agents).sort(),spawned,steered,status,collected,cancelled};"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value struct {
+		Methods   []string                          `json:"methods"`
+		Spawned   contracts.AgentSpawnResult        `json:"spawned"`
+		Steered   contracts.ChildInstructionReceipt `json:"steered"`
+		Status    contracts.AgentStatus             `json:"status"`
+		Collected contracts.AgentRunResult          `json:"collected"`
+		Cancelled contracts.AgentRunResult          `json:"cancelled"`
+	}
+	if err = json.Unmarshal(result, &value); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(value.Methods, ",") != "cancel,collect,spawn,status,steer" || value.Spawned.ExecutionID != "child-1" ||
+		value.Steered.Status != "accepted" || value.Steered.CallID == "" ||
+		value.Status.State != "running" || value.Status.Progress.ModelStep != 2 || value.Collected.FinalText != "finished" ||
+		value.Cancelled.Outcome != "cancelled" {
+		t.Fatalf("agent control bridge returned unexpected values: %s", result)
+	}
+	if received.Task != "inspect" || received.Role != "reviewer" || received.Model == nil || received.Model.ModelID != "model-b" ||
+		received.Tools == nil || len(*received.Tools) != 0 || received.CallID == "" {
+		t.Fatalf("spawn did not preserve selected inputs and call ID: %+v", received)
+	}
+	if receivedSteer.ExecutionID != "child-1" || receivedSteer.Text != "include the deadline" || receivedSteer.CallID == "" {
+		t.Fatalf("steer did not preserve child, text, and call ID: %+v", receivedSteer)
+	}
+	if len(queries) != 3 {
+		t.Fatalf("controller received %d queries, want status, collect, cancel", len(queries))
+	}
+	for i, query := range queries {
+		if query.CallID == "" || (i < 2 && query.ExecutionID != "child-1") {
+			t.Fatalf("controller query %d has incomplete identifiers: %+v", i, query)
+		}
+	}
+	wantOperations := map[string]bool{"agents.spawn": false, "agents.status": false, "agents.steer": false, "agents.collect": false, "agents.cancel": false}
+	starts := map[string]string{}
+	for _, observation := range observations {
+		if observation.Kind != "agent" {
+			continue
+		}
+		if _, ok := wantOperations[observation.Name]; !ok {
+			continue
+		}
+		if observation.Phase == "started" {
+			starts[observation.ID] = observation.Name
+		} else if starts[observation.ID] == observation.Name {
+			wantOperations[observation.Name] = true
+		}
+	}
+	for operation, seen := range wantOperations {
+		if !seen {
+			t.Errorf("operation %s lacks matching agent start and completion observations: %+v", operation, observations)
+		}
+	}
+}
+
 func TestDirectRunAgentRecordsActualCompletedResult(t *testing.T) {
 	snapshot, err := extensions.CaptureDir(makeExtensions(t))
 	if err != nil {
@@ -89,7 +233,7 @@ func TestAgentRunReturnsResultAndUsesDedicatedCallID(t *testing.T) {
 	}
 	defer worker.Close()
 
-	result, err := worker.Call(context.Background(), "run_js", json.RawMessage(`{"code":"return await api.agents.run({role:'reviewer',task:'inspect source'});"}`))
+	result, err := worker.Call(context.Background(), "run_js", json.RawMessage(`{"code":"return await api.agents.run({role:'reviewer',task:'inspect source',model:{provider:'provider-b',modelId:'model-b',effort:'low'},tools:['run_js','read_file']});"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +244,9 @@ func TestAgentRunReturnsResultAndUsesDedicatedCallID(t *testing.T) {
 	if child.ExecutionID != "child-123" || child.Outcome != "completed" || child.FinalText != "found it" {
 		t.Fatalf("api.agents.run returned unexpected result: %s", result)
 	}
-	if received.Task != "inspect source" || received.Role != "reviewer" || received.CallID == "" {
+	if received.Task != "inspect source" || received.Role != "reviewer" || received.Model == nil ||
+		received.Model.Provider != "provider-b" || received.Model.ModelID != "model-b" || received.Model.Effort != "low" ||
+		received.Tools == nil || len(*received.Tools) != 2 || (*received.Tools)[0] != "run_js" || (*received.Tools)[1] != "read_file" || received.CallID == "" {
 		t.Fatalf("AgentRunner received incomplete request: %+v", received)
 	}
 

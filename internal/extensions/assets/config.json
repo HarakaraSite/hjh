@@ -118,7 +118,7 @@
       "revision": "1",
       "description": "General-purpose work role that completes requests and verifies the result.",
       "instruction": "Complete the requested work, verify the result with the available tools, and report what changed. Use web_fetch to read web pages; use http when a raw HTTP response is needed.",
-      "tools": ["run_js", "run_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch"]
+      "tools": ["run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch"]
     },
     "reviewer": {
       "revision": "1",
@@ -176,10 +176,50 @@
     {
       "name": "run_agent",
       "revision": "1",
-      "description": "Delegate an independent task to a child agent using an optional role.",
-      "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"}},"required":["task"]},
+      "description": "Delegate an independent task to a child agent using an optional role, model selection, and tool list.",
+      "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"},"model":{"type":"object","properties":{"provider":{"type":"string"},"modelId":{"type":"string"},"effort":{"type":"string"}}},"tools":{"type":"array","items":{"type":"string"}}},"required":["task"]},
       "module": "run-agent.js",
       "export": "runAgent"
+    },
+    {
+      "name": "spawn_agent",
+      "revision": "1",
+      "description": "Start an independent child agent and return its execution ID.",
+      "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"},"model":{"type":"object","properties":{"provider":{"type":"string"},"modelId":{"type":"string"},"effort":{"type":"string"}}},"tools":{"type":"array","items":{"type":"string"}}},"required":["task"]},
+      "module": "agent-control.js",
+      "export": "spawnAgent"
+    },
+    {
+      "name": "agent_status",
+      "revision": "1",
+      "description": "Read a child agent's state, progress, latest instruction receipts, and saved assistant reports. Pass the previous nextCursor as after to read newer reports; omit after to read from the beginning.",
+      "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"},"after":{"type":"integer"}},"required":["executionId"]},
+      "module": "agent-control.js",
+      "export": "agentStatus"
+    },
+    {
+      "name": "steer_agent",
+      "revision": "1",
+      "description": "Send additional guidance to an active child agent and return its saved accepted receipt. The child finishes its current model request and tools, then receives the instruction at its next loop boundary.",
+      "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"},"text":{"type":"string"}},"required":["executionId","text"]},
+      "module": "agent-control.js",
+      "export": "steerAgent"
+    },
+    {
+      "name": "collect_agent",
+      "revision": "1",
+      "description": "Wait for and return a child agent's settled result.",
+      "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"}},"required":["executionId"]},
+      "module": "agent-control.js",
+      "export": "collectAgent"
+    },
+    {
+      "name": "cancel_agent",
+      "revision": "1",
+      "description": "Cancel a child agent and return its settled result.",
+      "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"}},"required":["executionId"]},
+      "module": "agent-control.js",
+      "export": "cancelAgent"
     }
   ],
   "hooks": "hooks.js",

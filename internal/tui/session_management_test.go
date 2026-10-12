@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
 )
@@ -55,7 +56,7 @@ func TestResumeAttachesExactRunAndCurrentSessionSelectionKeepsIt(t *testing.T) {
 	}
 	updated := conversationEntity("answer", "assistant", "saved prefix continued", 2)
 	deliverRunEvent(t, m, messages, call, apiclient.RunEvent{Kind: "run.snapshot", State: state, Conversation: &api.ConversationSnapshot{ViewID: "v", Entities: map[string]api.ConversationEntity{"answer": updated}}})
-	if strings.Count(m.renderTranscript(), "saved prefix continued") != 1 || len(m.mergedEntities()) != 1 {
+	if strings.Count(ansi.Strip(m.renderTranscript()), "saved prefix continued") != 1 || len(m.mergedEntities()) != 1 {
 		t.Fatalf("history and live snapshot duplicated: %s", m.renderTranscript())
 	}
 }

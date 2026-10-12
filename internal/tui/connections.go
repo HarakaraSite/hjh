@@ -8,47 +8,6 @@ import (
 	"hjh/internal/apiclient"
 )
 
-func (m *model) nextConnectionLabel() string {
-	provider := m.providerID
-	if provider == "" {
-		provider = m.lastSelection.Provider
-	}
-	if provider == "" {
-		provider = "Session/config"
-	}
-	effort := m.effort
-	if effort == "" {
-		effort = "inherited/default"
-	}
-	return provider + " · effort: " + effort
-}
-
-func (m *model) connectionStatusLabel() string {
-	next := "next: " + m.nextConnectionLabel()
-	if m.activeRun != nil {
-		provider, effort := m.activeRun.provider, m.activeRun.effort
-		if m.activeRun.hasActualSelection {
-			provider = m.activeRun.actualSelection.Provider
-			effort = m.activeRun.actualSelection.Effort
-		}
-		if provider == "" {
-			provider = "resolving connection"
-		}
-		if effort == "" {
-			effort = "default"
-		}
-		return "running: " + provider + " · effort: " + effort + " → " + next
-	}
-	if m.lastSelection.Provider != "" {
-		effort := m.lastSelection.Effort
-		if effort == "" {
-			effort = "default"
-		}
-		return "last: " + m.lastSelection.Provider + " · effort: " + effort + " → " + next
-	}
-	return next
-}
-
 func (m *model) connectionCommand(fields []string) {
 	providerID := m.providerID
 	if providerID == "" {

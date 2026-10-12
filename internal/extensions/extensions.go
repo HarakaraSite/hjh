@@ -147,14 +147,50 @@ type Snapshot struct {
 	Root                  string
 }
 
+// CaptureOptions applies runtime-only choices while capturing an extension
+// composition. A nil Tools pointer keeps the selected role's configured list;
+// a non-nil pointer replaces it, including when the list is empty.
+type CaptureOptions struct {
+	Role  string
+	Tools *[]string
+}
+
 var runJSInputSchema = json.RawMessage(`{"type":"object","properties":{"code":{"type":"string"}},"required":["code"]}`)
+
+const runJSPurposeInstruction = "Begin the code with a short one-line // comment in English stating its purpose. The tool activity row displays that comment."
 
 // RunJSDefinition returns the model-facing built-in for generated JavaScript.
 // Delegation is described only when run_agent is part of the selected role.
 func RunJSDefinition(delegation bool) contracts.ToolDefinition {
-	description := "Run generated JavaScript that can call selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
+	var selected []string
 	if delegation {
-		description += " It can delegate with api.agents.run({task, role?}), returning a child result with executionId, outcome, and optional finalText or error; await results or use Promise.all for independent delegations."
+		selected = append(selected, "run_agent")
+	}
+	return RunJSDefinitionForTools(selected)
+}
+
+// RunJSDefinitionForTools describes only the child operations available to
+// generated JavaScript through the selected external tool composition.
+func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
+	description := "Run generated JavaScript that can call selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
+	description += " " + runJSPurposeInstruction
+	if containsTool(selected, "run_agent") {
+		description += " It can delegate with api.agents.run({task, role?, model?, tools?}), returning a child result with executionId, outcome, and optional finalText or error; await results or use Promise.all for independent delegations."
+	}
+	if containsTool(selected, "spawn_agent") {
+		description += " It can start independent children with api.agents.spawn({task, role?, model?, tools?}), continue its own work, check progress when useful, and collect results when needed."
+	}
+	if containsTool(selected, "agent_status") {
+		description += " api.agents.status({executionId, after?}) reads state, progress, latest instruction receipts, and saved assistant reports; reuse nextCursor as after to read new reports. Return the reports you need so they enter your next model input."
+	}
+	if containsTool(selected, "steer_agent") {
+		description += " api.agents.steer({executionId, text}) saves additional guidance for an active child and returns its accepted receipt; the child's current model request and tools finish before it receives the guidance at a loop boundary."
+	}
+	if containsTool(selected, "collect_agent") {
+		description += " api.agents.collect({executionId}) waits for a child's result."
+	}
+	if containsTool(selected, "cancel_agent") {
+		description += " api.agents.cancel({executionId}) cancels a child and returns its settled result."
 	}
 	return contracts.ToolDefinition{
 		Name:        "run_js",
@@ -178,7 +214,20 @@ func Capture(configPath string, role ...string) (Snapshot, error) {
 	if len(role) == 1 {
 		selected = role[0]
 	}
-	return capture(filepath.Dir(abs), abs, selected)
+	return capture(filepath.Dir(abs), abs, selected, nil)
+}
+
+// CaptureWithOptions captures one role and optionally replaces its selected
+// tools for this execution without changing the source configuration bytes.
+func CaptureWithOptions(configPath string, options CaptureOptions) (Snapshot, error) {
+	if configPath == "" {
+		return Snapshot{}, fmt.Errorf("extension config path is empty")
+	}
+	abs, err := filepath.Abs(configPath)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return capture(filepath.Dir(abs), abs, options.Role, options.Tools)
 }
 
 func CaptureDir(dir string, role ...string) (Snapshot, error) {
@@ -196,10 +245,10 @@ func CaptureDir(dir string, role ...string) (Snapshot, error) {
 	if len(role) == 1 {
 		selected = role[0]
 	}
-	return capture(abs, filepath.Join(abs, "config.json"), selected)
+	return capture(abs, filepath.Join(abs, "config.json"), selected, nil)
 }
 
-func capture(root, configPath, selectedRole string) (Snapshot, error) {
+func capture(root, configPath, selectedRole string, toolOverride *[]string) (Snapshot, error) {
 	configPath = filepath.Clean(configPath)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -252,6 +301,9 @@ func capture(root, configPath, selectedRole string) (Snapshot, error) {
 	if !ok { // selectedRoleName validates this before resource resolution.
 		return Snapshot{}, fmt.Errorf("extension role %q is not defined", roleName)
 	}
+	if toolOverride != nil {
+		role.Tools = append([]string{}, (*toolOverride)...)
+	}
 	selectedTools, err := resolveTools(cfg, roleName, role)
 	if err != nil {
 		return Snapshot{}, err
@@ -270,7 +322,7 @@ func capture(root, configPath, selectedRole string) (Snapshot, error) {
 		toolNames[i] = tool.Name
 	}
 	agents := []string{}
-	if containsTool(toolNames, "run_agent") {
+	if containsTool(toolNames, "run_agent") || containsTool(toolNames, "spawn_agent") {
 		agents = make([]string, len(catalog.Roles))
 		for i, info := range catalog.Roles {
 			agents[i] = info.Name
@@ -456,7 +508,7 @@ func resolveTools(cfg Config, roleName string, role Role) ([]Tool, error) {
 			if len(external[name]) != 0 {
 				return nil, fmt.Errorf("extension role %q selects built-in tool %q, which is also defined externally", roleName, name)
 			}
-			definition := RunJSDefinition(containsTool(role.Tools, "run_agent"))
+			definition := RunJSDefinitionForTools(role.Tools)
 			selected = append(selected, Tool{Name: definition.Name, Revision: buildinfo.Version, Description: definition.Description,
 				InputSchema: append(json.RawMessage(nil), definition.InputSchema...)})
 			continue
@@ -476,16 +528,56 @@ func resolveTools(cfg Config, roleName string, role Role) ([]Tool, error) {
 func assembleInstruction(configInstruction string, role Role, roleName string, tools []Tool, catalog []RoleInfo) string {
 	var sections []string
 	sections = append(sections, "You are a generic agent executing role \""+roleName+"\". Use the registered tool definitions to perform the requested work and report the result.")
+	sections = append(sections, "During multi-step work, share useful findings and progress as concise ordinary assistant text before continuing with tools. A parent can read saved child assistant reports through agent_status; no separate reporting tool is needed.")
 	if role.Description != "" {
 		sections = append(sections, "Role description: "+role.Description)
 	}
 	if containsToolFromTools(tools, "run_js") {
-		sections = append(sections, "Use run_js to compose the selected tools with JavaScript. Its code input is an async JavaScript function body; in that body, selected tools are available as tools.NAME(arguments). Await calls and return useful results.")
+		sections = append(sections, "Use run_js to compose the selected tools with JavaScript. Its code input is an async JavaScript function body; in that body, selected tools are available as tools.NAME(arguments). Await calls and return useful results. "+runJSPurposeInstruction)
 	}
 	if containsToolFromTools(tools, "run_agent") {
-		sections = append(sections, "Use run_agent to delegate an independent task; it accepts a task and optional role and returns the recorded child result. Pass necessary context in the task; child conversations are independent.")
-		if containsToolFromTools(tools, "run_js") {
-			sections = append(sections, "From generated JavaScript, api.agents.run({task, role?}) invokes the selected run_agent tool through its normal tool and hook path.")
+		sections = append(sections, "Use run_agent to delegate an independent task; it accepts a task, optional role, optional model selection (provider, modelId, effort), and optional tool list, and returns the recorded child result. Pass necessary context in the task; child conversations are independent.")
+	}
+	if containsToolFromTools(tools, "spawn_agent") {
+		sections = append(sections, "Use spawn_agent to start an independent child and receive its executionId while it works. Start independent children before collecting when useful, and continue your own work between start and collection.")
+	}
+	if containsToolFromTools(tools, "agent_status") {
+		sections = append(sections, "Use agent_status to read a child's state, progress, latest instruction receipts, and saved ordinary assistant reports without waiting for completion. Omit after for all reports, then pass nextCursor as after for newer reports. Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. A final saved report does not establish settlement; use collect_agent for the settled result.")
+	}
+	if containsToolFromTools(tools, "steer_agent") {
+		sections = append(sections, "Use steer_agent to save additional guidance for an active child and receive its accepted receipt. The child finishes its current model request and tools before receiving the instruction at a loop boundary.")
+		if containsToolFromTools(tools, "agent_status") {
+			sections = append(sections, "Use agent_status to check whether each instruction is accepted, applied, or unapplied; applied means the message entered the child loop, not that the model followed it.")
+		}
+	}
+	if containsToolFromTools(tools, "collect_agent") {
+		sections = append(sections, "Use collect_agent when you need a child's settled result; it waits for that child to finish.")
+	}
+	if containsToolFromTools(tools, "cancel_agent") {
+		sections = append(sections, "Use cancel_agent when a started child should stop; it waits for and returns the child's settled result.")
+	}
+	if containsToolFromTools(tools, "run_js") {
+		var operations []string
+		if containsToolFromTools(tools, "run_agent") {
+			operations = append(operations, "run with api.agents.run({task, role?, model?, tools?})")
+		}
+		if containsToolFromTools(tools, "spawn_agent") {
+			operations = append(operations, "spawn with api.agents.spawn({task, role?, model?, tools?})")
+		}
+		if containsToolFromTools(tools, "agent_status") {
+			operations = append(operations, "read reports and progress with api.agents.status({executionId, after?})")
+		}
+		if containsToolFromTools(tools, "steer_agent") {
+			operations = append(operations, "send additional child guidance with api.agents.steer({executionId, text})")
+		}
+		if containsToolFromTools(tools, "collect_agent") {
+			operations = append(operations, "collect with api.agents.collect({executionId})")
+		}
+		if containsToolFromTools(tools, "cancel_agent") {
+			operations = append(operations, "cancel with api.agents.cancel({executionId})")
+		}
+		if len(operations) != 0 {
+			sections = append(sections, "From generated JavaScript, "+strings.Join(operations, "; ")+". These calls use the selected external child-operation tools through their normal hook and history path.")
 		}
 	}
 	if role.Instruction != "" {
@@ -494,12 +586,16 @@ func assembleInstruction(configInstruction string, role Role, roleName string, t
 	if configInstruction != "" {
 		sections = append(sections, "Additional system instruction:\n"+configInstruction)
 	}
-	if containsToolFromTools(tools, "run_agent") {
+	if containsToolFromTools(tools, "run_agent") || containsToolFromTools(tools, "spawn_agent") {
 		var lines []string
 		for _, info := range catalog {
 			lines = append(lines, "- "+info.Name+": "+info.Description)
 		}
-		sections = append(sections, "Available roles for run_agent:\n"+strings.Join(lines, "\n"))
+		catalogName := "run_agent"
+		if !containsToolFromTools(tools, "run_agent") {
+			catalogName = "spawn_agent"
+		}
+		sections = append(sections, "Available roles for "+catalogName+":\n"+strings.Join(lines, "\n"))
 	}
 	return strings.Join(sections, "\n\n")
 }

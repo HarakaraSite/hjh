@@ -308,6 +308,7 @@ func (m *model) applySessionAction(action sessionAction) {
 	m.sessionGeneration++
 	m.selectionGeneration++
 	m.resetHeaderOrientation()
+	m.resetFooterSelection()
 	m.sessionTitle = ""
 	m.sessionCreatedAt = ""
 	m.sessionEntities = make(map[string]api.ConversationEntity)
@@ -322,18 +323,17 @@ func (m *model) applySessionAction(action sessionAction) {
 		m.headerPrinted = false
 		m.sessionLoading = false
 		m.sessionID = ""
-		m.lastRunModel = ""
 		m.lastRunRole = ""
 		m.lastSelection = contracts.ModelSelection{}
 		m.entries = nil
 		m.status = "new conversation · Session is created on the first run"
+		m.requestFooterSelection()
 		m.rebaseAuthUIForCurrentRoute()
 		m.requestHeaderOrientation()
 		m.refreshViewport(true)
 		return
 	}
 	m.sessionLoading = true
-	m.lastRunModel = ""
 	m.lastRunRole = ""
 	m.lastSelection = contracts.ModelSelection{}
 	m.loadSession(action.resumeID, m.sessionGeneration)
