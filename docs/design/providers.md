@@ -181,6 +181,17 @@ applies to newly prepared runs. OAuth refresh continues on the captured account.
 
 Model catalog DTOs include optional `efforts` and `effortSource` (`config` or
 `catalog`). Missing information does not prevent model or effort selection.
+The standard OpenCode Go Chat entry for `deepseek-v4.1-flash` declares
+`low`, `high`, and `max`, following the publisher's
+[OpenCode Go model metadata](https://github.com/anomalyco/models.dev/blob/dev/providers/opencode-go/models/deepseek-v4.1-flash.toml).
+The effort picker also offers `auto`; explicit values are sent as the existing
+Chat Completions `reasoning_effort` field. Other models do not inherit these
+choices automatically.
+OpenRouter's `data[].reasoning.supported_efforts` is also read as catalog effort
+choices, preserving the returned order. An omitted field does not declare effort
+choices; explicit `null` declares the gateway effort values. For mandatory
+reasoning, that gateway list excludes `none`. This follows the
+[per-model reasoning options contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#discovering-per-model-reasoning-options).
 The confirmed ChatGPT account catalog field `supported_reasoning_levels[].effort`
 supplies model-specific choices in server order. The selected account's model
 catalog uses the preview's effective `authProfile` and the existing credential

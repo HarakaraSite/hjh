@@ -20,7 +20,22 @@ func (o *vmOwner) call(request callRequest) (callResult, bool) {
 	if err != nil {
 		return callResult{err: err}, false
 	}
+	return o.runCall(request, root, false)
+}
 
+func (o *vmOwner) hook(request callRequest) (callResult, bool) {
+	parent := contracts.CallParent(request.ctx)
+	if parent == "" {
+		parent = o.options.ObserverParent
+	}
+	root, err := o.start(parent, "hook", request.name, request.args)
+	if err != nil {
+		return callResult{err: err}, false
+	}
+	return o.runCall(request, root, true)
+}
+
+func (o *vmOwner) runCall(request callRequest, root string, lifecycleHook bool) (callResult, bool) {
 	callCtx, cancel := context.WithCancel(o.ctx)
 	agentCtx, agentCancel := context.WithCancel(callCtx)
 	stopRequest := context.AfterFunc(request.ctx, cancel)
@@ -34,10 +49,14 @@ func (o *vmOwner) call(request callRequest) (callResult, bool) {
 	o.delegationEnds = map[string]delegationObservationEnd{}
 
 	var value json.RawMessage
-	invoke, invokeErr := o.rt.Get("__invokeDirect")
+	invokeName := "__invokeDirect"
+	if lifecycleHook {
+		invokeName = "__invokeLifecycleHook"
+	}
+	invoke, invokeErr := o.rt.Get(invokeName)
 	if invokeErr == nil {
-		var promise quickjs.Value
-		promise, invokeErr = invoke.CallContext(callCtx, request.name, string(request.args), root)
+		promise, callErr := invoke.CallContext(callCtx, request.name, string(request.args), root)
+		invokeErr = callErr
 		if invokeErr == nil {
 			value, invokeErr = o.awaitCallRoot(callCtx, promise)
 		}

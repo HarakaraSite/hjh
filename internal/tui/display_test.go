@@ -103,6 +103,9 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 	if m.textarea.VirtualCursor() {
 		t.Fatal("textarea still uses a virtual cursor instead of terminal cursor position")
 	}
+	if m.textarea.Placeholder != "" {
+		t.Fatal("input still displays an unwanted placeholder")
+	}
 
 	checkFrame := func(value string, width, height int, wantX int) {
 		t.Helper()
@@ -122,24 +125,24 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 			t.Fatal("focused editor did not publish a real terminal cursor")
 		}
 		inputRows := renderer.WrapText(m.textarea.View(), width)
-		footerRows := m.footerRows()
-		editorStart := len(bodyRows) + 1 // divider then the first editor row
-		helpStart := editorStart + len(inputRows)
-		footerStart := helpStart
+		footerRows := m.footerRows()[1:]
+		helpStart := len(bodyRows) + 1 // divider then controls/notice
+		editorStart := helpStart + 1
+		footerStart := editorStart + len(inputRows)
 		if footerStart > len(frame.LiveRows) || len(frame.LiveRows)-footerStart != len(footerRows) {
 			t.Fatalf("footer did not follow the editor controls: rows=%v", frame.LiveRows)
 		}
-		actualHelp := renderer.ReceiptText(frame.LiveRows[footerStart])
+		actualHelp := renderer.ReceiptText(frame.LiveRows[helpStart])
 		actualFooter := strings.ReplaceAll(renderer.ReceiptText(strings.Join(frame.LiveRows[footerStart:], "\n")), "\n", "")
 		if !strings.Contains(actualHelp, "Enter send") || !strings.Contains(actualFooter, "ready") {
-			t.Fatalf("controls and footer rows were not placed below the editor: rows=%v", frame.LiveRows)
+			t.Fatalf("controls above or metadata below the editor misplaced: rows=%v", frame.LiveRows)
 		}
 		if cursor.Position.X != wantX || frame.Cursor.Cell != wantX {
 			t.Fatalf("cursor x for %q = %d/frame %d, want %d", value, cursor.Position.X, frame.Cursor.Cell, wantX)
 		}
 		wantY := editorStart + textareaCursor.Position.Y
 		if textareaCursor.Position.Y < 0 || textareaCursor.Position.Y >= len(inputRows) ||
-			cursor.Position.Y != wantY || frame.Cursor.Row != wantY || frame.Cursor.Row >= helpStart {
+			cursor.Position.Y != wantY || frame.Cursor.Row != wantY || frame.Cursor.Row >= footerStart || frame.Cursor.Row <= helpStart {
 			t.Fatalf("cursor for %q was outside the editor viewport: cursor=%+v frame=%+v rows=%v", value, cursor, frame.Cursor, frame.LiveRows)
 		}
 	}
@@ -150,7 +153,7 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 	checkFrame("line 1\nline 2\nline 3\nline 4\nline 5\nline 6\n日本語", 20, 10, 8)
 
 	// The viewport has moved to keep the last line visible while the editor stays
-	// above its controls and footer.
+	// below controls and above the metadata footer.
 	m.width, m.height = 20, 10
 	m.layout()
 	m.textarea.SetValue("line 1\nline 2\nline 3\nline 4\nline 5\nline 6\n日本語")
@@ -158,11 +161,11 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 	textareaCursor := m.textarea.Cursor()
 	frame, cursor, content, _, _, bodyRows := m.screenFrame(m.footerRows())
 	content = renderer.ReceiptText(content)
-	if textareaCursor == nil || cursor.Position.Y != len(bodyRows)+1+textareaCursor.Position.Y {
+	if textareaCursor == nil || cursor.Position.Y != len(bodyRows)+2+textareaCursor.Position.Y {
 		t.Fatalf("scrolled editor cursor row=%d, relative cursor=%v", cursor.Position.Y, textareaCursor)
 	}
-	if strings.Index(content, "Enter send") < strings.Index(content, "line 6") ||
-		strings.Index(content, "ready") < strings.Index(content, "Enter send") || len(bodyRows)+1+cursor.Position.Y >= len(frame.LiveRows) {
+	if strings.Index(content, "Enter send") > strings.Index(content, "line 6") ||
+		strings.Index(content, "ready") < strings.Index(content, "line 6") || cursor.Position.Y >= len(frame.LiveRows)-2 {
 		t.Fatalf("input, controls, footer, and cursor are not ordered in the live frame: %q", content)
 	}
 }

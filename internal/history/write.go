@@ -129,16 +129,16 @@ func (s *Store) AppendOccurrence(ctx context.Context, executionID string, input 
 }
 
 func appendOccurrenceTx(ctx context.Context, tx *sql.Tx, executionID string, input OccurrenceInput) (Record, error) {
+	return appendOccurrenceTxWithMode(ctx, tx, executionID, input, false)
+}
+
+func appendPostSettlementOccurrenceTx(ctx context.Context, tx *sql.Tx, executionID string, input OccurrenceInput) (Record, error) {
+	return appendOccurrenceTxWithMode(ctx, tx, executionID, input, true)
+}
+
+func appendOccurrenceTxWithMode(ctx context.Context, tx *sql.Tx, executionID string, input OccurrenceInput, postSettlement bool) (Record, error) {
 	if !validJSON(input.Payload) {
 		return Record{}, ErrInvalidJSON
-	}
-	withMetadata, err := addConversationMetadata(input.Payload, input.Conversation)
-	if err != nil {
-		return Record{}, err
-	}
-	payload, err := contracts.EncodeCanonicalJSON(withMetadata)
-	if err != nil {
-		return Record{}, fmt.Errorf("history canonicalize occurrence: %w", err)
 	}
 	observedAt := input.ObservedAt
 	if observedAt == "" {
@@ -147,16 +147,46 @@ func appendOccurrenceTx(ctx context.Context, tx *sql.Tx, executionID string, inp
 	var latest int64
 	var lifecycle string
 	var parentID, spawnID sql.NullString
+	var terminalRecordID string
 	if err := tx.QueryRowContext(ctx,
-		"SELECT latest_ordinal, lifecycle, parent_execution_id, spawn_call_id FROM executions WHERE execution_id=?", executionID,
-	).Scan(&latest, &lifecycle, &parentID, &spawnID); err != nil {
+		"SELECT latest_ordinal, lifecycle, parent_execution_id, spawn_call_id, COALESCE(terminal_record_id,'') FROM executions WHERE execution_id=?", executionID,
+	).Scan(&latest, &lifecycle, &parentID, &spawnID, &terminalRecordID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Record{}, ErrNotFound
 		}
 		return Record{}, fmt.Errorf("history read execution for occurrence: %w", err)
 	}
-	if lifecycle != "active" {
+	if postSettlement {
+		if lifecycle != "settled" {
+			return Record{}, ErrExecutionClosed
+		}
+		if terminalRecordID == "" {
+			return Record{}, fmt.Errorf("history settled execution has no terminal record")
+		}
+		exists, err := semanticRecordExists(ctx, tx, terminalRecordID)
+		if err != nil {
+			return Record{}, err
+		}
+		if !exists {
+			return Record{}, fmt.Errorf("history settled execution terminal record %q not found", terminalRecordID)
+		}
+		input.Payload, err = addPostSettlementFields(input.Payload, terminalRecordID)
+		if err != nil {
+			return Record{}, err
+		}
+		input.Relations = append(append([]Relation(nil), input.Relations...), Relation{
+			Relation: "settlement", TargetRecordID: terminalRecordID, Mandatory: true,
+		})
+	} else if lifecycle != "active" {
 		return Record{}, ErrExecutionClosed
+	}
+	withMetadata, err := addConversationMetadata(input.Payload, input.Conversation)
+	if err != nil {
+		return Record{}, err
+	}
+	payload, err := contracts.EncodeCanonicalJSON(withMetadata)
+	if err != nil {
+		return Record{}, fmt.Errorf("history canonicalize occurrence: %w", err)
 	}
 	ordinal := latest + 1
 	recordID := semanticRecordID(executionID, ordinal)

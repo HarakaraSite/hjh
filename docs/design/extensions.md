@@ -32,7 +32,7 @@
      "inputSchema":{"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"}},"required":["task"]},
      "module":"run-agent.js","export":"runAgent"}
   ],
-  "hooks": {"module":"hooks.js","handlers":["beforeTool","afterTool"]},
+  "hooks": {"module":"hooks.js","handlers":["runtimeStart","beforeTurn","beforeTool","afterTool","afterTurn","runtimeStop"]},
   "rejections": []
 }
 ```
@@ -68,6 +68,14 @@ Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMと
 snapshot.agentには実role名・revision・instruction・選択toolsを保存し、
 agent.agentsはrun_agentまたはspawn_agentを選んだWorkerのcatalog名、それ以外は空配列とする。
 source.fileは使用したconfigの絶対locator。組立済みsystemInstructionとmodel requestが実際の操作説明を保持する。
+親・子ともmodel解決後に、実際のprovider・API・model・effort・role・workspaceを
+`Current execution (resolved values)`としてsystemInstructionへ加える。
+同じ本文を`instruction:execution-context` componentとして保存し、configの既定値や
+過去の会話から現在値を推測させない。credential・Authorizationは含めない。
+run_jsのasync本文ではPromiseと選択toolを使える。setTimeout／setInterval等のtimer APIは
+提供していない。子の完了待ちはcollect_agent／api.agents.collectで行い、中間報告は親の
+独立作業の後などにstatusで読む。明示的な時間待ちはcommandを選択している場合に限り
+既存のsleepコマンドを案内する。
 I-18では共通実行層が[workspace指示とskills](workspace-instructions-skills.md)を追加する。
 AGENTS.md本文とskill manifestは実指示へ組み込み、生成componentをinstructionComponentsへ記録する。
 設定に書かれた既存instructionComponentsを命令入力として解釈する処理は追加しない。
@@ -90,12 +98,17 @@ configurationIdはcaptureごとのUUIDであり、source digestとは別の識�
 必要なら `ObserverParent` と `host.Host`、委譲操作の `contracts.AgentRunner` と非同期操作の `contracts.AgentController` を受け取る。
 `Worker.Call(ctx, name, args)` は `json.RawMessage` の構造化結果を返し、
 `Worker.Definitions()` はroleが選んだbuilt-in／外部toolのmodel向けdefinitionを返す。
+`Worker.Hook(ctx, name, input)` は同じVM owner上でlifecycle hookを実行し、
+`Worker.HookHandlers()` はcapture済みmoduleで実際に見つかったhook function exportsを返す。
+`Worker.Available()` はVMがまだ呼出可能かを示す。
 `Worker.Close()` はVMと停止中のhost workを閉じる。
 
 JS実行基盤は`github.com/go-quickjs/go-quickjs v0.25.2`。
 VMの生成、module評価、JS call、Promise job処理、VM終了は一つのowner goroutineだけが行う。
 Go host workは結果をownerへ返し、別goroutineからVM値を操作しない。
 一つのWorkerで複数の `Call` を行うと同じVMと外部module stateを使い、別Worker間ではVMを共有しない。
+同じWorkerへのlifecycle hookも同じmodule stateを使う。実行前のsource captureを更新しても
+既存Workerは変わらず、次のWorkerで新しいcaptureを使う。
 context取消はJSのCallContext／RunJobsContext、HTTP request context、Linux process group停止へつながる。
 commandはgroup停止後に `Wait` してから戻る。取消されたWorkerを閉じた後は新Workerを作成できる。
 host／子AgentのGo完了queueをownerが受け取り、Promiseを明示的にsettleする。
@@ -135,6 +148,56 @@ nonzero exitは構造化結果であり、tool失敗にはしない。
 Observerには外側tool、生成JS内tool、hook、host操作それぞれの開始・終了を `contracts.Observation`
 で通知する。各開始はIDを持ち、親IDは外側runtime callから内側tool、hook、hostへ連鎖する。
 Observerのsinkが保存形式を所有し、runtimeとhostはDBへ直接依存しない。
+
+## I-20：execution lifecycle hooks
+
+`hooks`は引き続き単一のESM moduleを指定する。設定snapshotの`handlers`は宣言情報として保存される。
+呼出対象は、評価したmoduleがexportする対応functionで決まり、設定配列による追加の絞り込みはしない。
+実際に存在するhook function一覧はexecution開始時の`hook/handlers`記録に保存する。
+未定義のfunctionは呼ばれず、複数module管理や専用hook CLIはない。
+
+一つのWorkerはrootまたはchildの一つのexecutionを所有する。rootの各Session turnと各child executionは
+それぞれ新しいWorkerを作る。Core起動、Session作成、TUI接続・再接続ではhookを起動しない。
+編集済みsourceは次に作られるWorkerのcaptureから使われる。
+
+対応exportと呼出順は次のとおり。関数形式はtool hookと同じ`(input, api)`で、非同期処理をawaitする。
+
+| export | 呼出し | 動作 |
+| --- | --- | --- |
+| `runtimeStart` | Worker作成後、最初のmodel入力前に一回 | 返した文脈をexecutionの指示へ追加 |
+| `beforeTurn` | taskのturn処理を始める前に一回 | 返した文脈を今回のturnの指示へ追加 |
+| `beforeTool` | modelまたは生成JSからのtool実行前 | 既存契約どおり、返却値でtool引数を置換 |
+| `afterTool` | toolが成功した後だけ | 既存契約どおり、返却値でtool結果を置換 |
+| `afterTurn` | terminal保存とrootの採用判断後 | 保存済みoutcome・settlementを使う後処理 |
+| `runtimeStop` | `afterTurn`後、Workerを閉じる前 | settlementがあれば参照し、停止理由を使う後処理 |
+
+lifecycle hookの`input`は通常JSON値で、`api`にはhook内host操作・登録tool呼出しと同じ実行APIを渡す。
+`runtime`にはworkspace root、agent名、root/child role、Session/execution/parent/spawnの識別子、
+turn番号、解決済みmodel selection、Worker開始時刻`startedAt`と`timeZone`を含む。
+開始時刻はGo側で作ったRFC3339Nano値であり、timezoneは設定された`TZ`名、またはGoのzone名を使う。
+実model selectionにはcredentialの値やAuthorizationを含めない。
+
+`context`は呼出時点の`systemInstruction`、`instructionComponents`、有効tool definitionsと、
+Sessionのturn範囲・件数・execution locatorを渡す。会話全文をhookごとに複製するAPIではない。
+`beforeTurn`には今回の`task`を渡す。`afterTurn`には実行全体の`outcome`と、
+保存済み`outcome`・`adoption`・`terminalRecordId`・任意の`adoptionError`を含む`settlement`を渡す。
+`runtimeStop`には実行結果に対応する`reason`と、確定できている場合の`settlement`を渡す。
+
+`runtimeStart`の後に`beforeTurn`を呼び、既存の組立済み指示へその順で追加する。
+両hookは値を返さない、`undefined`／`null`を返す、または`{context: string[]}`を返せる。
+文字列は配列順に改行で結合し、hook順に今回の指示へ加える。
+その追加文脈とhook結果はcapture済みconfig snapshotを書き換えず、
+hook result recordへの参照を持つinstruction componentとして保存・attributionされる。
+追加後の指示は通常のcontext budget経路へ進み、次turnへ累積しない。
+`afterTurn`と`runtimeStop`の戻り値は後続のmodel入力や結果を変更しない。
+
+終了処理は既存のCall/Hookがhost work、blocking child、終了観測をjoin/drainした後に進む。
+子executionの清算後、terminalとrootの採用判断を保存し、`afterTurn`→`runtimeStop`→`Worker.Close`の順にawaitする。
+provider待機中の取消ではWorkerを清算に使える。active JS/host call中の取消でWorkerが閉じた場合は
+終了hookを`worker_unavailable`でskipし、別VMを作らない。
+終了hookのJavaScript例外はnoticeとして保存し、確定済みのanswer・outcome・採用状態を変更しない。
+終了後hookの詳細recordは履歴に保存し、通常CLIのstderrとTUI noticeには失敗・skipを表示する。
+checkpoint、要約、追加turnへの文脈再利用は行わない。
 
 ## I-03：roleを選んで子Agentへ委譲
 

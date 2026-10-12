@@ -149,3 +149,28 @@ modelが宣言したtoolと外側runtime呼出しのcall IDは共用し、Agent�
 runtime代理呼出しの開始・結果を重複保存せず、実nested callは別IDを維持する。
 既存データの書換え・削除は行わず、messages、provider再送state、tool/context/sourceの必要な保存を維持する。
 性能・実利用・reviewは[I-06結果](../results/i06-conversation-tui.md)へ記録する。
+
+## I-20：lifecycle hookと終了後記録
+
+configuration snapshotの`hooks`にはmodule locatorと設定上の`handlers`宣言を保存し、
+実際にcapture・評価したESM source bytesは通常のresource/content経路へ保存する。
+宣言一覧は呼出可否のfilterではない。Worker開始時の`hook/handlers` observationは、
+moduleから実際に見つかったlifecycle/tool hook function一覧を保存する。functionがない場合も空配列を記録する。
+後からconfiguration snapshotの宣言一覧を書き換えて実export一覧を表すことはしない。
+
+各hook呼出しは通常のhook observationとしてinput、開始/終了、返却値または例外を保存する。
+`runtimeStart`／`beforeTurn`の`{context: string[]}`はcapture済みのconfiguration snapshotには加えない。
+返した文脈は実executionのinstructionに適用し、hook結果recordのID、hook名、source locator、content digestを
+`instructionComponents`／model requestのcontext attributionから辿れるようにする。
+追加文脈を含むmodel requestは既存のcontext budget記録経路を使う。次turnへ動的文脈を累積しない。
+
+terminal保存後の`afterTurn`、`runtimeStop`とその内側host/tool observationは専用の
+`AppendPostSettlementObservation`経路で追記する。追加recordのpayloadには`postSettlement: true`と
+`terminalRecordId`を持たせ、確定terminalへの必須`settlement` relationを保存する。
+semantic record ordinal、executionのlatest ordinal／occurrence count、relation解決状態は通常どおり進む。
+terminal record、runtime outcome、execution outcome/adoption、messages、Session revisionは変更しない。
+通常の`AppendOccurrence`はactive execution専用のままである。
+
+hook成功・失敗・skipとhook内処理の詳細は`inspect`および履歴detailから確認できる。
+失敗・skipは既存context noticeにも保存され、CLIではstderr、TUIでは表示・復元可能なnoticeとして示す。
+noticeは最終回答stdoutや親のmodel inputには混ぜない。

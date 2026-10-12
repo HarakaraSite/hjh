@@ -42,6 +42,7 @@ type remoteProgress struct {
 	outcome    string
 	execution  string
 	parentExec string
+	text       string
 }
 
 func (out *remoteRunOutput) observe(event apiclient.RunEvent) error {
@@ -130,7 +131,8 @@ func (out *remoteRunOutput) observeEntity(rootExecutionID string, entity api.Con
 			return err
 		}
 	}
-	if entity.Kind == "tool" || (entity.Kind == "execution" && entity.ParentExecutionID != "") {
+	if entity.Kind == "tool" || (entity.Kind == "execution" && entity.ParentExecutionID != "") ||
+		(isRoot && entity.Kind == "notice" && strings.HasPrefix(entity.Name, "hook/")) {
 		return out.observeProgress(entity)
 	}
 	return nil
@@ -170,7 +172,7 @@ func (out *remoteRunOutput) streamAssistant(entity api.ConversationEntity) error
 
 func (out *remoteRunOutput) observeProgress(entity api.ConversationEntity) error {
 	progress := remoteProgress{kind: entity.Kind, status: entity.Status, name: entity.Name,
-		outcome: entity.Outcome, execution: entity.ExecutionID, parentExec: entity.ParentExecutionID}
+		outcome: entity.Outcome, execution: entity.ExecutionID, parentExec: entity.ParentExecutionID, text: entity.Text}
 	if out.progress == nil {
 		out.progress = make(map[string]remoteProgress)
 	}
@@ -190,6 +192,8 @@ func (out *remoteRunOutput) observeProgress(entity api.ConversationEntity) error
 		}
 	case "execution":
 		line = fmt.Sprintf("[child execution=%s] %s", entity.ExecutionID, entity.Status)
+	case "notice":
+		line = "[notice] " + entity.Text
 	}
 	if line == "" {
 		return nil

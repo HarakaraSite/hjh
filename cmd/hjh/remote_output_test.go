@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
+	"hjh/internal/contracts"
 )
 
 func TestRemoteRunOutputStreamsRootAssistantAndCoalescedProgressOnce(t *testing.T) {
@@ -64,6 +66,32 @@ func TestRemoteRunOutputStreamsRootAssistantAndCoalescedProgressOnce(t *testing.
 	}
 	if got, want := stderr.String(), "Session: session-1\nExecution: root-1\nRole: builder\nRun phase: running\n[tool read_file] streaming\n[child execution=child-1] streaming\n[tool read_file] incomplete (failed)\n[child execution=child-1] completed\nRun phase: terminal\n"; got != want {
 		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+}
+
+func TestLifecycleNoticeStaysOnStderrAcrossReconnect(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	output := remoteRunOutput{stdout: &stdout, stderr: &stderr}
+	state := api.RunState{ExecutionID: "root-1", Phase: "running"}
+	notice := api.ConversationEntity{ID: "notice-1", Kind: "notice", ExecutionID: "root-1", Name: "hook/afterTurn",
+		Text: "Hook afterTurn: cleanup failed", Status: "failed"}
+	update := apiclient.RunEvent{State: state, Update: &api.ConversationUpdate{Upserts: []api.ConversationEntity{notice}}}
+	if err := output.observe(update); err != nil {
+		t.Fatal(err)
+	}
+	if err := output.observe(apiclient.RunEvent{State: state, Conversation: &api.ConversationSnapshot{Order: []string{notice.ID}, Entities: map[string]api.ConversationEntity{notice.ID: notice}}}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(stderr.String(), "Hook afterTurn: cleanup failed") != 1 || stdout.Len() != 0 {
+		t.Fatalf("notice duplicated or leaked to final stdout: out=%q err=%q", stdout.String(), stderr.String())
+	}
+	var directOut, directErr bytes.Buffer
+	direct := runOutput{stdout: &directOut, stderr: &directErr}
+	if err := direct.observe(contracts.Observation{Kind: "context", Name: "hook/afterTurn", Phase: "failed", Preview: notice.Text}); err != nil {
+		t.Fatal(err)
+	}
+	if directOut.Len() != 0 || !strings.Contains(directErr.String(), notice.Text) {
+		t.Fatal("direct CLI lost the hook notice or printed it to answer stdout")
 	}
 }
 

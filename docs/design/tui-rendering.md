@@ -9,10 +9,16 @@ assistantの可視本文はcharm.land/glamour/v2 v2.0.1で描画する。
 ないため、[公式Solarized palette](https://ethanschoonover.com/solarized/)をcustom styleに設定する。
 本文はbase0（#839496）、背景はbase03（#002b36）、見出しはblue（#268bd2）の強調。
 リンク・引用・inline codeにも同paletteを使い、code blockはChromaのsolarized-darkを使う。
+背景はGlamourのタグ別styleでは設定せず、描画後の各行へ一括適用する。
+本文・見出し・箇条書き・引用・表・inline code・code block・空行・右側の余白を
+同じbase03で塗り、内部の色reset後にも背景を維持する。背景色の定義は一か所に置く。
+背景の一括適用は端末幅への最終折り返し後に行い、短い継続行も右端まで塗る。
 テーマの選択設定・環境変数は追加しない。
 ユーザー入力・thinking・tool・コマンド結果・失敗理由にはMarkdown変換を適用しない。
 toolを呼ぶ前の途中のassistant本文も、最終回答と同じMarkdown整形・テーマを使う。
-Markdown内の空行は本文と同じ背景色で端末幅まで塗る。末尾改行だけのsentinel行は
+空白・改行だけのassistant本文はラベルごと通常画面から省く。生成中に本文が現れれば
+同じentityを表示し、文章内の空行・保存した原文・モデル入力は変更しない。
+Markdownの各行は本文と同じ背景色で端末幅まで塗る。末尾改行だけのsentinel行は
 新しい空行にしない。原文の改行数・source receipt・会話の区切りを変えない。
 
 | 対象 | 配色 |

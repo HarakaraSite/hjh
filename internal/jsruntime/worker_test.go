@@ -1082,6 +1082,273 @@ func TestWorkerKeepsVMAndCapturedModulesAcrossCalls(t *testing.T) {
 	}
 }
 
+func TestLifecycleHooksShareModuleHostAndNestedToolHooks(t *testing.T) {
+	extensionDir := makeExtensions(t)
+	hookSource := []byte(`let lifecycleCalls = 0;
+export async function runtimeStart({ runtime }, api) {
+  lifecycleCalls++;
+  const note = await api.readFile({ path: 'note.txt' });
+  const nested = await api.tools.count({ marker: 'from-runtimeStart' });
+  return { kind: 'runtimeStart', calls: lifecycleCalls, startedAt: runtime.startedAt, note: note.text, nested };
+}
+export async function beforeTurn({ task }) { lifecycleCalls++; return { kind: 'beforeTurn', calls: lifecycleCalls, task }; }
+export async function afterTurn({ outcome }) { lifecycleCalls++; return { kind: 'afterTurn', calls: lifecycleCalls, outcome }; }
+export async function runtimeStop({ reason }) { lifecycleCalls++; return { kind: 'runtimeStop', calls: lifecycleCalls, reason }; }
+export async function beforeTool({ name, args }) { return name === 'count' ? { ...args, lifecycleNested: true } : args; }
+export async function afterTool({ name, args, result }) { return name === 'count' ? { ...result, lifecycleNested: args.lifecycleNested, lifecycleAfter: true } : result; }
+export async function helper() { return 'not a handler'; }
+`)
+	if err := os.WriteFile(filepath.Join(extensionDir, "hooks.js"), hookSource, 0644); err != nil {
+		t.Fatal(err)
+	}
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, "note.txt"), []byte("hook host read"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := extensions.CaptureDir(extensionDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observations []contracts.Observation
+	worker, err := jsruntime.New(context.Background(), jsruntime.Options{
+		Snapshot: snapshot, Workspace: workspace, ObserverParent: "execution-1",
+		Observer: func(observation contracts.Observation) error {
+			observations = append(observations, observation)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer worker.Close()
+
+	wantHandlers := []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
+	handlers := worker.HookHandlers()
+	if strings.Join(handlers, ",") != strings.Join(wantHandlers, ",") {
+		t.Fatalf("HookHandlers() = %v, want %v", handlers, wantHandlers)
+	}
+	handlers[0] = "changed"
+	if got := worker.HookHandlers(); strings.Join(got, ",") != strings.Join(wantHandlers, ",") {
+		t.Fatalf("HookHandlers() exposed mutable Worker state: %v", got)
+	}
+	if !worker.Available() {
+		t.Fatal("new Worker is not available")
+	}
+
+	startRaw, err := worker.Hook(context.Background(), "runtimeStart", json.RawMessage(`{"runtime":{"startedAt":"2026-10-12T09:30:00+09:00","timeZone":"Asia/Tokyo"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var start struct {
+		Kind      string `json:"kind"`
+		Calls     int    `json:"calls"`
+		StartedAt string `json:"startedAt"`
+		Note      string `json:"note"`
+		Nested    struct {
+			Calls           int    `json:"calls"`
+			Marker          string `json:"marker"`
+			LifecycleNested bool   `json:"lifecycleNested"`
+			LifecycleAfter  bool   `json:"lifecycleAfter"`
+		} `json:"nested"`
+	}
+	if err = json.Unmarshal(startRaw, &start); err != nil {
+		t.Fatal(err)
+	}
+	if start.Kind != "runtimeStart" || start.Calls != 1 || start.StartedAt != "2026-10-12T09:30:00+09:00" || start.Note != "hook host read" ||
+		start.Nested.Calls != 1 || start.Nested.Marker != "from-runtimeStart" || !start.Nested.LifecycleNested || !start.Nested.LifecycleAfter {
+		t.Fatalf("runtimeStart did not preserve module state, host IO, and normal nested tool hooks: %s", startRaw)
+	}
+
+	for _, call := range []struct {
+		name  string
+		input string
+		kind  string
+		count int
+	}{
+		{name: "beforeTurn", input: `{"task":"do work"}`, kind: "beforeTurn", count: 2},
+		{name: "afterTurn", input: `{"outcome":"completed"}`, kind: "afterTurn", count: 3},
+		{name: "runtimeStop", input: `{"reason":"completed"}`, kind: "runtimeStop", count: 4},
+	} {
+		value, callErr := worker.Hook(context.Background(), call.name, json.RawMessage(call.input))
+		if callErr != nil {
+			t.Fatalf("Hook(%s): %v", call.name, callErr)
+		}
+		var result struct {
+			Kind  string `json:"kind"`
+			Calls int    `json:"calls"`
+		}
+		if callErr = json.Unmarshal(value, &result); callErr != nil {
+			t.Fatal(callErr)
+		}
+		if result.Kind != call.kind || result.Calls != call.count {
+			t.Errorf("Hook(%s) = %s, want kind=%s calls=%d", call.name, value, call.kind, call.count)
+		}
+	}
+
+	starts := map[string]contracts.Observation{}
+	ends := map[string]contracts.Observation{}
+	for _, observation := range observations {
+		if observation.Phase == "started" {
+			starts[observation.ID] = observation
+		} else {
+			ends[observation.ID] = observation
+		}
+	}
+	var runtimeStartID, countID string
+	lifecycleStarts := map[string]int{}
+	toolHookStarts := map[string]int{}
+	toolHookParents := map[string][]string{}
+	for id, observation := range starts {
+		if observation.Kind == "hook" && (observation.Name == "runtimeStart" || observation.Name == "beforeTurn" || observation.Name == "afterTurn" || observation.Name == "runtimeStop") {
+			lifecycleStarts[observation.Name]++
+			if observation.Parent != "execution-1" {
+				t.Errorf("lifecycle hook %s has unexpected parent: %+v", observation.Name, observation)
+			}
+			if observation.Name == "runtimeStart" {
+				runtimeStartID = id
+			}
+		}
+		if observation.Kind == "tool" && observation.Name == "count" {
+			countID = id
+		}
+		if observation.Kind == "hook" && (observation.Name == "beforeTool" || observation.Name == "afterTool") {
+			toolHookStarts[observation.Name]++
+			toolHookParents[observation.Name] = append(toolHookParents[observation.Name], observation.Parent)
+		}
+		if _, ok := ends[id]; !ok {
+			t.Errorf("observation %s (%s/%s) has no ending event", id, observation.Kind, observation.Name)
+		}
+	}
+	for _, name := range []string{"runtimeStart", "beforeTurn", "afterTurn", "runtimeStop"} {
+		if lifecycleStarts[name] != 1 {
+			t.Errorf("lifecycle observation %s started %d times, want exactly once", name, lifecycleStarts[name])
+		}
+	}
+	if toolHookStarts["beforeTool"] != 1 || toolHookStarts["afterTool"] != 1 {
+		t.Errorf("nested count did not receive exactly one before/after hook: %v", toolHookStarts)
+	}
+	if countID != "" {
+		for _, name := range []string{"beforeTool", "afterTool"} {
+			if len(toolHookParents[name]) != 1 || toolHookParents[name][0] != countID {
+				t.Errorf("tool hook %s parents = %v, want count observation %s", name, toolHookParents[name], countID)
+			}
+		}
+	}
+	if runtimeStartID == "" || countID == "" || starts[countID].Parent != runtimeStartID {
+		t.Errorf("nested count is not directly parented by the runtimeStart hook: runtimeStart=%q count=%+v", runtimeStartID, starts[countID])
+	}
+}
+
+func TestAbsentLifecycleHookReturnsNullWithoutObservation(t *testing.T) {
+	snapshot, err := extensions.CaptureDir(makeExtensions(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observations []contracts.Observation
+	worker, err := jsruntime.New(context.Background(), jsruntime.Options{Snapshot: snapshot,
+		Observer: func(observation contracts.Observation) error {
+			observations = append(observations, observation)
+			return nil
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer worker.Close()
+	if got := strings.Join(worker.HookHandlers(), ","); got != "beforeTool,afterTool" {
+		t.Fatalf("HookHandlers() = %q, want only callable supported exports", got)
+	}
+	result, err := worker.Hook(context.Background(), "beforeTurn", json.RawMessage(`{"task":"unused"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(result) != "null" || len(observations) != 0 {
+		t.Fatalf("absent hook result = %s observations=%+v, want null with no observation", result, observations)
+	}
+}
+
+func TestLifecycleHookFailureRetainsJavaScriptStack(t *testing.T) {
+	extensionDir := makeExtensions(t)
+	if err := os.WriteFile(filepath.Join(extensionDir, "hooks.js"), []byte(`function lifecycleFailureFrame() { throw new Error('lifecycle-hook-marker'); }
+export async function beforeTurn() { lifecycleFailureFrame(); }`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := extensions.CaptureDir(extensionDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observations []contracts.Observation
+	worker, err := jsruntime.New(context.Background(), jsruntime.Options{Snapshot: snapshot,
+		Observer: func(observation contracts.Observation) error {
+			observations = append(observations, observation)
+			return nil
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer worker.Close()
+	_, err = worker.Hook(context.Background(), "beforeTurn", json.RawMessage(`{"task":"do work"}`))
+	if err == nil || !strings.Contains(err.Error(), "lifecycle-hook-marker") || !strings.Contains(err.Error(), "lifecycleFailureFrame") {
+		t.Fatalf("lifecycle hook error lost its message or captured stack: %v", err)
+	}
+	if !worker.Available() {
+		t.Fatal("a rejected hook made the Worker unavailable")
+	}
+	var failed bool
+	for _, observation := range observations {
+		if observation.Kind == "hook" && observation.Name == "beforeTurn" && observation.Phase == "failed" &&
+			strings.Contains(observation.Error, "lifecycle-hook-marker") {
+			failed = true
+		}
+	}
+	if !failed {
+		t.Fatalf("lifecycle hook failure was not observed: %+v", observations)
+	}
+}
+
+func TestLifecycleHookCancellationMakesWorkerUnavailable(t *testing.T) {
+	extensionDir := makeExtensions(t)
+	if err := os.WriteFile(filepath.Join(extensionDir, "hooks.js"), []byte(`export async function runtimeStart() { while (true) {} }`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := extensions.CaptureDir(extensionDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := make(chan struct{}, 1)
+	worker, err := jsruntime.New(context.Background(), jsruntime.Options{Snapshot: snapshot,
+		Observer: func(observation contracts.Observation) error {
+			if observation.Kind == "hook" && observation.Name == "runtimeStart" && observation.Phase == "started" {
+				started <- struct{}{}
+			}
+			return nil
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, hookErr := worker.Hook(ctx, "runtimeStart", json.RawMessage(`{}`))
+		result <- hookErr
+	}()
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		cancel()
+		t.Fatal("lifecycle hook did not start")
+	}
+	cancel()
+	if err = waitCancelled(t, result); err != nil {
+		t.Fatal(err)
+	}
+	if worker.Available() {
+		t.Fatal("Worker remained available after an active hook was cancelled")
+	}
+	if err = worker.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWorkerReturnsModuleInitializationError(t *testing.T) {
 	extensionDir := makeExtensions(t)
 	if err := os.WriteFile(filepath.Join(extensionDir, "broken.js"), []byte(`function moduleInitializationFrame() {throw new Error("module-init-marker");} moduleInitializationFrame();`), 0644); err != nil {

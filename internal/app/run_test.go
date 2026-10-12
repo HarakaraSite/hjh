@@ -82,7 +82,7 @@ func TestRunPersistsRealToolPathAndResumes(t *testing.T) {
 		ReasoningReplay: true,
 		ReasoningField:  "reasoning_details",
 	})
-	first, err := Run(context.Background(), store, provider, RunOptions{Task: "process input", Workspace: workspace, ModelID: "test/model"})
+	first, err := Run(context.Background(), store, provider, RunOptions{Task: "process input", Workspace: workspace, ModelID: "test/model", Effort: "high"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,6 +147,29 @@ func TestRunPersistsRealToolPathAndResumes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var wire struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(requests[0], &wire); err != nil {
+		t.Fatal(err)
+	}
+	var rootInstruction string
+	for _, message := range wire.Messages {
+		if message.Role == "system" {
+			rootInstruction = message.Content
+			break
+		}
+	}
+	execution := mustExecution(t, store, first.ExecutionID)
+	var rootModel contracts.ModelSelection
+	if err := json.Unmarshal(execution.Model, &rootModel); err != nil {
+		t.Fatal(err)
+	}
+	requireExecutionContextInstruction(t, rootInstruction, rootModel, "default", workspace)
+	requireSavedExecutionContext(t, store, execution.ConfigurationID, rootInstruction, rootModel, "default", workspace)
 	if !strings.Contains(string(configuration.Snapshot), `"name":"run_js"`) {
 		t.Fatal("runtime tool absent from used configuration")
 	}

@@ -1,8 +1,8 @@
 # hjhと旧Henjiの機能比較
 
-> 後続更新：子agentの非同期開始・並列実行・構成指定・報告差分・親からの追加指示はI-19で実装・確認済み。以下は調査時点の比較であり、現在の範囲と結果は[実装結果](i19-child-agent-control.md)を参照する。
+> 2026-10-12後続更新：子agentをI-19完了後、ライフサイクルhookをI-20完了後の状態へ更新した。その他は調査時点の比較である。確認範囲は[子agentの結果](i19-child-agent-control.md)と[hookの結果](i20-lifecycle-hooks.md)を参照する。
 2026-10-12時点。通常の対話、Core、履歴、認証、コンテキスト予算管理はhjhにも揃っている。
-旧Henjiとの差が大きいのは、専用tool、子agentの非同期操作、拡張hook、設定管理CLIである。
+旧Henjiとの差が大きいのは、専用tool、要約checkpoint、設定管理CLIである。
 
 この比較は未実装機能を検討するための調査結果であり、全機能の移植を要求する要件や実装計画ではない。
 採否は利用者の指定とhjhの採用済み設計に従う。
@@ -25,6 +25,7 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 | 専用機能なし | 同名・同等の専用操作はないが、commandや生成JSなどで作業自体は代替できる |
 | 一部対応 | 基本機能はあるが、指定方法や利用できる範囲に差がある |
 | 実装済み | 名称や構成が異なっても、比較対象の利用目的を満たす経路がある |
+| 完了（I-19／I-20） | 後続のincrementで実装・検証・reviewを完了した項目。確認範囲は各結果文書に従う |
 | 意図的な方式差 | hjhで採用した方式、または明示的な不要判断による差 |
 | 旧側も未完成 | 旧Henjiにも完成したproduct機能がなく、未移植機能とは区別する |
 
@@ -64,30 +65,34 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 
 | 機能 | 旧Henji | 現在のhjhと不足している点 |
 | --- | --- | --- |
-| 子agentを開始して後で回収 | spawnでIDを返し、status、collect、cancelを別々に呼ぶ | **未実装**。`run_agent`は結果を待つ操作 |
-| 子agentの並列実行 | 複数の子を開始可能 | **実装済み**。`run_js`の`Promise.all`で可能。ただし子を動かしたまま親が次のモデルstepへ進む方式ではない |
-| 子のmodel、provider、effort指定 | spawn時に個別指定 | **一部対応**。roleのmodel設定は使えるが、呼出しごとの指定はない |
-| 子のtool指定 | spawn時にtool一覧を指定 | **一部対応**。roleごとのtool一覧はあるが、呼出しごとの変更はない |
-| ライフサイクルhook | runtime開始と終了、turn前後、tool前後の六種類 | **一部対応**。現在は`beforeTool`と`afterTool`の二種類 |
-| hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **未実装** |
+| 子agentを開始して後で回収 | spawnでIDを返し、status、collect、cancelを別々に呼ぶ | **完了（I-19）**。`spawn_agent`、`agent_status`、`collect_agent`、`cancel_agent`と生成JSの対応APIを実装・確認済み。`run_agent`の同期操作も維持 |
+| 子agentの並列実行 | 複数の子を開始可能 | **完了（I-19）**。複数の子を動かしたまま親が別の作業や次のモデルstepへ進める。既存の`Promise.all`による同期委譲も維持 |
+| 子のmodel、provider、effort指定 | spawn時に個別指定 | **完了（I-19）**。`spawn_agent`と`run_agent`の呼出しごとのmodel/provider/effort指定、実requestと保存構成の一致を確認済み |
+| 子のtool指定 | spawn時にtool一覧を指定 | **完了（I-19）**。呼出しごとのtools指定を実装・確認済み。省略はroleの一覧、空配列はtoolなし |
+| 子の中間報告・最終回答と差分取得 | statusの拡張候補として検討されていた | **完了（I-19）**。保存済みassistant本文を`agent_status`のreportsで返し、after/nextCursorで差分を取得する。取得結果は親のtool結果・履歴・次requestへ残る |
+| 親から実行中の子へ追加指示 | 子への制御操作 | **完了（I-19）**。`steer_agent`と対応JS API、受付・適用・未適用理由の保存、子の続行を実装・確認済み。人間による子直接操作は対象外 |
+| ライフサイクルhook | runtime開始と終了、turn前後、tool前後の六種類 | **完了（I-20）**。親子共通の六hook、保存・採用後のafterTurn、終了記録とnoticeを実装・確認済み。afterToolは現行の成功時だけの契約を維持し、旧側のエラー結果加工は追加していない |
+| hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **完了（I-20）**。runtimeStart/beforeTurnの追加文脈、予算管理、hook結果と実requestのattributionを実装・確認済み。次turnへ累積しない |
 | 要約checkpointの保存と再利用 | `after_turn`から要約と対象turn境界を返し、後続会話へ渡せる | **未実装**。現在は予算内に収まる履歴を選んで送る方式 |
 | tool自身が持つ利用指示 | `promptGuidelines`を有効toolから集めて共通指示へ追加 | **専用機構なし**。現在はtoolのdescriptionやrole指示へ書く |
 | 基本指示全体の差替え | ユーザーの`instruction.md`で組込み基本指示を置換 | **未実装**。現在の`systemInstruction`、role指示、AGENTS.mdは追加する方式 |
-| 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **未実装** |
+| 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **完了（I-20）**。標準runtimeStart例がGo由来の開始日時・UTC offset・timezone表示名を文脈へ渡す。編集済みhookを自動上書きしない |
 
 ### 子agentの操作範囲
 
-hjhでも複数の子を並列に実行し、その結果をまとめて親へ返せる。
-ただし子の寿命は外側のJS callに属し、残った子を取消して終了保存を待ってから、
-次の親model stepへ進む。
+I-19で、子を開始してIDを受け取り、親が別の判断を進め、その後で状態確認・報告の差分取得・
+結果回収・取消を行う操作が完了した。呼出しごとのmodel/provider/effort/tools指定と、
+親から実行中の子への追加指示も完了している。
 
-旧Henjiには、子を開始してIDを受け取り、親が別の判断を進め、その後で状態確認や結果回収を
-行う操作がある。この非同期操作と、呼出しごとのmodelやtool指定が差分である。
+非同期の子の寿命は親executionに属する。外側のJS callが終了しても子は続行し、
+親execution終了時には残った子を取消・joinして終了保存を待つ。
+既存のblocking `run_agent`はJS call単位の寿命を維持する。
+親終了後・次turn・Core再起動後にも子を存続させる機構は対象外である。
 
 参照先：
 
 - 旧Henji：[子agent API](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/tools/async_agents.ts)。
-- hjh：[子agent実行](../../internal/app/delegation.go)、[JSからの開始](../../internal/jsruntime/host.go)、[子agentの実装結果](i02-child-agents.md)、[role別model設定](../design/providers.md)。
+- hjh：[子agent実行](../../internal/app/delegation.go)、[非同期JS接続](../../internal/jsruntime/agent_control.go)、[I-19の実装・確認結果](i19-child-agent-control.md)、[role別model設定](../design/providers.md)。
 
 ### コンテキスト予算と要約checkpoint
 
@@ -103,7 +108,7 @@ hjhでも複数の子を並列に実行し、その結果をまとめて親へ�
 参照先：
 
 - 旧Henji：[六種類のhook契約](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/hook_api.ts)、[turn終了後のcheckpoint処理](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/worker/worker_runtime.ts)、[Increment 189の完成範囲](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/docs/increments/increment-189.md)。
-- hjh：[Web読取りとCoreコンテキスト管理](../design/i14-web-context-contract.md)、[tool前後のhook](../../internal/jsruntime/bootstrap.js)。
+- hjh：[Web読取りとCoreコンテキスト管理](../design/i14-web-context-contract.md)、[六hookの契約](../design/extensions.md#i-20execution-lifecycle-hooks)、[I-20の完了結果](i20-lifecycle-hooks.md)。
 
 インストラクションの比較元は、旧Henjiの[組立処理](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/instructions/compose.ts)と[基本指示の差替え](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/instructions/base_instruction.ts)、hjhの[指示組立](../../internal/extensions/extensions.go)と[workspace指示とskills](../design/workspace-instructions-skills.md)である。
 
@@ -173,7 +178,8 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 指示とskills | AGENTS.md、role指示、起動時のskill一覧、利用時の本文読取り | [workspace指示とskills](../design/workspace-instructions-skills.md) |
 | Web読取り | HTML可読化、1MiB上限、`save_to` | [Webと予算管理](i14-web-context.md) |
 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
-| 外部拡張 | role、tool、tool前後のhook、開始時のsource捕捉、次実行への編集反映 | [外部拡張](../design/extensions.md) |
+| 子agent | 非同期開始・並列実行・状態確認・回収・取消、model/provider/effort/tools指定、報告差分、親からの追加指示 | [I-19の完了結果](i19-child-agent-control.md) |
+| 外部拡張 | role、tool、六種類のhook、開始文脈、開始時のsource捕捉、次実行への編集反映 | [外部拡張](../design/extensions.md)、[hookの完了結果](i20-lifecycle-hooks.md) |
 | 表示 | ヘッダー、三行フッター、Markdown、途中のassistant本文、配色、run_js目的コメント | [ヘッダー](../design/tui-header.md)、[フッター](../design/tui-footer.md)、[Markdownと色](../design/tui-rendering.md)、[run_js目的表示](run-js-purpose.md) |
 
 認証の複数account機構は実装済みであるが、今回の比較で追加accountのブラウザ認証を
@@ -208,8 +214,7 @@ hjhの方式は[初期製品の採用方針](../design/initial-product.md)、[wo
 - Web検索と、非モデルサービスを呼ぶ認証付きHTTP。
 - 部分読取り、複数編集、ファイル検索など、ファイル操作toolの充実。
 - コマンドの途中出力と、大量出力の分割取得。
-- 子agentの非同期操作と、呼出しごとのmodelやtool指定。
-- ライフサイクルhookと、文脈追加やcheckpoint更新。
+- 会話の要約checkpoint保存・再利用（利用者指定により、まだ実装しない）。
 - 設定管理CLIと、runの機械向けイベント出力。
 - Session削除や最新Session再開などの人間向け操作。
 

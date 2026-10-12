@@ -44,6 +44,9 @@ func (d *delegation) prepareChild(ctx context.Context, request contracts.AgentRu
 	if err := ctx.Err(); err != nil {
 		return preparedChild{}, err
 	}
+	if d.children != nil && d.children.isClosed() {
+		return preparedChild{}, errors.New("parent execution has finished")
+	}
 	snapshot, err := extensions.CaptureWithOptions(d.input.configPath, extensions.CaptureOptions{Role: request.Role, Tools: request.Tools})
 	if err != nil {
 		return preparedChild{}, err
@@ -68,6 +71,7 @@ func (d *delegation) prepareChild(ctx context.Context, request contracts.AgentRu
 			return preparedChild{}, err
 		}
 	}
+	addExecutionContextInstruction(&snapshot, model, d.input.workspace)
 	provider := d.provider
 	if !d.input.injectedProvider {
 		provider, err = d.input.connections.provider(ctx, registry, model, d.input.rootSessionID, d.input.configPath)

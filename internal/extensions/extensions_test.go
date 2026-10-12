@@ -54,6 +54,7 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	var archivedConfig []byte
 	var runAgentSource []byte
 	var agentControlSource []byte
+	var hooksSource []byte
 	for _, resource := range snapshot.Resources {
 		if resource.Path == "config.json" {
 			archivedConfig = resource.Bytes
@@ -70,6 +71,9 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		if resource.Path == "agent-control.js" {
 			agentControlSource = resource.Bytes
 		}
+		if resource.Path == "hooks.js" {
+			hooksSource = resource.Bytes
+		}
 	}
 	if string(source) != "// edited by user\n" {
 		t.Fatalf("capture did not freeze the edited source: %q", source)
@@ -83,10 +87,24 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		!strings.Contains(string(agentControlSource), "api.agents.steer(args)") {
 		t.Fatalf("default role does not capture child control tools: tools=%+v run_agent=%q agent_control=%q", snapshot.Tools, runAgentSource, agentControlSource)
 	}
+	if !strings.Contains(string(hooksSource), "export async function runtimeStart") ||
+		!strings.Contains(string(hooksSource), "runtime.startedAt") || !strings.Contains(string(hooksSource), "runtime.timeZone") {
+		t.Fatalf("default hooks.js does not demonstrate the Go-provided start time: %s", hooksSource)
+	}
 	if !strings.Contains(snapshot.Tools[0].Description, "api.agents.run") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.spawn") ||
 		!strings.Contains(snapshot.Tools[0].Description, "api.agents.status") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.steer") || !strings.Contains(snapshot.Tools[0].Description, "api.agents.collect") ||
 		!strings.Contains(snapshot.Tools[0].Description, "api.agents.cancel") {
 		t.Fatalf("run_js definition omits selected child operation guidance: %s", snapshot.Tools[0].Description)
+	}
+	for _, expected := range []string{"Promise", "setTimeout", "setInterval", "api.agents.collect", "not waiting for completion", `tools.command({program:"sleep",args:["SECONDS"]})`} {
+		if !strings.Contains(snapshot.Tools[0].Description, expected) {
+			t.Errorf("run_js description omits selected runtime guidance %q: %s", expected, snapshot.Tools[0].Description)
+		}
+	}
+	for _, expected := range []string{"setTimeout", "setInterval", "api.agents.collect", "Do not poll status", `tools.command({program:"sleep",args:["SECONDS"]})`} {
+		if !strings.Contains(snapshot.SystemInstruction, expected) {
+			t.Errorf("system instruction omits selected runtime guidance %q: %s", expected, snapshot.SystemInstruction)
+		}
 	}
 	if !strings.Contains(snapshot.Tools[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
 		t.Fatal("run_js does not instruct the working role to write an English purpose comment")
@@ -171,9 +189,28 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	if legacy.ToolPaths.Source != "index.js" || legacy.ToolPaths.Deny == nil || external.Paths.Allow == nil || external.Paths.Deny == nil {
 		t.Fatalf("unexpected legacy path contract: toolPaths=%+v tool=%+v", legacy.ToolPaths, external)
 	}
-	var hooks []json.RawMessage
+	var hooks []struct {
+		Handlers []string `json:"handlers"`
+	}
 	if err = json.Unmarshal(legacy.Hooks, &hooks); err != nil {
 		t.Fatalf("hooks were not stored as structured definitions: %v", err)
+	}
+	wantHandlers := []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
+	if len(hooks) != 1 || strings.Join(hooks[0].Handlers, ",") != strings.Join(wantHandlers, ",") {
+		t.Fatalf("default hook declaration handlers = %+v, want %v", hooks, wantHandlers)
+	}
+}
+
+func TestDefaultHookHandlersForPathAndObjectDeclarations(t *testing.T) {
+	want := []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
+	for _, raw := range []string{`"hooks.js"`, `{"module":"hooks.js"}`} {
+		hooks, module, err := legacyHooksFromConfig(json.RawMessage(raw))
+		if err != nil {
+			t.Fatalf("legacyHooksFromConfig(%s): %v", raw, err)
+		}
+		if module != "hooks.js" || len(hooks) != 1 || strings.Join(hooks[0].Handlers, ",") != strings.Join(want, ",") {
+			t.Errorf("legacyHooksFromConfig(%s) = hooks=%+v module=%q, want handlers=%v", raw, hooks, module, want)
+		}
 	}
 }
 
@@ -209,10 +246,16 @@ func TestSpawnOnlyRoleCapturesRoleCatalogAndSelectedJSOperations(t *testing.T) {
 		t.Fatalf("spawn-only role omitted its role catalog: agent=%+v instruction=%s", snapshot.Agent, snapshot.SystemInstruction)
 	}
 	description := snapshot.Tools[0].Description
-	for _, selected := range []string{"api.agents.spawn", "api.agents.status", "api.agents.collect", "api.agents.cancel"} {
+	for _, selected := range []string{"api.agents.spawn", "api.agents.status", "api.agents.collect", "api.agents.cancel", "setTimeout", "setInterval", "await api.agents.collect"} {
 		if !strings.Contains(description, selected) {
 			t.Errorf("run_js description omitted selected operation %s: %s", selected, description)
 		}
+	}
+	if !strings.Contains(snapshot.SystemInstruction, "await api.agents.collect") || !strings.Contains(snapshot.SystemInstruction, "Do not poll status") {
+		t.Errorf("spawn role does not direct JavaScript to collect results and use status for reports: %s", snapshot.SystemInstruction)
+	}
+	if strings.Contains(description, `tools.command({program:"sleep"`) {
+		t.Errorf("run_js description advertises a delay tool that was not selected: %s", description)
 	}
 	if strings.Contains(description, "api.agents.run") || strings.Contains(description, "api.agents.steer") || snapshot.HasTool("run_agent") {
 		t.Fatalf("spawn-only role advertised unselected synchronous run: description=%s tools=%+v", description, snapshot.Agent.Tools)
@@ -258,6 +301,9 @@ func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	}
 	if !strings.Contains(definitions[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
 		t.Fatal("run_js does not instruct the reviewing role to write an English purpose comment")
+	}
+	if !strings.Contains(definitions[0].Description, "setTimeout") || strings.Contains(definitions[0].Description, "tools.command({program:\"sleep\"") {
+		t.Fatalf("reviewer run_js guidance does not match its selected capabilities: %q", definitions[0].Description)
 	}
 	if strings.Contains(definitions[0].Description, "api.agents.run") || strings.Contains(snapshot.SystemInstruction, "Available roles for run_agent") {
 		t.Fatalf("non-delegating role advertises delegation: definition=%q instruction=%q", definitions[0].Description, snapshot.SystemInstruction)

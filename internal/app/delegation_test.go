@@ -398,6 +398,8 @@ func TestDelegationAppliesChildModelAndToolOverridesToRequestAndSnapshot(t *test
 		if model != req.Model {
 			t.Errorf("saved child model differs from its actual request for %q: saved=%+v request=%+v", child.Task, model, req.Model)
 		}
+		requireExecutionContextInstruction(t, req.Instruction, req.Model, "reviewer", workspace)
+		requireSavedExecutionContext(t, store, child.ConfigurationID, req.Instruction, req.Model, "reviewer", workspace)
 	}
 
 	var sourceConfig []byte

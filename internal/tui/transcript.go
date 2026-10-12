@@ -195,7 +195,7 @@ func (m *model) buildTranscript() *transcriptDocument {
 		pendingPlain.WriteString(plain)
 	}
 
-	entities := m.mergedEntities()
+	entities := m.displayEntities()
 	activeSources := make(map[string]bool, len(entities)+len(m.entries)*2)
 	activeBlocks := make(map[markdownBlockKey]bool)
 	visibleEntityCount := 0
@@ -203,18 +203,27 @@ func (m *model) buildTranscript() *transcriptDocument {
 	previousEntityFullyReceipted := false
 	previousEntityEndsWithNewline := false
 	for _, entity := range entities {
-		if entity.Kind == "execution" && entity.ParentExecutionID == "" {
-			continue
-		}
-		if entity.Kind == "assistant" && entity.Text == "" {
-			continue
-		}
 		prefix := ""
 		if visibleEntityCount > 0 && previousEntityHasBody &&
 			!previousEntityFullyReceipted && !previousEntityEndsWithNewline {
 			prefix = "\n"
 		}
 		visibleEntityCount++
+		if entity.Kind == "execution" {
+			fullyReceipted := true
+			for index, line := range m.childSummaryLines(entity) {
+				key := "entity:" + entity.ID + ":child-" + line.key
+				styled := childSummaryRow(line, doc.width)
+				if index == 0 {
+					styled = prefix + styled
+				}
+				appendPart(key, line.text, 0, len(line.text), styled, false)
+				fullyReceipted = fullyReceipted && m.receiptByPart[key] >= len(line.text)
+			}
+			previousEntityHasBody, previousEntityEndsWithNewline = true, true
+			previousEntityFullyReceipted = fullyReceipted
+			continue
+		}
 		if entity.Kind == "tool" {
 			toolKey := "entity:" + entity.ID + ":tool-line"
 			appendPart(toolKey, toolReceiptSource, 0, len(toolReceiptSource), prefix+toolDisplayLine(entity), false)

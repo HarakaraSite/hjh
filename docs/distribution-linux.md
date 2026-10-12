@@ -100,6 +100,29 @@ DB/config/credential関連のfile指定はCore起動時に行う。max-steps/fro
 
 配布先 `extensions/index.js`・`hooks.js`・`config.json` を編集すると次のrunから反映される。
 `--config` を省略したrunはworkspaceの `.hjh/extensions/` に標準拡張を配置し、そちらを使う。
+標準configは`hooks.js`をhook moduleに指定する。開始日時の例はGoが渡す`runtime.startedAt`と
+`runtime.timeZone`を使うため、JS側で時計やIntl APIを用意する必要はない。
+
+```js
+export async function runtimeStart({ runtime }) {
+  return {
+    context: [
+      "Agent runtime started at: " + runtime.startedAt + " (" + runtime.timeZone + ")",
+    ],
+  };
+}
+```
+
+追加するhookは同じ`hooks.js`からfunction exportする。設定snapshotの`handlers`は宣言情報で、
+実際のfunction exportが呼出対象を決める。`runtimeStart`と`beforeTurn`の返却文脈は
+既存instructionの後に今回のmodel入力へ加わり、通常のcontext budgetと履歴attributionに入る。
+この動的文脈は保存済みconfigを書き換えず、次turnへ累積しない。
+
+WorkerはSessionのturnごと、またはchild executionごとに作られる。Core起動やTUIのattach／再接続では
+lifecycle hookを再実行しない。module編集は次に作られるWorkerから反映される。
+終了時はterminalとrootの採用判断の後に`afterTurn`、`runtimeStop`をawaitしてからWorkerを閉じる。
+hookの失敗・skip通知はCLIのstderr、TUIのnoticeへ表示され、詳細記録は
+`hjh inspect --execution ID`または`hjh history --view detail`で確認できる。
 Webページは`web_fetch`で読み取る。通常は1MiBまでを可読テキストで返し、`save_to`は本文を
 上限なくfileへ保存する。コンテキスト予算管理はCoreが行い、ターン内・次ターン・再開・
 モデル変更・子Agentに適用する。履歴全文は残し、モデルへ送る内容だけを選ぶ。

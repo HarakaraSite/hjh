@@ -60,6 +60,10 @@ func (out *runOutput) observe(o contracts.Observation) error {
 			}
 		}
 	}
+	if o.Kind == "context" && strings.HasPrefix(o.Name, "hook/") {
+		_, err := fmt.Fprintln(out.stderr, "[notice] "+o.Preview)
+		return err
+	}
 	_, err := fmt.Fprintf(out.stderr, "[%s] %s %s\n", o.Kind, o.Name, o.Phase)
 	return err
 }

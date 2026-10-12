@@ -144,6 +144,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		j.link(execution.ID, history.Relation{Relation: "parent_call", TargetRecordID: input.spawnRecordID, Mandatory: true})
 	}
 	var worker *jsruntime.Worker
+	var lifecycle *executionLifecycle
 	var runner *delegation
 	stopWatcher, watched := make(chan struct{}), make(chan struct{})
 	go func() {
@@ -155,11 +156,11 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		}
 	}()
 	defer func() {
+		if additional != nil {
+			err = errors.Join(err, additional.Close(steeringCloseReason(ctx, result, err)))
+		}
 		if input.childInstructions != nil {
 			err = errors.Join(err, input.childInstructions.Close(steeringCloseReason(ctx, result, err)))
-		}
-		if worker != nil {
-			err = errors.Join(err, worker.Close())
 		}
 		if runner != nil {
 			runner.children.Close()
@@ -186,14 +187,30 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			result.OK = false
 			result.Error = err.Error()
 		}
-		settleErr := j.end(outcome, result)
+		settledResult := result
+		settleErr := j.end(outcome, settledResult)
 		err = errors.Join(err, settleErr)
+		var adoptionErr error
 		if outcome == history.OutcomeCompleted && settleErr == nil && execution.ParentExecutionID == "" {
-			err = errors.Join(err, control.storage(store.AdoptCanonical(persist, execution.ID, "")))
+			adoptionErr = control.storage(store.AdoptCanonical(persist, execution.ID, ""))
+			err = errors.Join(err, adoptionErr)
 		}
 		if err != nil {
 			result.OK = false
 			result.Error = err.Error()
+		}
+		if lifecycle != nil {
+			adoptionMessage := ""
+			if adoptionErr != nil {
+				adoptionMessage = adoptionErr.Error()
+			}
+			err = errors.Join(err, lifecycle.finish(persist, store, settledResult, string(outcome), adoptionMessage, settleErr == nil))
+		}
+		if worker != nil {
+			err = errors.Join(err, worker.Close())
+		}
+		if fatal := control.failure(); fatal != nil {
+			err = errors.Join(err, &contracts.ExecutionError{Err: fatal})
 		}
 	}()
 	if err = j.observe(contracts.Observation{ID: execution.ID, Kind: "execution", Name: "run", Phase: "started",
@@ -253,12 +270,17 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	}
 	runner = &delegation{store: store, provider: provider, input: input, journal: j, control: control, progress: progress}
 	runner.children = newChildRuns(ctx, runner)
-	worker, err = jsruntime.New(ctx, jsruntime.Options{Snapshot: input.snapshot, Workspace: input.workspace, Observer: j.observe,
+	worker, err = jsruntime.New(persist, jsruntime.Options{Snapshot: input.snapshot, Workspace: input.workspace, Observer: j.observe,
 		ObserverParent: execution.ID, Agents: runner, AgentControl: runner.children})
 	if err != nil {
 		return result, err
 	}
-	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource}
+	lifecycle = newExecutionLifecycle(input, worker, j)
+	if err = lifecycle.start(ctx); err != nil {
+		return result, err
+	}
+	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource,
+		instructionSources: lifecycle.instructionSources()}
 	registry, e := capturedRegistry(input.snapshot, input.configPath)
 	if e != nil {
 		return result, e
@@ -277,7 +299,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	} else if input.childInstructions != nil {
 		additionalInput = input.childInstructions
 	}
-	result, err = agent.Run(ctx, agent.Input{Task: execution.Task, Model: input.model, Instruction: input.snapshot.SystemInstruction,
+	result, err = agent.Run(ctx, agent.Input{Task: execution.Task, Model: input.model, Instruction: lifecycle.instruction,
 		History: messages, Tools: worker.Definitions(), MaxSteps: input.maxSteps, AdditionalInput: additionalInput,
 		ProjectRequest: func(projectCtx context.Context, step int, request contracts.ModelRequest) (contracts.ModelRequest, error) {
 			current := make([]contextbudget.Entry, 0, len(request.Messages)-len(prefix))

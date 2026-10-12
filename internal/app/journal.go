@@ -31,11 +31,13 @@ type journal struct {
 	starts               map[string]string
 	firstSequences       map[string]uint64
 	previews             map[string]string
+	postSettlement       bool
+	hookResults          map[string]string
 }
 
 func newJournal(ctx context.Context, store *history.Store, id, rootID, task string, owner *executiondata.Owner, progress contracts.Observer) *journal {
 	return &journal{ctx: ctx, store: store, owner: owner, executionID: id, rootExecutionID: rootID, task: task, progress: progress,
-		links: map[string][]history.Relation{}, starts: map[string]string{}, firstSequences: map[string]uint64{}, previews: map[string]string{}}
+		links: map[string][]history.Relation{}, starts: map[string]string{}, firstSequences: map[string]uint64{}, previews: map[string]string{}, hookResults: map[string]string{}}
 }
 
 func (j *journal) observe(o contracts.Observation) error {
@@ -137,7 +139,11 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 	if metadata != nil {
 		metadataPtr = metadata
 	}
-	record, err := j.store.AppendOccurrence(j.ctx, j.executionID, history.OccurrenceInput{
+	appendOccurrence := j.store.AppendOccurrence
+	if j.postSettlement {
+		appendOccurrence = j.store.AppendPostSettlementObservation
+	}
+	record, err := appendOccurrence(j.ctx, j.executionID, history.OccurrenceInput{
 		Kind: kind, Payload: payload, Relations: relations, ObservedAt: o.Time.UTC().Format(time.RFC3339Nano), Conversation: metadataPtr,
 	})
 	if err != nil {
@@ -145,6 +151,9 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 	}
 	if started && o.ID != "" {
 		j.starts[o.ID] = record.ID
+	}
+	if o.Kind == "hook" && o.Phase == "completed" {
+		j.hookResults[o.Name] = record.ID
 	}
 	facts := make([]contracts.ExecutionFact, 0, 2)
 	if metadata != nil {
@@ -452,6 +461,18 @@ func (j *journal) startReference(id string) string {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	return j.starts[id]
+}
+
+func (j *journal) enterPostSettlement() {
+	j.mu.Lock()
+	j.postSettlement = true
+	j.mu.Unlock()
+}
+
+func (j *journal) hookResultReference(name string) string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.hookResults[name]
 }
 
 func (j *journal) link(id string, relation history.Relation) {

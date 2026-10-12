@@ -98,6 +98,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if err != nil {
 		return output, err
 	}
+	addExecutionContextInstruction(&snapshot, model, workspace)
 	if options.SessionID == "" {
 		session, err = store.CreateSession(ctx, history.SessionInput{ID: options.NewSessionID, WorkspaceRoot: workspace, AgentChoice: contracts.JSON(map[string]any{"name": snapshot.Agent.Name}), ActiveModel: contracts.JSON(model)})
 		if err != nil {

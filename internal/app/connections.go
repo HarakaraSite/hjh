@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -244,6 +245,10 @@ func decodeModelCatalog(reader io.Reader, kind string) ([]providers.ModelInfo, e
 			ID            string `json:"id"`
 			Name          string `json:"name"`
 			ContextLength *int64 `json:"context_length"`
+			Reasoning     struct {
+				Mandatory        bool            `json:"mandatory"`
+				SupportedEfforts json.RawMessage `json:"supported_efforts"`
+			} `json:"reasoning"`
 		} `json:"data"`
 		Models []struct {
 			Slug                     string `json:"slug"`
@@ -279,10 +284,29 @@ func decodeModelCatalog(reader io.Reader, kind string) ([]providers.ModelInfo, e
 			if model.ContextLength != nil {
 				info.CapacitySource = "catalog"
 			}
+			if model.Reasoning.SupportedEfforts != nil {
+				info.EffortSource = "catalog"
+				if bytes.Equal(bytes.TrimSpace(model.Reasoning.SupportedEfforts), []byte("null")) {
+					info.Efforts = openRouterReasoningEfforts(model.Reasoning.Mandatory)
+				} else if err := json.Unmarshal(model.Reasoning.SupportedEfforts, &info.Efforts); err != nil {
+					return nil, fmt.Errorf("decode reasoning efforts for model %q: %w", model.ID, err)
+				}
+			}
 			models = append(models, info)
 		}
 	}
 	return models, nil
+}
+
+// OpenRouter documents this order and set of effort values when
+// reasoning.supported_efforts is explicitly null. Omission means the model
+// does not expose effort selection, so it is handled separately above.
+func openRouterReasoningEfforts(mandatory bool) []string {
+	efforts := []string{"max", "xhigh", "high", "medium", "low", "minimal", "none"}
+	if !mandatory {
+		return efforts
+	}
+	return efforts[:len(efforts)-1]
 }
 
 func (f *connectionFactory) close() error {

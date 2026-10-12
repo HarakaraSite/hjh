@@ -13,15 +13,16 @@ import (
 )
 
 type contextAttribution struct {
-	store          *history.Store
-	ctx            context.Context
-	executionID    string
-	recall         *recallAttribution
-	previousDigest string
-	previousCount  int
-	requests       []map[string]any
-	sources        []contextbudget.Source
-	budget         json.RawMessage
+	store              *history.Store
+	ctx                context.Context
+	executionID        string
+	recall             *recallAttribution
+	previousDigest     string
+	previousCount      int
+	requests           []map[string]any
+	sources            []contextbudget.Source
+	budget             json.RawMessage
+	instructionSources []map[string]any
 }
 
 func digest(b []byte) string { sum := sha256.Sum256(b); return "sha256:" + hex.EncodeToString(sum[:]) }
@@ -78,6 +79,9 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 	for _, item := range items {
 		content := map[string]any{"digest": digest(item.bytes), "byteLength": len(item.bytes), "mediaType": item.media}
 		sources := []map[string]any{{"stage": "projected", "resourceKind": item.resource, "logicalIdentity": item.identity, "contentDigest": digest(item.bytes), "lane": "parent", "modelStep": step}}
+		if item.kind == "system" {
+			sources = append(sources, a.instructionSources...)
+		}
 		if item.source != nil {
 			sources = append(sources, map[string]any{"stage": "saved", "resourceKind": "message", "sourceKind": item.source.Kind,
 				"sourceExecutionId": item.source.ExecutionID, "turn": item.source.Turn, "messageOrdinal": item.source.MessageOrdinal})

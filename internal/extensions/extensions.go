@@ -158,6 +158,7 @@ type CaptureOptions struct {
 var runJSInputSchema = json.RawMessage(`{"type":"object","properties":{"code":{"type":"string"}},"required":["code"]}`)
 
 const runJSPurposeInstruction = "Begin the code with a short one-line // comment in English stating its purpose. The tool activity row displays that comment."
+const runJSRuntimeInstruction = "The async JavaScript body supports Promise and the selected tools, but QuickJS provides no setTimeout, setInterval, or browser timer APIs."
 
 // RunJSDefinition returns the model-facing built-in for generated JavaScript.
 // Delegation is described only when run_agent is part of the selected role.
@@ -173,7 +174,7 @@ func RunJSDefinition(delegation bool) contracts.ToolDefinition {
 // generated JavaScript through the selected external tool composition.
 func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
 	description := "Run generated JavaScript that can call selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
-	description += " " + runJSPurposeInstruction
+	description += " " + runJSPurposeInstruction + " " + runJSRuntimeInstruction
 	if containsTool(selected, "run_agent") {
 		description += " It can delegate with api.agents.run({task, role?, model?, tools?}), returning a child result with executionId, outcome, and optional finalText or error; await results or use Promise.all for independent delegations."
 	}
@@ -181,16 +182,19 @@ func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
 		description += " It can start independent children with api.agents.spawn({task, role?, model?, tools?}), continue its own work, check progress when useful, and collect results when needed."
 	}
 	if containsTool(selected, "agent_status") {
-		description += " api.agents.status({executionId, after?}) reads state, progress, latest instruction receipts, and saved assistant reports; reuse nextCursor as after to read new reports. Return the reports you need so they enter your next model input."
+		description += " Use api.agents.status({executionId, after?}) after starting independent work to read state, progress, latest instruction receipts, and saved assistant reports; reuse nextCursor as after to read new reports. Return the reports you need so they enter your next model input; status is for progress and reports, not waiting for completion."
 	}
 	if containsTool(selected, "steer_agent") {
 		description += " api.agents.steer({executionId, text}) saves additional guidance for an active child and returns its accepted receipt; the child's current model request and tools finish before it receives the guidance at a loop boundary."
 	}
 	if containsTool(selected, "collect_agent") {
-		description += " api.agents.collect({executionId}) waits for a child's result."
+		description += " In generated JavaScript, await api.agents.collect({executionId}) to wait for and return a spawned child's settled result."
 	}
 	if containsTool(selected, "cancel_agent") {
 		description += " api.agents.cancel({executionId}) cancels a child and returns its settled result."
+	}
+	if containsTool(selected, "command") {
+		description += " For an explicit delay, await tools.command({program:\"sleep\",args:[\"SECONDS\"]})."
 	}
 	return contracts.ToolDefinition{
 		Name:        "run_js",
@@ -533,7 +537,10 @@ func assembleInstruction(configInstruction string, role Role, roleName string, t
 		sections = append(sections, "Role description: "+role.Description)
 	}
 	if containsToolFromTools(tools, "run_js") {
-		sections = append(sections, "Use run_js to compose the selected tools with JavaScript. Its code input is an async JavaScript function body; in that body, selected tools are available as tools.NAME(arguments). Await calls and return useful results. "+runJSPurposeInstruction)
+		sections = append(sections, "Use run_js to compose the selected tools with JavaScript. Its code input is an async JavaScript function body; in that body, selected tools are available as tools.NAME(arguments). Await calls and return useful results. "+runJSPurposeInstruction+" "+runJSRuntimeInstruction)
+		if containsToolFromTools(tools, "command") {
+			sections = append(sections, "For an explicit delay from generated JavaScript, await tools.command({program:\"sleep\",args:[\"SECONDS\"]}).")
+		}
 	}
 	if containsToolFromTools(tools, "run_agent") {
 		sections = append(sections, "Use run_agent to delegate an independent task; it accepts a task, optional role, optional model selection (provider, modelId, effort), and optional tool list, and returns the recorded child result. Pass necessary context in the task; child conversations are independent.")
@@ -542,7 +549,10 @@ func assembleInstruction(configInstruction string, role Role, roleName string, t
 		sections = append(sections, "Use spawn_agent to start an independent child and receive its executionId while it works. Start independent children before collecting when useful, and continue your own work between start and collection.")
 	}
 	if containsToolFromTools(tools, "agent_status") {
-		sections = append(sections, "Use agent_status to read a child's state, progress, latest instruction receipts, and saved ordinary assistant reports without waiting for completion. Omit after for all reports, then pass nextCursor as after for newer reports. Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. A final saved report does not establish settlement; use collect_agent for the settled result.")
+		sections = append(sections, "Use agent_status after starting independent work when you need a child's state, progress, latest instruction receipts, or saved ordinary assistant reports; it reads these without waiting for completion. Omit after for all reports, then pass nextCursor as after for newer reports. Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. Do not poll status to wait for completion.")
+		if containsToolFromTools(tools, "collect_agent") {
+			sections = append(sections, "Use collect_agent, or await api.agents.collect({executionId}) from generated JavaScript, to wait for a spawned child's settled result.")
+		}
 	}
 	if containsToolFromTools(tools, "steer_agent") {
 		sections = append(sections, "Use steer_agent to save additional guidance for an active child and receive its accepted receipt. The child finishes its current model request and tools before receiving the instruction at a loop boundary.")
@@ -551,7 +561,9 @@ func assembleInstruction(configInstruction string, role Role, roleName string, t
 		}
 	}
 	if containsToolFromTools(tools, "collect_agent") {
-		sections = append(sections, "Use collect_agent when you need a child's settled result; it waits for that child to finish.")
+		if !containsToolFromTools(tools, "agent_status") {
+			sections = append(sections, "Use collect_agent when you need a child's settled result; it waits for that child to finish.")
+		}
 	}
 	if containsToolFromTools(tools, "cancel_agent") {
 		sections = append(sections, "Use cancel_agent when a started child should stop; it waits for and returns the child's settled result.")
@@ -725,7 +737,7 @@ func legacyHooksFromConfig(value json.RawMessage) ([]LegacyHook, string, error) 
 	}
 	var pathValue string
 	if err := json.Unmarshal(value, &pathValue); err == nil {
-		return []LegacyHook{{Name: "extension-hooks", Path: cleanRelativePath(pathValue), Contract: "hjh-hook/v1", Handlers: []string{"beforeTool", "afterTool"}}}, cleanRelativePath(pathValue), nil
+		return []LegacyHook{{Name: "extension-hooks", Path: cleanRelativePath(pathValue), Contract: "hjh-hook/v1", Handlers: defaultHookHandlers()}}, cleanRelativePath(pathValue), nil
 	}
 	var cfg struct {
 		Name     string   `json:"name"`
@@ -751,10 +763,14 @@ func legacyHooksFromConfig(value json.RawMessage) ([]LegacyHook, string, error) 
 		cfg.Contract = "hjh-hook/v1"
 	}
 	if cfg.Handlers == nil {
-		cfg.Handlers = []string{"beforeTool", "afterTool"}
+		cfg.Handlers = defaultHookHandlers()
 	}
 	module = cleanRelativePath(module)
 	return []LegacyHook{{Name: cfg.Name, Path: module, Contract: cfg.Contract, Handlers: cfg.Handlers}}, module, nil
+}
+
+func defaultHookHandlers() []string {
+	return []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
 }
 
 func cleanRelativePath(value string) string {

@@ -22,6 +22,9 @@ Coreは実行・DB・provider・credential・JS Workerを所有する。
 TUIはdraft、次回の接続／role／Session選択、会話entity、Markdown・折返し、
 端末scrollbackへの確定出力と下部live bandを所有する。DBやCore実装packageをimportしない。
 Bubble Teaのupdate loopで入力と表示状態を管理し、独立writerで通常画面へ出力する。
+pickerと認証の選択画面は一時的なalternate screenへ描く。通常画面の会話とcursorを保持し、
+キャンセル・選択完了で元の画面へ戻す。選択画面の内容を会話のscrollbackへ残さない。
+picker表示中に確定した親本文は通常画面へ戻ってから一度だけ出力する。
 端末の検索・コピーは端末／tmuxのscrollbackを使う。
 
 I-13の起動入口は[計画と操作契約](../plans/i13-core-startup.md)を参照する。
@@ -30,7 +33,13 @@ endpoint省略時は同VMのCoreへ接続し、未起動なら別processの`hjh 
 起動optionとprocess寿命はCLI／corelaunchが扱い、TUIのmodelへCore実装やDB所有を持ち込まない。
 
 Session会話はSession view snapshotで読み、現在runのsnapshot／upsertを同じID／位置へmergeする。
-本文・公開thinking・tool・子executionをCoreの意味的位置に沿って表示する。
+親の本文・公開thinking・toolをCoreの意味的位置に沿って表示する。
+子executionは開始・終了・失敗を短縮ID付きの短い行へまとめる。実行中は子ごとに
+状態と現在実行中のtool名だけを下部live bandの1行で更新し、進行表示をscrollbackへ追記しない。
+子のtask・thinking・tool引数/結果・中間報告・最終回答・追加入力は通常画面から省く。
+親が報告や回収結果を材料に書いた本文は通常どおり表示する。
+この選択はTUIの表示だけへ適用し、Coreの保存履歴・API view・親のモデル入力を変更しない。
+保存済みSessionの再開も同じ簡潔な表示を使い、詳細は既存の/tools・/tool・/inspectから読む。
 公開thinkingはproviderが返したtext／summaryだけを使い、private replay stateを本文へ展開しない。
 本文は`thinking`、要約は`thinking summary`と表示し、生成中と履歴再開で同じentityを使う。
 モデルが宣言したtoolと外側JS実行は同じcallを表示する。実際のJS内toolは親子関係を維持する。
@@ -61,10 +70,11 @@ workspace／Session headerは通常scrollbackへ流す。更新するmodel／con
 HTTPの受信・終了保存は描画ACKを待たない。
 
 日本語・複数行editorの文字数・入力行数に上限を設けない。Enterで送信、Alt／Shift／Ctrl+EnterまたはCtrl+Jで改行。
+入力欄は`>` promptだけを表示し、プレースホルダーは置かない。
 修飾Enterは端末がkey情報を渡す環境で使える。bracketed paste、矢印／Home／End編集、
 Tabのコマンド補完、Escの選択表示／補完closeを扱う。利用者のtmux設定を勝手に変更しない。
 editorは実端末cursorを文字幅・改行・表示windowと同じ計算結果で動かし、IMEの変換窓の基準位置にする。
-入力欄を会話の下、その下に操作・状態・接続情報を置く。
+会話の下に区切り線・操作案内と通知・入力欄を置き、その下に状態・接続情報を置く。
 F1は現在runの予約列をキャンセルしてCoreのterminalと列の保存完了を待ち、TUIを継続する。Ctrl+Cはdraftを消す。
 I-07では`/detach`／Ctrl+DがTUIの購読・通信を閉じ、Coreとrunは継続する。
 新Sessionの準備中は保存済みadmissionまで待ち、Session IDとrun IDをscrollbackへ残す。
@@ -156,7 +166,7 @@ admission reports the actual role separately from the explicit selection for a
 later run; /role changes during a run do not mutate that Worker. /roles reads
 through the scoped HTTP catalog operation. /new retains the selected workspace;
 /resume restores saved workspace and role unless an explicit role is selected.
-Child progress includes its own role without changing the parent's role/model/step.
+Child progress shows its short ID, state and current tool name without changing the parent's role/model/step.
 Execution listings and inspection display saved role names.
 
 ## I-04: connection selection

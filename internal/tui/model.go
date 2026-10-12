@@ -373,7 +373,7 @@ func newModel(ctx context.Context, cancel context.CancelFunc, backend Backend, o
 	ta.DynamicHeight = true
 	ta.MinHeight = 1
 	ta.Prompt = "> "
-	ta.Placeholder = "依頼を入力してください"
+	ta.Placeholder = ""
 	ta.ShowLineNumbers = false
 	ta.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "shift+enter", "ctrl+enter", "ctrl+j"), key.WithHelp("alt+enter", "改行"))
 	ta.SetHeight(1)
@@ -442,6 +442,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.CursorPositionMsg:
+		if m.writer != nil {
+			m.writer.ObserveCursor(msg.Y, msg.X)
+		}
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.sealCurrentFrame()
 		m.width, m.height = msg.Width, msg.Height
@@ -1291,13 +1296,20 @@ func (m *model) View() tea.View {
 	footer := m.footerRows()
 	printHeader := m.openingHeaderReady()
 	frame, cursor, content, committedThrough, bodyStart, bodyRows := m.screenFrame(footer)
-	frame.SealedRows = append(frame.SealedRows, m.pendingSealRows...)
+	frame.Overlay = m.pickerOpen
+	if m.pickerOpen {
+		printHeader = false
+	} else {
+		frame.SealedRows = append(frame.SealedRows, m.pendingSealRows...)
+	}
 	if printHeader {
 		frame.SealedRows = append(frame.SealedRows, m.headerRows()...)
 	}
 	if m.writer != nil {
 		if err := m.writer.Render(frame); err != nil {
-			m.renderErr = errors.Join(m.renderErr, err)
+			if !errors.Is(err, renderer.ErrAwaitingCursor) {
+				m.renderErr = errors.Join(m.renderErr, err)
+			}
 		} else {
 			if printHeader {
 				m.headerPrinted = true
@@ -1317,7 +1329,9 @@ func (m *model) View() tea.View {
 				m.lastBodyStartRow = doc.startRow
 			}
 			m.lastTranscriptBytes = doc.sourceLength
-			m.pendingSealRows = nil
+			if !m.pickerOpen {
+				m.pendingSealRows = nil
+			}
 		}
 	}
 	view := tea.NewView(content)

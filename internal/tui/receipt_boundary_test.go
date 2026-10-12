@@ -8,43 +8,42 @@ import (
 	"hjh/internal/tui/renderer"
 )
 
-func TestResizeDoesNotAcknowledgeLaterAnswerPastMutableChild(t *testing.T) {
+func TestResizeDoesNotAcknowledgeLaterAnswerPastMutableParent(t *testing.T) {
 	backend := &fakeBackend{core: api.Core{CoreID: "core-1"}}
 	m, _, cancel := testModel(backend, Options{Core: backend.core})
 	output := attachWriter(m)
 	defer func() { cancel(); m.shutdown(); _ = m.writer.Close() }()
 
-	child := conversationEntity("child-body", "assistant", "**mutable child preview**", 1)
-	child.Status = "streaming"
-	child.ParentExecutionID = "root"
+	earlier := conversationEntity("earlier-body", "assistant", "**mutable earlier preview**", 1)
+	earlier.Status = "streaming"
 	parent := conversationEntity("parent-body", "assistant", "親の確定回答", 2)
 	parent.Status = "completed"
-	m.sessionEntities[child.ID], m.sessionEntities[parent.ID] = child, parent
+	m.sessionEntities[earlier.ID], m.sessionEntities[parent.ID] = earlier, parent
 	m.View()
 	preview := renderer.ReceiptText(strings.Join(m.lastBodyRows, "\n"))
-	if !strings.Contains(preview, "mutable child preview") {
-		t.Fatal("the live body omitted the first mutable child block")
+	if !strings.Contains(preview, "mutable earlier preview") {
+		t.Fatal("the live body omitted the first mutable earlier block")
 	}
 	if strings.Contains(preview, parent.Text) {
 		t.Fatal("a later entity displaced the first mutable block in the live preview")
 	}
 	m.sealCurrentFrame()
 	if got := m.receiptByPart["entity:parent-body:body"]; got != 0 {
-		t.Fatalf("later answer acknowledged past mutable child at offset %d", got)
+		t.Fatalf("later answer acknowledged past mutable earlier at offset %d", got)
 	}
 
-	child.Text += "**"
-	child.Status = "completed"
-	m.sessionEntities[child.ID] = child
+	earlier.Text += "**"
+	earlier.Status = "completed"
+	m.sessionEntities[earlier.ID] = earlier
 	m.invalidateTranscript()
 	output.Reset()
 	m.View()
 	if !strings.Contains(renderer.ReceiptText(output.String()), parent.Text) {
-		t.Fatal("parent answer disappeared when the preceding child finished")
+		t.Fatal("parent answer disappeared when the preceding earlier finished")
 	}
 }
 
-func TestPendingToolDoesNotDelayCompletedChildCommit(t *testing.T) {
+func TestPendingToolAndHiddenChildDoNotDelayParentCommit(t *testing.T) {
 	backend := &fakeBackend{core: api.Core{CoreID: "core-1"}}
 	m, _, cancel := testModel(backend, Options{Core: backend.core})
 	output := attachWriter(m)
@@ -63,10 +62,10 @@ func TestPendingToolDoesNotDelayCompletedChildCommit(t *testing.T) {
 
 	m.View()
 	committed := renderer.ReceiptText(output.String())
-	if !strings.Contains(committed, child.Text) {
-		t.Fatalf("pending tool delayed completed child output from scrollback: %q", committed)
+	if strings.Contains(committed, child.Text) || !strings.Contains(committed, final.Text) {
+		t.Fatalf("hidden child was displayed or parent output was delayed: %q", committed)
 	}
-	if got := m.receiptByPart["entity:"+child.ID+":body"]; got != len(child.Text) {
-		t.Fatalf("completed child output was not committed while the tool was pending: offset=%d want=%d", got, len(child.Text))
+	if got := m.receiptByPart["entity:"+final.ID+":body"]; got != len(final.Text) {
+		t.Fatalf("parent output was not committed while the tool was pending: offset=%d want=%d", got, len(final.Text))
 	}
 }

@@ -29,12 +29,13 @@ type agentJob struct {
 // vmOwner is the only owner of the Runtime and all values that belong to it.
 // Host and AgentRunner goroutines exchange only Go values through completions.
 type vmOwner struct {
-	rt      *quickjs.Runtime
-	ctx     context.Context
-	options Options
-	host    *host.Host
-	files   map[string][]byte
-	defs    []contracts.ToolDefinition
+	rt           *quickjs.Runtime
+	ctx          context.Context
+	options      Options
+	host         *host.Host
+	files        map[string][]byte
+	defs         []contracts.ToolDefinition
+	hookHandlers []string
 
 	active         map[string]activeObservation
 	callRoot       string
@@ -179,6 +180,20 @@ func (o *vmOwner) loadExtensions() error {
 	if err = o.awaitModule(o.ctx, entry); err != nil {
 		return fmt.Errorf("initialize extensions: %w", captureJavaScriptError(err))
 	}
+	handlerNames, err := o.rt.Get("__getExtensionHookHandlers")
+	if err != nil {
+		return fmt.Errorf("read extension hook handlers: %w", captureJavaScriptError(err))
+	}
+	encodedHandlers, err := handlerNames.CallContext(o.ctx)
+	if err != nil {
+		return fmt.Errorf("read extension hook handlers: %w", captureJavaScriptError(err))
+	}
+	if !encodedHandlers.IsString() {
+		return fmt.Errorf("read extension hook handlers: JavaScript returned a non-string value")
+	}
+	if err = json.Unmarshal([]byte(encodedHandlers.String()), &o.hookHandlers); err != nil {
+		return fmt.Errorf("read extension hook handlers: %w", err)
+	}
 	return nil
 }
 
@@ -228,6 +243,7 @@ func (o *vmOwner) extensionEntry() string {
 	} else {
 		builder.WriteString("globalThis.__extensionHooks = {};\n")
 	}
+	builder.WriteString("globalThis.__getExtensionHookHandlers = () => JSON.stringify(['runtimeStart', 'beforeTurn', 'beforeTool', 'afterTool', 'afterTurn', 'runtimeStop'].filter(name => typeof globalThis.__extensionHooks?.[name] === 'function'));\n")
 	return builder.String()
 }
 

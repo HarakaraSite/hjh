@@ -193,6 +193,12 @@ func (s *childRuns) Close() {
 	s.wg.Wait()
 }
 
+func (s *childRuns) isClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
+}
+
 func (r *childRun) observe(o contracts.Observation) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -37,25 +37,59 @@ type Frame struct {
 	CommittedRows []string
 	SealedRows    []string
 	LiveRows      []string
-	Cursor        Cursor
-	Size          Size
+	// Overlay temporarily borrows the alternate screen for a picker. The
+	// conversation and its normal-screen frame remain untouched underneath.
+	Overlay bool
+	// DockRows counts trailing controls (divider, editor, footer). They stay at
+	// the screen bottom while conversation grows and seals into scrollback.
+	DockRows int
+	Cursor   Cursor
+	Size     Size
 }
 
 type previousFrame struct {
 	liveRows []string
 	cursor   Cursor
 	size     Size
+	dockRows int
 }
 
-// Writer owns the current inline frame. It never clears the full screen or writes
-// to terminal scrollback control sequences.
+// Writer owns the normal conversation frame and temporary picker frame. It
+// never clears the normal screen or terminal scrollback.
 type Writer struct {
-	out      io.Writer
-	previous *previousFrame
-	started  bool
+	out                io.Writer
+	previous           *previousFrame
+	started            bool
+	trackCursorReports bool
+	waitingSize        *Size
+	resizeSize         Size
+	resizeCursor       *Cursor
+	overlay            *Writer
 }
 
-func New(out io.Writer) *Writer { return &Writer{out: out} }
+func New(out io.Writer) *Writer {
+	_, terminal := out.(interface{ Fd() uintptr })
+	return &Writer{out: out, trackCursorReports: terminal}
+}
+
+// ErrAwaitingCursor leaves the previous frame and all source receipts intact
+// until the terminal reports where resize placed the existing editor cursor.
+var ErrAwaitingCursor = errors.New("renderer awaiting terminal cursor position")
+
+// ObserveCursor accepts the zero-based terminal reply consumed by the TUI's
+// input loop. Unrequested reports do not change the writer's frame position.
+func (w *Writer) ObserveCursor(row, cell int) {
+	if w.overlay != nil {
+		w.overlay.ObserveCursor(row, cell)
+		return
+	}
+	if w.waitingSize == nil {
+		return
+	}
+	w.resizeSize = *w.waitingSize
+	w.resizeCursor = &Cursor{Row: row, Cell: cell}
+	w.waitingSize = nil
+}
 
 // Start enables the input protocols used by the editor. Bubble Tea's renderer
 // is directed to a discard sink, so the writer owns these terminal modes.
@@ -77,6 +111,12 @@ func (w *Writer) Render(frame Frame) error {
 	if w.out == nil {
 		return errors.New("normal-screen renderer has no output writer")
 	}
+	if frame.Overlay {
+		return w.renderOverlay(frame)
+	}
+	if err := w.leaveOverlay(); err != nil {
+		return err
+	}
 	frame.Size.Columns = max(1, frame.Size.Columns)
 	frame.Size.Rows = max(1, frame.Size.Rows)
 	if len(frame.LiveRows) == 0 {
@@ -85,9 +125,43 @@ func (w *Writer) Render(frame Frame) error {
 	frame.Cursor = clampCursor(frame.Cursor, frame.LiveRows)
 
 	previous := w.previous
+	initialDock := frame.DockRows > 0 && previous == nil
+	anchor := 0
+	if previous != nil {
+		anchor = max(0, previous.size.Rows-len(previous.liveRows))
+		if frame.DockRows > 0 && previous.size != frame.Size && w.trackCursorReports {
+			if w.resizeCursor == nil || w.resizeSize != frame.Size {
+				if w.waitingSize == nil {
+					if err := writeAll(w.out, []byte(ansi.RequestCursorPositionReport)); err != nil {
+						return err
+					}
+					size := frame.Size
+					w.waitingSize = &size
+				}
+				return ErrAwaitingCursor
+			}
+			prefixHeight := reflowHeight(previous.liveRows[:previous.cursor.Row], frame.Size.Columns)
+			anchor = max(0, w.resizeCursor.Row-prefixHeight-previous.cursor.Cell/frame.Size.Columns)
+		}
+	}
+	if frame.DockRows > 0 {
+		// The live anchor advances only by real committed conversation rows.
+		// Consume the empty space above the controls before scrolling. Padding
+		// never becomes a receipt or an append-only conversation row.
+		padding := max(0, frame.Size.Rows-anchor-len(frame.SealedRows)-len(frame.CommittedRows)-len(frame.LiveRows))
+		dockStart := max(0, len(frame.LiveRows)-frame.DockRows)
+		live := make([]string, 0, len(frame.LiveRows)+padding)
+		live = append(live, frame.LiveRows[:dockStart]...)
+		live = append(live, make([]string, padding)...)
+		live = append(live, frame.LiveRows[dockStart:]...)
+		frame.LiveRows = live
+		if frame.Cursor.Row >= dockStart {
+			frame.Cursor.Row += padding
+		}
+	}
 	if previous != nil && len(frame.CommittedRows) == 0 && len(frame.SealedRows) == 0 &&
 		sameRows(previous.liveRows, frame.LiveRows) &&
-		previous.cursor == frame.Cursor && previous.size == frame.Size {
+		previous.cursor == frame.Cursor && previous.size == frame.Size && previous.dockRows == frame.DockRows {
 		return nil
 	}
 
@@ -109,6 +183,15 @@ func (w *Writer) Render(frame Frame) error {
 	nextCursorRow := frame.Cursor.Row - retainedPrefix
 
 	var out strings.Builder
+	// A single write can still contain visibly intermediate clear/move/paint
+	// states. Let terminals supporting synchronized output present one frame.
+	out.WriteString(ansi.SetModeSynchronizedOutput)
+	if initialDock {
+		// Move the pre-TUI screen into ordinary scrollback, then own a known
+		// normal-screen origin. Do not clear or switch the alternate screen.
+		out.WriteString(strings.Repeat(lineEnd, frame.Size.Rows))
+		out.WriteString(ansi.CursorPosition(1, 1))
+	}
 	if previous == nil {
 		out.WriteString(carriageReturn)
 		out.WriteString(eraseLine)
@@ -116,6 +199,10 @@ func (w *Writer) Render(frame Frame) error {
 		cursorOffset := reflowHeight(previousRows[:clamp(previousCursorRow, 0, len(previousRows))], frame.Size.Columns)
 		cursorOffset += previous.cursor.Cell / frame.Size.Columns
 		visibleRows := min(reflowHeight(previousRows, frame.Size.Columns), frame.Size.Rows)
+		if frame.DockRows > 0 {
+			out.WriteString(ansi.CursorPosition(1, anchor+retainedPrefix+1))
+			cursorOffset = 0
+		}
 		writeClearLiveBand(&out, cursorOffset, visibleRows)
 	}
 
@@ -142,6 +229,7 @@ func (w *Writer) Render(frame Frame) error {
 		writeMoveUp(&out, rowsFromLastLiveRow)
 	}
 	writeMoveRight(&out, frame.Cursor.Cell)
+	out.WriteString(ansi.ResetModeSynchronizedOutput)
 
 	if err := writeAll(w.out, []byte(out.String())); err != nil {
 		return err
@@ -150,12 +238,17 @@ func (w *Writer) Render(frame Frame) error {
 		liveRows: append([]string(nil), frame.LiveRows...),
 		cursor:   frame.Cursor,
 		size:     frame.Size,
+		dockRows: frame.DockRows,
 	}
+	w.resizeCursor = nil
 	return nil
 }
 
 // Close erases the live band while leaving committed conversation in scrollback.
 func (w *Writer) Close() error {
+	if err := w.leaveOverlay(); err != nil {
+		return err
+	}
 	previous := w.previous
 	var out strings.Builder
 	if previous != nil {

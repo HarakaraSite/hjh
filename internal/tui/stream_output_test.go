@@ -53,7 +53,7 @@ func TestStreamedMarkdownKeepsTheSameConversationAsFinalRendering(t *testing.T) 
 	}
 }
 
-func TestToolCompletionDoesNotRepeatOrDelayChildAndFinalAnswer(t *testing.T) {
+func TestToolCompletionDoesNotRepeatOrDelayParentAnswerWithHiddenChild(t *testing.T) {
 	b := &fakeBackend{core: api.Core{CoreID: "core-1", Workspace: "/work"}}
 	m, _, cancel := testModel(b, Options{Core: b.core})
 	attachWriter(m)
@@ -75,8 +75,8 @@ func TestToolCompletionDoesNotRepeatOrDelayChildAndFinalAnswer(t *testing.T) {
 	}
 	m.sessionEntities[tool.ID], m.sessionEntities[child.ID] = tool, child
 	collect()
-	if got := m.receiptByPart["entity:"+child.ID+":body"]; got != len(child.Text) {
-		t.Fatalf("compact pending tool prevented completed child text from reaching scrollback: %d", got)
+	if got := m.receiptByPart["entity:"+child.ID+":body"]; got != 0 {
+		t.Fatalf("hidden child body was committed: %d", got)
 	}
 	tool.Text = "ツールの確認結果です。"
 	tool.Status = "completed"
@@ -87,15 +87,15 @@ func TestToolCompletionDoesNotRepeatOrDelayChildAndFinalAnswer(t *testing.T) {
 	m.sealCurrentFrame()
 	committed = append(committed, m.pendingSealRows...)
 	text := renderer.ReceiptText(strings.Join(committed, "\n"))
-	toolPos, childPos, finalPos := strings.Index(text, "run_js"), strings.Index(text, "子の回答です。"), strings.Index(text, final.Text)
-	if toolPos < 0 || childPos <= toolPos || finalPos <= childPos {
+	toolPos, finalPos := strings.Index(text, "run_js"), strings.Index(text, final.Text)
+	if toolPos < 0 || finalPos <= toolPos {
 		t.Fatalf("conversation order was lost after the pending tool completed:\n%s", text)
 	}
 	if strings.Count(text, "run_js") != 1 || strings.Contains(text, tool.Text) {
 		t.Fatalf("tool completion repeated its activity or copied its full result into conversation:\n%s", text)
 	}
-	if strings.Count(text, "子の回答です。") != 30 {
-		t.Fatalf("hidden child body was lost or duplicated: %d occurrences", strings.Count(text, "子の回答です。"))
+	if strings.Contains(text, "子の回答です。") {
+		t.Fatal("hidden child body appeared in the parent transcript")
 	}
 }
 

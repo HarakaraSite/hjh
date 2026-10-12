@@ -63,23 +63,25 @@ func (m *model) renderTranscript() string {
 
 func (m *model) renderFullTranscript() string {
 	var styled strings.Builder
-	entities := m.mergedEntities()
+	entities := m.displayEntities()
 	visibleEntityCount := 0
 	previousEntityHasBody := false
 	previousEntityEndsWithNewline := false
 	for _, entity := range entities {
-		if entity.Kind == "execution" && entity.ParentExecutionID == "" {
-			continue
-		}
-		if entity.Kind == "assistant" && entity.Text == "" {
-			continue
-		}
 		prefix := ""
 		if visibleEntityCount > 0 && previousEntityHasBody &&
 			!previousEntityEndsWithNewline {
 			prefix = "\n"
 		}
 		visibleEntityCount++
+		if entity.Kind == "execution" {
+			styled.WriteString(prefix)
+			for _, line := range m.childSummaryLines(entity) {
+				styled.WriteString(childSummaryRow(line, max(1, m.width)))
+			}
+			previousEntityHasBody, previousEntityEndsWithNewline = true, true
+			continue
+		}
 		if entity.Kind == "tool" {
 			styled.WriteString(prefix + toolDisplayLine(entity))
 			previousEntityHasBody = true
@@ -189,16 +191,22 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	doc := m.ensureTranscript()
 	openingReady := m.openingHeaderReady()
 	footerRows := renderer.WrapText(strings.Join(footer, "\n"), columns)
+	controlsRows := footerRows[:min(1, len(footerRows))]
+	infoRows := footerRows[len(controlsRows):]
 	inputRows := renderer.WrapText(m.textarea.View(), columns)
 	if m.authUI != nil && m.authUI.open {
 		inputRows = nil
+	}
+	childRows := m.childProgressRows()
+	if m.pickerOpen {
+		childRows = nil
 	}
 	divider := strings.Repeat("─", columns)
 	var committed []string
 	var bodyRows []string
 	committedThrough := doc.startRow
 	bodyStart := doc.startRow
-	bodyHeight := max(1, rows-len(footerRows)-len(inputRows)-1)
+	bodyHeight := max(1, rows-len(footerRows)-len(inputRows)-len(childRows)-1)
 	if m.pickerOpen {
 		m.viewport.SetHeight(bodyHeight)
 		m.refreshViewport(false)
@@ -252,13 +260,16 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	}
 	liveRows := make([]string, 0, len(bodyRows)+1+len(footerRows)+len(inputRows))
 	liveRows = append(liveRows, bodyRows...)
+	liveRows = append(liveRows, childRows...)
 	liveRows = append(liveRows, divider)
+	liveRows = append(liveRows, controlsRows...)
 	liveRows = append(liveRows, inputRows...)
-	liveRows = append(liveRows, footerRows...)
+	liveRows = append(liveRows, infoRows...)
 	frame := renderer.Frame{
 		CommittedRows: committed,
 		LiveRows:      liveRows,
-		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+1), Cell: 0},
+		DockRows:      len(childRows) + 1 + len(inputRows) + len(footerRows),
+		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+len(childRows)+1+len(controlsRows)), Cell: 0},
 		Size:          renderer.Size{Columns: columns, Rows: rows},
 	}
 	var cursor *tea.Cursor
@@ -274,7 +285,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	} else if !m.pickerOpen {
 		if textareaCursor := m.textarea.Cursor(); textareaCursor != nil {
 			cursor = textareaCursor
-			cursor.Position.Y += len(bodyRows) + 1
+			cursor.Position.Y += len(bodyRows) + len(childRows) + 1 + len(controlsRows)
 			frame.Cursor = renderer.Cursor{Row: cursor.Position.Y, Cell: cursor.Position.X}
 		}
 	}

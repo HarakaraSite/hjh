@@ -578,7 +578,7 @@ func TestConversationRevisionOrderMergeAndTerminalSnapshot(t *testing.T) {
 	if strings.Contains(transcript, "old answer") || !strings.Contains(transcript, "調査中") {
 		t.Fatalf("run entity did not override matching Session entity: %q", transcript)
 	}
-	labels := []string{"you:", "assistant:", "thinking:", "tool / ", "child child-1 · execution:", "child child-1 · assistant:"}
+	labels := []string{"you:", "assistant:", "thinking:", "tool / ", "child child-1 · started"}
 	last := -1
 	for _, label := range labels {
 		position := strings.Index(transcript, label)

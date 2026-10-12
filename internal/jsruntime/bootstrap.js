@@ -73,6 +73,19 @@ async function invokeHook(parent, name, input) {
   }
 }
 
+async function invokeLifecycleHook(name, input, id) {
+  const hook = globalThis.__extensionHooks?.[name];
+  if (typeof hook !== 'function') return 'null';
+  try {
+    const value = await hook(JSON.parse(input), implementationApiFor(id));
+    __end(id, 'completed', encode(value), '');
+    return encode(value);
+  } catch (error) {
+    __end(id, 'failed', 'null', String(error));
+    throw error;
+  }
+}
+
 async function invokeTool(name, originalArgs, parent, record) {
   let args = originalArgs ?? {};
   const id = record ? __start(parent, 'tool', name, encode(args)) : parent;
@@ -116,6 +129,8 @@ function toolsFor(parent) {
 globalThis.__invokeDirect = async function (name, args, parent) {
   return encode(await invokeTool(name, JSON.parse(args), parent, false));
 };
+
+globalThis.__invokeLifecycleHook = invokeLifecycleHook;
 
 globalThis.__runGenerated = async function (code, parent) {
   return encode(await invokeTool('run_js', { code }, parent, false));
