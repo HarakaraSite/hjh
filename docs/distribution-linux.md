@@ -3,6 +3,7 @@
 Linux/amd64用の静的Goコア`hjh`、独立TUI`hjh-tui`と編集可能なJS拡張。
 コアだけでも非対話run・APIを使える。実行にGo・Node・Deno・curl・共有libcは不要。
 HTTPSには利用先OSのCA証明書とDNS設定を使う。`command`には呼び出すprogram自体が必要。
+本文検索の`grep`にはripgrep（`rg`）、`git_inspect`にはGitが必要。
 
 archiveを展開し、任意の作業ディレクトリから使う。`/path/to/hjh-linux-amd64` は展開先に置き換える。
 

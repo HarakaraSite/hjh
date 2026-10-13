@@ -67,7 +67,7 @@ func TestRunPersistsRealToolPathAndResumes(t *testing.T) {
 		case 1:
 			sendTool(w, "provider-first", `const r=await tools.read_file({path:'input.txt'}); await tools.write_file({path:'output.txt',text:r.text.toUpperCase()}); return await tools.read_file({path:'output.txt'});`)
 		case 3:
-			sendTool(w, "provider-resume", `await tools.edit_file({path:'output.txt',oldText:'ALPHA',newText:'ALPHA resumed'}); return await tools.read_file({path:'output.txt'});`)
+			sendTool(w, "provider-resume", `await tools.edit_file({path:'output.txt',edits:[{oldText:'ALPHA',newText:'ALPHA resumed'}]}); return await tools.read_file({path:'output.txt'});`)
 		default:
 			sendChunk(w, map[string]any{"content": "作業完了。"}, "stop")
 			fmt.Fprint(w, "data: [DONE]\n\n")

@@ -321,10 +321,10 @@ func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Agent.Name != "reviewer" || snapshot.Agent.Revision != "1" || snapshot.HasTool("run_agent") {
+	if snapshot.Agent.Name != "reviewer" || snapshot.Agent.Revision != "2" || snapshot.HasTool("run_agent") {
 		t.Fatalf("unexpected reviewer role resolution: agent=%+v tools=%+v", snapshot.Agent, snapshot.Tools)
 	}
-	if len(snapshot.Tools) != 2 || snapshot.Tools[0].Name != "run_js" || snapshot.Tools[1].Name != "read_file" {
+	if len(snapshot.Tools) != 7 || snapshot.Tools[0].Name != "run_js" || snapshot.Tools[1].Name != "read_file" {
 		t.Fatalf("reviewer tools do not match the role selection: %+v", snapshot.Tools)
 	}
 	definitions := snapshot.Definitions()
@@ -375,10 +375,10 @@ func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.DefaultRole != "default" || len(catalog.Roles) != 2 || catalog.Roles[0].Name != "default" || catalog.Roles[1].Name != "reviewer" {
+	if catalog.DefaultRole != "default" || len(catalog.Roles) != 4 || catalog.Roles[0].Name != "default" || catalog.Roles[1].Name != "explorer" || catalog.Roles[2].Name != "implementer" || catalog.Roles[3].Name != "reviewer" {
 		t.Fatalf("role catalog is not sorted or complete: %+v", catalog)
 	}
-	if catalog.Roles[1].Description != snapshot.Catalog[1].Description {
+	if catalog.Roles[3].Description != snapshot.Catalog[3].Description {
 		t.Fatalf("catalog and captured snapshot disagree: catalog=%+v snapshot=%+v", catalog, snapshot.Catalog)
 	}
 }

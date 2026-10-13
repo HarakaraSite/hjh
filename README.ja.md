@@ -27,6 +27,7 @@ JavaScriptの実行にNode.jsやDenoのインストールは必要ありませ�
 ## 使い始める
 
 Go 1.27以降でソースからビルドします。依存関係は[go.mod](go.mod)を参照してください。
+本文検索にはripgrep（`rg`）、Git確認にはGitが必要です。
 
 ```sh
 git clone https://forge.harakara.site/littleisland/hjh.git

@@ -816,7 +816,7 @@ func TestSelectedToolsControlGeneratedRuntimeAPI(t *testing.T) {
 	defer worker.Close()
 
 	definitions := worker.Definitions()
-	if len(definitions) != 2 || definitions[0].Name != "run_js" || definitions[1].Name != "read_file" {
+	if len(definitions) != 7 || definitions[0].Name != "run_js" || definitions[1].Name != "read_file" {
 		t.Fatalf("Worker definitions do not match the selected reviewer tools: %+v", definitions)
 	}
 	result, err := worker.Call(context.Background(), "run_js", json.RawMessage(`{"code":"const nested=await tools.run_js({code:'return 42;'}); return {api:Object.keys(api).sort(),tools:Object.keys(tools).sort(),hasAgents:'agents' in api,hasRawHost:'readFile' in api || 'command' in api,nested};"}`))
@@ -833,7 +833,7 @@ func TestSelectedToolsControlGeneratedRuntimeAPI(t *testing.T) {
 	if err = json.Unmarshal(result, &exposed); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(exposed.API, ",") != "tools" || strings.Join(exposed.Tools, ",") != "read_file,run_js" || exposed.HasAgents || exposed.HasRawHost || exposed.Nested != 42 {
+	if strings.Join(exposed.API, ",") != "tools" || strings.Join(exposed.Tools, ",") != "find,git_inspect,grep,ls,read_file,run_js,wc" || exposed.HasAgents || exposed.HasRawHost || exposed.Nested != 42 {
 		t.Fatalf("generated JS did not receive the selected tool API: %s", result)
 	}
 	if _, err = worker.Call(context.Background(), "run_agent", json.RawMessage(`{"task":"unavailable"}`)); err == nil || !strings.Contains(err.Error(), "unknown tool: run_agent") {
@@ -961,7 +961,7 @@ func TestWorkerKeepsVMAndCapturedModulesAcrossCalls(t *testing.T) {
 	defer worker.Close()
 
 	ctx := contracts.WithCallParent(context.Background(), "model-call-first")
-	first, err := worker.Call(ctx, "run_js", json.RawMessage(`{"code":"const write = await tools.write_file({path:'result.txt', text:'alpha alpha'}); const edit = await tools.edit_file({path:'result.txt', oldText:'alpha', newText:'beta'}); const read = await tools.read_file({path:'result.txt'}); const count = await tools.count({marker:'first'}); return {write, edit, read, count};"}`))
+	first, err := worker.Call(ctx, "run_js", json.RawMessage(`{"code":"const write = await tools.write_file({path:'result.txt', text:'alpha alpha'}); const edit = await tools.edit_file({path:'result.txt', edits:[{oldText:'alpha', newText:'beta'}]}); const read = await tools.read_file({path:'result.txt'}); const count = await tools.count({marker:'first'}); return {write, edit, read, count};"}`))
 	if err != nil {
 		t.Fatal(err)
 	}

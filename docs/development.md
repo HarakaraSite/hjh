@@ -281,7 +281,10 @@ I-04の実装・テスト・通常／批判的reviewと修正を完了し、5接
 ```
 
 rolesはDB・認証なしで使え、初回は不足する既定拡張fileを配置する。
-既定roleはdefault（作業・委譲）とreviewer（run_js・read_file）。同じroleを親と子の両方へ指定できる。
+既定roleはdefault（作業・委譲）、reviewer（レビュー）、explorer（調査）、implementer（実装）。
+reviewer/explorerはrun_jsと読取り系tool、implementerは編集・commandも使える。
+親は通常roleを選んでtools指定を省略する。同じroleを親と子の両方へ指定できる。
+詳細は[標準roleとtool契約](design/extensions.md#標準role)を参照する。
 config.jsonのrolesへroleを追加し、instruction・description・revision・toolsを編集する。
 run_jsもtools配列で選択するbuilt-inであり、toolsが空なら本文回答だけのAgentになる。
 role.modelへ部分的な接続設定を指定できる。子はそのrole.modelを親の実selectionへ適用する。

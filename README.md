@@ -26,6 +26,7 @@ runtime testing has been performed on Linux/amd64.
 ## Get started
 
 Build from source with Go 1.27 or later; dependencies are listed in [go.mod](go.mod).
+Content search requires ripgrep (`rg`); Git inspection requires Git.
 
 ```sh
 git clone https://forge.harakara.site/littleisland/hjh.git

@@ -64,12 +64,18 @@ type CommandResult struct {
 }
 
 type ReadFileArgs struct {
-	Path string `json:"path"`
+	Path   string `json:"path"`
+	Offset *int   `json:"offset,omitempty"`
+	Limit  *int   `json:"limit,omitempty"`
 }
 
 type ReadFileResult struct {
-	Path string `json:"path"`
-	Text string `json:"text"`
+	Path       string `json:"path"`
+	Text       string `json:"text"`
+	Offset     int    `json:"offset"`
+	Lines      int    `json:"lines"`
+	TotalLines int    `json:"totalLines"`
+	NextOffset *int   `json:"nextOffset,omitempty"`
 }
 
 type WriteFileArgs struct {
@@ -124,6 +130,24 @@ func (h *Host) Call(ctx context.Context, name string, input json.RawMessage) (an
 			return nil, err
 		}
 		return h.readFile(args)
+	case "listDirectory":
+		var args ListDirectoryArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.listDirectory(ctx, args)
+	case "countFiles":
+		var args CountFilesArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.countFiles(ctx, args)
+	case "findFiles":
+		var args FindFilesArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.findFiles(ctx, args)
 	case "writeFile":
 		var args WriteFileArgs
 		if err := json.Unmarshal(input, &args); err != nil {
@@ -178,13 +202,42 @@ func parseWebFetchArgs(input json.RawMessage) (WebFetchArgs, error) {
 }
 
 func (h *Host) readFile(args ReadFileArgs) (ReadFileResult, error) {
+	start := 1
+	if args.Offset != nil {
+		start = *args.Offset
+	}
+	if start < 1 || (args.Limit != nil && *args.Limit < 1) {
+		return ReadFileResult{}, errors.New("read_file offset and limit must be positive line counts")
+	}
 	b, err := os.ReadFile(h.resolvePath(args.Path))
-	return ReadFileResult{Path: args.Path, Text: string(b)}, err
+	if err != nil {
+		return ReadFileResult{}, err
+	}
+	lines := strings.SplitAfter(string(b), "\n")
+	if lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	from := min(start-1, len(lines))
+	to := len(lines)
+	if args.Limit != nil {
+		to = from + min(*args.Limit, len(lines)-from)
+	}
+	result := ReadFileResult{Path: args.Path, Text: strings.Join(lines[from:to], ""),
+		Offset: start, Lines: to - from, TotalLines: len(lines)}
+	if to < len(lines) {
+		next := to + 1
+		result.NextOffset = &next
+	}
+	return result, nil
 }
 
 func (h *Host) writeFile(args WriteFileArgs) (WriteFileResult, error) {
 	b := []byte(args.Text)
-	err := os.WriteFile(h.resolvePath(args.Path), b, 0644)
+	path := h.resolvePath(args.Path)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return WriteFileResult{}, err
+	}
+	err := os.WriteFile(path, b, 0644)
 	return WriteFileResult{Path: args.Path, Bytes: len(b)}, err
 }
 

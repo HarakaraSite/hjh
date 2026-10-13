@@ -29,6 +29,9 @@ function implementationApiFor(parent) {
     webFetch: input => hostCall('webFetch', input),
     command: input => hostCall('command', input),
     readFile: input => hostCall('readFile', input),
+    listDirectory: input => hostCall('listDirectory', input),
+    countFiles: input => hostCall('countFiles', input),
+    findFiles: input => hostCall('findFiles', input),
     writeFile: input => hostCall('writeFile', input),
     agents: {
       run: agentCall,

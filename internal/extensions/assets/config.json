@@ -121,14 +121,56 @@
     "default": {
       "revision": "1",
       "description": "General-purpose work role that completes requests and verifies the result.",
-      "instruction": "Complete the requested work, verify the result with the available tools, and report what changed. Use web_fetch to read web pages; use http when a raw HTTP response is needed.",
-      "tools": ["run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch", "web_search"]
+      "instruction": "Complete the requested work, verify the result with the available tools, and report what changed. Use web_fetch to read web pages; use http when a raw HTTP response is needed. When delegating, choose reviewer for review, explorer for investigation, and implementer for bounded implementation. Normally omit tools so the child uses its configured role tool set; override tools only when the assigned task specifically requires a different set.",
+      "tools": ["run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch", "web_search", "ls", "find", "grep", "wc", "git_inspect"]
     },
     "reviewer": {
+      "revision": "2",
+      "description": "Reviews source and behavior against the stated goal and actual execution path, without modifying files.",
+      "instruction": "Review the stated goal and relevant source paths. Read files and Git evidence with the available inspection tools; do not modify files or perform implementation work. Report concrete findings with evidence, source locations, and user impact; distinguish confirmed defects from uncertainty. Stay within the assigned review scope and return findings to the parent.",
+      "tools": [
+        "run_js",
+        "read_file",
+        "ls",
+        "find",
+        "grep",
+        "wc",
+        "git_inspect"
+      ]
+    },
+    "explorer": {
       "revision": "1",
-      "description": "Reviews source and behavior against the stated goal and actual execution path.",
-      "instruction": "Review the stated goal and relevant source paths. Report findings with evidence and user impact; distinguish confirmed defects from uncertainty.",
-      "tools": ["run_js", "read_file"]
+      "description": "Investigates repository structure, source behavior, and relevant evidence without modifying files.",
+      "instruction": "Investigate the assigned question using the available read-only tools. Locate relevant files, trace the actual execution path, and extract only the evidence needed to answer. Do not modify files. Report conclusions with source locations, distinguish observed facts from assumptions, and identify any information still missing. Stay within the assigned investigation scope.",
+      "tools": [
+        "run_js",
+        "read_file",
+        "ls",
+        "find",
+        "grep",
+        "wc",
+        "git_inspect"
+      ]
+    },
+    "implementer": {
+      "revision": "1",
+      "description": "Implements a bounded task, edits assigned files, and runs relevant verification.",
+      "instruction": "Implement the assigned task within the specified files and scope. Inspect the current source, make the necessary changes, and run verification appropriate to the changed product behavior. Other agents may be working in the same workspace: preserve their changes and adjust to the current source. Return out-of-scope decisions to the parent. Report what changed, what was verified, and any remaining issues.",
+      "tools": [
+        "run_js",
+        "read_file",
+        "ls",
+        "find",
+        "grep",
+        "wc",
+        "git_inspect",
+        "write_file",
+        "edit_file",
+        "command",
+        "http",
+        "web_fetch",
+        "web_search"
+      ]
     }
   },
   "systemInstruction": "",
@@ -137,30 +179,344 @@
   "tools": [
     {
       "name": "read_file",
-      "description": "Read a complete UTF-8 text file. Returns an object with path and text.",
+      "description": "Read a UTF-8 text file, optionally selecting complete lines with offset and limit. Returns path, text, line counts, and nextOffset.",
       "promptGuidelines": [
-        "The result is {path, text}; use result.text when processing file contents. When run_js is available and you only need part of a file, read and extract the relevant text there before returning it to your next model input."
+        "The result is {path, text, offset, lines, totalLines, nextOffset?}; use text when processing contents. offset is 1-based and defaults to 1; omit limit to read through EOF. Use nextOffset to continue a partial read. Prefer line ranges over reading the whole file when only a section is needed."
       ],
-      "inputSchema": {"type":"object","properties":{"path":{"type":"string","description":"Workspace-relative or absolute file path."}},"required":["path"]},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative or absolute file path."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "1-based starting line; defaults to 1.",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Number of complete lines; omit to read through EOF.",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
       "module": "index.js",
       "export": "readFile"
     },
+
     {
       "name": "write_file",
-      "description": "Create or replace a UTF-8 text file in the workspace.",
-      "inputSchema": {"type":"object","properties":{"path":{"type":"string"},"text":{"type":"string"}},"required":["path","text"]},
+      "description": "Create or replace a UTF-8 text file, creating missing parent directories.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "text"
+        ]
+      },
       "module": "index.js",
       "export": "writeFile"
     },
+
     {
       "name": "edit_file",
-      "description": "Replace every exact occurrence of oldText with newText in a UTF-8 text file. Returns {path, replacements, bytes}.",
+      "description": "Apply an ordered array of literal replacements to a UTF-8 file, then save once. Returns path, per-edit counts, total replacements, and bytes.",
       "promptGuidelines": [
-        "oldText is literal text, not a regular expression; every exact match is replaced. Check replacements before assuming the requested edit happened: no match or an empty oldText returns replacements: 0 without a tool error. newText may be empty to delete matching text."
+        "Pass edits: [{oldText, newText}, ...], including for one replacement. Each edit replaces every exact match in the text produced by previous edits. Check per-edit replacements: no match or empty oldText gives 0 without a tool error. Empty newText deletes matches."
       ],
-      "inputSchema": {"type":"object","properties":{"path":{"type":"string","description":"Workspace-relative or absolute file path."},"oldText":{"type":"string","description":"Exact literal text to replace everywhere; an empty string performs no replacements."},"newText":{"type":"string","description":"Replacement text; an empty string deletes each match."}},"required":["path","oldText","newText"]},
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative or absolute file path."
+          },
+          "edits": {
+            "type": "array",
+            "description": "Literal replacements applied in order before one save.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "oldText": {
+                  "type": "string",
+                  "description": "Literal text to replace everywhere; empty means no replacements."
+                },
+                "newText": {
+                  "type": "string",
+                  "description": "Replacement text; empty deletes matches."
+                }
+              },
+              "required": [
+                "oldText",
+                "newText"
+              ]
+            }
+          }
+        },
+        "required": [
+          "path",
+          "edits"
+        ]
+      },
       "module": "index.js",
       "export": "editFile"
+    },
+
+    {
+      "name": "ls",
+      "description": "List directory entries with path, type, byte size, modification time, and depth. Optional tree traversal.",
+      "promptGuidelines": [
+        "Use ls to inspect directory structure without command. Tree entries are flat in traversal order, with depth for indentation. Dot entries are included; directory symlinks are listed without traversal."
+      ],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative or absolute path; defaults to the workspace."
+          },
+          "tree": {
+            "type": "boolean",
+            "description": "Include nested entries; defaults to false."
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Tree depth; direct children are depth 1. Defaults to 3.",
+            "minimum": 1
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based entries or output lines to skip; defaults to 0.",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Entries or output lines to return; defaults to 100. Use nextOffset to continue.",
+            "minimum": 1
+          }
+        },
+        "required": []
+      },
+      "module": "inspect.js",
+      "export": "listDirectory"
+    },
+    {
+      "name": "find",
+      "description": "Find files and directories by glob, type, and exclusions. Returns entries with path and type.",
+      "promptGuidelines": [
+        "Use find to locate paths before reading files. Hidden and ignored entries are included; specify exclude when needed, for example [\".git\", \".hjh\"]. Use grep to search file contents."
+      ],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative or absolute path; defaults to the workspace."
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Glob; defaults to *. A slashless pattern matches basenames at any depth; ** spans directories."
+          },
+          "type": {
+            "type": "string",
+            "description": "Entry type; defaults to any.",
+            "enum": [
+              "any",
+              "file",
+              "directory"
+            ]
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Globs to omit; matching directories skip their subtree. No exclusions by default.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based entries or output lines to skip; defaults to 0.",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Entries or output lines to return; defaults to 100. Use nextOffset to continue.",
+            "minimum": 1
+          }
+        },
+        "required": []
+      },
+      "module": "inspect.js",
+      "export": "findFiles"
+    },
+    {
+      "name": "grep",
+      "description": "Search UTF-8 file contents with ripgrep. Returns matching/context lines or unique matching files.",
+      "promptGuidelines": [
+        "Use grep to find relevant content before read_file. No matches is a normal empty result. Hidden files are included, ignore rules are respected by default, and binary content follows ripgrep behavior. In lines output, line is 1-based and match distinguishes matches from context; offset/limit page all returned lines, including context."
+      ],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Search pattern. Regular expressions use ripgrep syntax."
+          },
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative or absolute path; defaults to the workspace."
+          },
+          "patternKind": {
+            "type": "string",
+            "description": "Defaults to regex; literal treats the pattern as plain text.",
+            "enum": [
+              "regex",
+              "literal"
+            ]
+          },
+          "caseSensitive": {
+            "type": "boolean",
+            "description": "Defaults to true."
+          },
+          "context": {
+            "type": "integer",
+            "description": "Surrounding lines on each side; defaults to 0.",
+            "minimum": 0
+          },
+          "output": {
+            "type": "string",
+            "description": "Defaults to lines; files returns unique matching paths.",
+            "enum": [
+              "lines",
+              "files"
+            ]
+          },
+          "glob": {
+            "type": "array",
+            "description": "Ordered ripgrep globs; ! excludes a pattern.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "includeIgnored": {
+            "type": "boolean",
+            "description": "Defaults to false; true searches ignored entries too."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based entries or output lines to skip; defaults to 0.",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Entries or output lines to return; defaults to 100. Use nextOffset to continue.",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      },
+      "module": "inspect.js",
+      "export": "grep"
+    },
+    {
+      "name": "wc",
+      "description": "Count newline characters, whitespace-separated words, and bytes in each file and in total.",
+      "promptGuidelines": [
+        "lines counts newline characters, matching wc -l; a final line without a newline does not add to lines. words uses Unicode whitespace."
+      ],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "description": "Files to count; use find first when discovering paths.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "paths"
+        ]
+      },
+      "module": "inspect.js",
+      "export": "countFiles"
+    },
+    {
+      "name": "git_inspect",
+      "description": "Read workspace Git status, diff, log, or show. Returns text and continuation position.",
+      "promptGuidelines": [
+        "Use git_inspect for status, diff, log, and show without command. status is porcelain output; diff defaults to unstaged changes. Use nextOffset to continue. These operations do not update the index or working tree; no arbitrary Git command or shell is accepted."
+      ],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "Git operation.",
+            "enum": [
+              "status",
+              "diff",
+              "log",
+              "show"
+            ]
+          },
+          "paths": {
+            "type": "array",
+            "description": "Paths or Git pathspecs limiting the operation.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rev": {
+            "type": "string",
+            "description": "Revision for diff, log, or show; show defaults to HEAD."
+          },
+          "staged": {
+            "type": "boolean",
+            "description": "diff only: compare the index instead of unstaged changes."
+          },
+          "stat": {
+            "type": "boolean",
+            "description": "diff/show: return diffstat instead of a patch."
+          },
+          "context": {
+            "type": "integer",
+            "description": "diff/show patch context lines; defaults to 3.",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Zero-based output lines to skip; for log, commits to skip.",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Output lines to return, default 100; for log, commits to return, default 20.",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "module": "inspect.js",
+      "export": "gitInspect"
     },
     {
       "name": "command",

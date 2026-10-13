@@ -18,7 +18,7 @@ import (
 )
 
 // Use the same external tool/hook sources and real host operations for both
-// public call routes. This test also runs against the pre-migration checkout.
+// public call routes. The engine-migration test now follows the current tool contracts.
 func TestStandardToolCompatibilityDirectAndGenerated(t *testing.T) {
 	large := bytes.Repeat([]byte("x"), 1100000)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +89,7 @@ export function afterTool({name,result}) {
 				Path                string
 				Replacements, Bytes int
 			}
-			if err := json.Unmarshal(call("edit_file", map[string]any{"path": "note.txt", "oldText": "alpha", "newText": "beta"}), &edited); err != nil {
+			if err := json.Unmarshal(call("edit_file", map[string]any{"path": "note.txt", "edits": []map[string]string{{"oldText": "alpha", "newText": "beta"}}}), &edited); err != nil {
 				t.Fatal(err)
 			}
 			want := "beta 日本語🙂 beta"

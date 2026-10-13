@@ -24,9 +24,9 @@ func TestRoleChoiceAdoptionResumeAndCurrentConfig(t *testing.T) {
 	provider := delegationProvider(func(ctx context.Context, req contracts.ModelRequest, obs contracts.Observer) (contracts.ModelResult, error) {
 		var want []string
 		if seenRole == "reviewer" {
-			want = []string{"run_js", "read_file"}
+			want = []string{"run_js", "read_file", "ls", "find", "grep", "wc", "git_inspect"}
 		} else {
-			want = []string{"run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch", "web_search"}
+			want = []string{"run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch", "web_search", "ls", "find", "grep", "wc", "git_inspect"}
 		}
 		var actual []string
 		for _, tool := range req.Tools {
@@ -115,7 +115,7 @@ func TestRoleChoiceAdoptionResumeAndCurrentConfig(t *testing.T) {
 	if err = json.Unmarshal(configuration.Snapshot, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.Agent.Name != "reviewer" || !reflect.DeepEqual(saved.Agent.Tools, []string{"run_js", "read_file"}) || len(saved.Tools) != 2 {
+	if saved.Agent.Name != "reviewer" || !reflect.DeepEqual(saved.Agent.Tools, []string{"run_js", "read_file", "ls", "find", "grep", "wc", "git_inspect"}) || len(saved.Tools) != 7 {
 		t.Fatalf("saved selection: %s", configuration.Snapshot)
 	}
 }

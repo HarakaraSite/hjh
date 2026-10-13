@@ -19,12 +19,32 @@ func Preview(name string, input json.RawMessage) string {
 		Text        string   `json:"text"`
 		Code        string   `json:"code"`
 		ExecutionID string   `json:"executionId"`
+		Pattern     string   `json:"pattern"`
+		Op          string   `json:"op"`
+		Paths       []string `json:"paths"`
 	}
 	_ = json.Unmarshal(input, &args)
 	var text string
 	switch name {
 	case "read_file", "write_file", "edit_file":
 		text = args.Path
+	case "ls":
+		text = args.Path
+		if text == "" {
+			text = "."
+		}
+	case "find", "grep":
+		if args.Path == "" {
+			args.Path = "."
+		}
+		if name == "find" && args.Pattern == "" {
+			args.Pattern = "*"
+		}
+		text = strings.TrimSpace(args.Pattern + " · " + args.Path)
+	case "wc":
+		text = strings.Join(args.Paths, ", ")
+	case "git_inspect":
+		text = strings.TrimSpace(args.Op + " " + strings.Join(args.Paths, " "))
 	case "command":
 		text = strings.Join(append([]string{args.Program}, args.Args...), " ")
 	case "http":

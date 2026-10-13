@@ -46,6 +46,26 @@ run_agentを選んだ場合だけ生成JSへapi.agents.runを公開し、同じr
 外部tool／hook実装用apiはGo基礎操作とraw AgentRunner／AgentControllerを提供する。
 これはtool構成の契約であり、JSやOSのsandboxではない。
 
+### 標準role
+
+標準configには以下のroleを定義する。同じroleを親と子に使える。
+
+| role | 指示とtoolセット |
+| --- | --- |
+| default | 通常の作業と委譲。標準toolすべてを選択する |
+| reviewer | 指定範囲のレビュー。run_js / read_file / ls / find / grep / wc / git_inspect |
+| explorer | repositoryの構成・実行経路・根拠の調査。reviewerと同じ読取りtool |
+| implementer | 指定範囲の実装・確認。読取りtoolとwrite_file / edit_file / command / http / web_fetch / web_search |
+
+親の標準指示は、レビューにはreviewer、調査にはexplorer、実装にはimplementerを選び、
+通常は子のtools指定を省略してroleの標準セットを使うよう案内する。
+model/provider/effortはroleで固定しない。必要な個別上書きは既存の呼出し引数を使う。
+reviewerとexplorerにはcommand・write_file・edit_file・子委譲toolを渡さない。
+生成JSも同じ選択toolだけを通常公開する。外部tool自身の実装では必要なGo基礎操作を使う。
+
+既存workspaceの編集済みconfigをInstallDefaultsで自動置換しない。
+標準role/toolを追加する場合は既存configを編集する。このrepositoryのworkspaceには反映済み。
+
 `config.json`にはprovider registry用の`providers`、credential参照の`credentials`、
 全体model既定の`model`も置ける。各roleには部分的な`model`設定を加えられる。
 これらはtool／instruction定義と同じconfig source bytesからprovider registryが読み取り、
@@ -54,6 +74,7 @@ selection優先順位、credential形式は[provider・model設定](providers.md
 
 `tools` のexportは `(args, api) => result` を実装する。`api.readFile`、`api.writeFile`、
 `api.command`、`api.http`、`api.webFetch` はcontext付きGo基礎操作へ接続する。
+`api.listDirectory`・`api.findFiles`・`api.countFiles`はdirectory探索・file集計へ接続する。
 認証付き外部serviceには`api.requestProvider({authProfile,endpoint,method,headers?,body?})`を使う。
 JSON bodyとcredential参照だけを渡し、Go側で認証headerを付ける。戻り値は`{status,body}`。
 この実装APIは生成JSへ直接公開せず、選択toolを通す。[Exa Web検索](web-search.md)を参照する。
@@ -87,13 +108,17 @@ provider tool definitionはname/description/inputSchemaのままで、専用fiel
 
 | tool | 標準の利用案内 |
 | --- | --- |
-| read_file | 全文を`{path,text}`で返す。JSで加工する場合はtextを使い、run_jsが利用可能なら必要部分を抽出して返せる。 |
-| edit_file | literalの全一致を置換し、`{path,replacements,bytes}`を返す。空oldText・一致なしは0件、空newTextは一致箇所の削除。 |
+| read_file | 1始まりのoffset / limitで行範囲を読む。省略時は全文。textと行数、totalLines、続きがあればnextOffsetを返す。 |
+| edit_file | edits配列のliteral全一致置換を順に適用して一回保存。各editと合計の置換件数を返す。空oldText・一致なしは0件、空newTextは削除。 |
+| ls / find | entry情報とtree、またはglob・種類でpathを探索する。offsetは0始まり、limit省略は100。次頁はnextOffset。 |
+| grep | ripgrepでregex／literal・周辺行・一致file一覧。隠しfileを含みignore規則は既定で尊重する。offset/limitは周辺行込みの出力行またはfile一覧の範囲。 |
+| wc | pathsの各fileと合計の改行数・Unicode空白区切りの単語数・byte数を返す。 |
+| git_inspect | status / diff / log / showの読取り。paths・rev・staged・stat指定と結果範囲を使う。logはcommit単位、それ以外は出力行単位。 |
 | command | programとargsで直接実行し、workspaceをDirにする。shell構文はshellを明示する。args/stdinは省略でき、非0終了も通常結果のexitCode/stderrで判断する。 |
 | run_agent / spawn_agent | blocking結果と起動結果を区別する。role省略はconfig.defaultRole。modelは親selection→子role設定→呼出し上書き、provider変更時の省略値は変更先の既定。tools省略はrole一覧、空配列はtoolなし。 |
 | agent_status | spawnが返したexecutionIdを使う。初回after省略、以後は同じ子のnextCursorを渡す。完了待ちはcollectを使う。 |
 
-modelへ公開する引数の型・required・省略動作は変えず、説明を外部宣言に持たせる。
+modelへ公開する引数の型・required・省略動作と説明を外部宣言に持たせる。
 子は独立会話なのでtaskに必要な文脈を書く。spawnの結果だけでは完了を示さず、
 親終了時に残る子は取消されるため、回答に必要な子の結果は親終了前に回収する。
 
@@ -195,9 +220,31 @@ hook自体もcallとしてObserverへ記録し、hook内のGo操作・別toolは
 toolまたはhookの例外は呼出し元へそのまま伝える。
 
 標準の外部toolは `run_agent`、`spawn_agent`、`agent_status`、`collect_agent`、`cancel_agent`、`steer_agent`、
-`read_file`、`write_file`、`edit_file`、`command`、`http`、`web_fetch`、`web_search`。
+`read_file`、`write_file`、`edit_file`、`ls`、`find`、`grep`、`wc`、`git_inspect`、
+`command`、`http`、`web_fetch`、`web_search`。
 file pathとcommand `Dir` はSession workspaceから解決し、プロセス全体のworking directoryを変更しない。
-`edit_file` は `oldText` の全ての完全一致箇所を `newText` に置換して書き込み、置換数とbyte数を返す。
+`read_file`のoffsetは1始まり、limitは行数。各行の改行を保持し、最終行の改行も補わない。
+offset/limit省略時は全文、EOF以降のoffsetは空text。textのほかoffset / lines / totalLinesと、
+続きがあればnextOffsetを返す。fileの本文行数は、改行なしの最終行も1行として数える。
+`edit_file`は`{path,edits:[{oldText,newText},...]}`を受け、各置換を前段の結果へ適用する。
+全ての完全一致箇所を置換し、最後に一回保存して`{path,replacements,edits:[{replacements}],bytes}`を返す。
+単一置換も配列で指定する。旧single oldText/newText入力を読替える機構は追加しない。
+`write_file`は不足する親directoryも作成する。
+
+`ls`は名前順・深さ優先のflat entriesにdepthを付ける。tree:falseでは直下だけ、tree:trueは
+既定depth 3。directory symlinkはentryとして表示し、再帰探索しない。
+`find`のslashなしglobは各basename、slashありglobは探索root相対pathに一致させ、**はdirectoryを跨ぐ。
+file / directory / anyを選べ、excludeでdirectoryに一致すると配下も省く。
+隠し・ignored entriesを含み、.gitignoreを自動適用しない。ls/findはGo filesystemで動く。
+`grep`にはripgrep（rg）が必要。regexはripgrepの構文、patternKind:literalは固定文字列。
+lines出力のlineは1始まり、matchは一致行／周辺行を区別し、textは改行を保持する。
+UTF-8以外のpath/textは`{base64}`として保持する。output:filesは一致pathを重複なしで返す。
+0件は通常結果。grepのmatchesは一致行数で、totalはpage対象の行数またはfile数。
+`wc`のlinesは改行文字の数で、read_fileのtotalLinesとは定義が異なる。
+`git_inspect`にはGitが必要。固定した4操作を既存command基礎操作で実行し、任意argvを公開しない。
+statusではoptional index refreshを行わず、diff/showはexternal diff/textconvを実行しない。
+ls/find/grepとGitの出力行のoffsetは0始まり、既定limit 100。Git logだけはcommit単位で既定20。
+続きがあればnextOffsetを返す。省略したoptionをモデルに埋めさせる必要はない。
 `command` は `program`、`args`、`stdin` を受け、`exitCode`、`stdout`、`stderr` を返す。
 nonzero exitは構造化結果であり、tool失敗にはしない。
 `http` はGETを行い、statusとbodyを返す。HTTP statusは結果データである。
