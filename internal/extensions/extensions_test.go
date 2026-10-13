@@ -481,9 +481,11 @@ func TestPromptGuidelinesFollowSelectedToolOrderAndAreSaved(t *testing.T) {
 			PromptGuidelines: []string{"alpha guidance"}, Module: "index.js", Export: "readFile"},
 		Tool{Name: "future_b", Revision: "1", Description: "Second future tool.", InputSchema: json.RawMessage(`{"type":"object"}`),
 			PromptGuidelines: []string{"beta guidance one", "beta guidance two"}, Module: "index.js", Export: "readFile"},
+		Tool{Name: "future_plain", Revision: "1", Description: "Tool with no declared guidance.", InputSchema: json.RawMessage(`{"type":"object"}`),
+			Module: "index.js", Export: "readFile"},
 	)
 	config.Roles["ordered"] = Role{Revision: "1", Tools: []string{"future_b", "future_a"}}
-	config.Roles["plain"] = Role{Revision: "1", Tools: []string{"read_file"}}
+	config.Roles["plain"] = Role{Revision: "1", Tools: []string{"future_plain"}}
 	encoded, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)

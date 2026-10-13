@@ -25,6 +25,7 @@ function implementationApiFor(parent) {
   };
   return {
     http: input => hostCall('http', input),
+    requestProvider: input => hostCall('requestProvider', input),
     webFetch: input => hostCall('webFetch', input),
     command: input => hostCall('command', input),
     readFile: input => hostCall('readFile', input),

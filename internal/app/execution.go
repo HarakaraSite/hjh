@@ -13,6 +13,7 @@ import (
 	"hjh/internal/executiondata"
 	"hjh/internal/extensions"
 	"hjh/internal/history"
+	"hjh/internal/host"
 	"hjh/internal/jsruntime"
 	"hjh/internal/recall"
 	"hjh/internal/workspacecontext"
@@ -270,8 +271,17 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	}
 	runner = &delegation{store: store, provider: provider, input: input, journal: j, control: control, progress: progress}
 	runner.children = newChildRuns(ctx, runner)
+	registry, err := capturedRegistry(input.snapshot, input.configPath)
+	if err != nil {
+		return result, err
+	}
+	runtimeHost, err := host.New(input.workspace)
+	if err != nil {
+		return result, err
+	}
+	runtimeHost.RequestProvider = input.connections.toolRequestProvider(registry, input.configPath)
 	worker, err = jsruntime.New(persist, jsruntime.Options{Snapshot: input.snapshot, Workspace: input.workspace, Observer: j.observe,
-		ObserverParent: execution.ID, Agents: runner, AgentControl: runner.children})
+		ObserverParent: execution.ID, Host: runtimeHost, Agents: runner, AgentControl: runner.children})
 	if err != nil {
 		return result, err
 	}
@@ -281,10 +291,6 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	}
 	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource,
 		instructionSources: lifecycle.instructionSources()}
-	registry, e := capturedRegistry(input.snapshot, input.configPath)
-	if e != nil {
-		return result, e
-	}
 	budget, metadataError := input.connections.budget(ctx, registry, input.model, input.injectedProvider, input.configPath)
 	var prefix []contextbudget.Entry
 	for i, message := range messages {

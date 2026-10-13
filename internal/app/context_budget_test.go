@@ -65,7 +65,9 @@ func budgetFact(t *testing.T, store *history.Store, session string) (contracts.S
 func TestCoreBudgetPreservesFullTurnAndReloadsItAfterModelChange(t *testing.T) {
 	ctx := context.Background()
 	workspace := t.TempDir()
-	path := budgetConfig(t, workspace, 9000)
+	// Leave room for one 15KB read with the current default tool definitions,
+	// while two reads still exceed the budget and require exchange selection.
+	path := budgetConfig(t, workspace, 13000)
 	a := "SAVED_A_" + strings.Repeat("a", 15000)
 	b := "SAVED_B_" + strings.Repeat("b", 15000)
 	for name, text := range map[string]string{"a.txt": a, "b.txt": b} {
@@ -108,7 +110,7 @@ func TestCoreBudgetPreservesFullTurnAndReloadsItAfterModelChange(t *testing.T) {
 		t.Fatalf("full saved transcript: %d %v", len(full), err)
 	}
 	_, fact := budgetFact(t, store, first.SessionID)
-	if len(fact.OmittedCurrent) != 2 || *fact.Budget.Limit != 9000 {
+	if len(fact.OmittedCurrent) != 2 || *fact.Budget.Limit != 13000 {
 		t.Fatalf("budget: %+v", fact)
 	}
 	cut, err := store.CaptureConversationCut(ctx, first.ExecutionID)

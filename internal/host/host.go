@@ -21,8 +21,9 @@ import (
 )
 
 type Host struct {
-	Workspace  string
-	HTTPClient *http.Client
+	Workspace       string
+	HTTPClient      *http.Client
+	RequestProvider ProviderRequest
 }
 
 func New(workspace string) (*Host, error) {
@@ -86,6 +87,15 @@ func (h *Host) Call(ctx context.Context, name string, input json.RawMessage) (an
 		return nil, err
 	}
 	switch name {
+	case "requestProvider":
+		var args ProviderRequestArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		if h.RequestProvider == nil {
+			return nil, errors.New("credential-aware requests are not configured")
+		}
+		return h.RequestProvider(ctx, args)
 	case "http":
 		var args HTTPArgs
 		if err := json.Unmarshal(input, &args); err != nil {

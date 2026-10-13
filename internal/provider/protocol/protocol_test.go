@@ -116,6 +116,52 @@ func TestPrepareResponsesOmitsOpaqueReplayForOtherStateIdentity(t *testing.T) {
 	}
 }
 
+func TestPrepareResponsesPreservesOptionalSearchAndFetchArguments(t *testing.T) {
+	for _, namespace := range []bool{false, true} {
+		t.Run(fmt.Sprintf("namespace=%t", namespace), func(t *testing.T) {
+			provider := New(Config{API: "responses", BaseURL: "https://example.invalid/v1", Options: Options{NamespaceTools: namespace}})
+			tools := []contracts.ToolDefinition{
+				{Name: "web_search", InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"},"numResults":{"type":"integer"}},"required":["query"]}`)},
+				{Name: "web_fetch", InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string"},"save_to":{"type":"string"}},"required":["url"],"additionalProperties":false}`)},
+			}
+			body, err := provider.Prepare(contracts.ModelRequest{Model: contracts.ModelSelection{ModelID: "test"}, Tools: tools})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct {
+				Tools []map[string]json.RawMessage `json:"tools"`
+			}
+			if err := json.Unmarshal(body, &wire); err != nil {
+				t.Fatal(err)
+			}
+			functions := wire.Tools
+			if namespace {
+				if err := json.Unmarshal(wire.Tools[0]["tools"], &functions); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if len(functions) != len(tools) {
+				t.Fatalf("functions: %s", body)
+			}
+			for i, fn := range functions {
+				if string(fn["strict"]) != "false" {
+					t.Fatalf("%s allows Responses to normalize optional arguments: %s", tools[i].Name, body)
+				}
+				var schema, original any
+				if err := json.Unmarshal(fn["parameters"], &schema); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(tools[i].InputSchema, &original); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(schema, original) {
+					t.Fatalf("%s changed its declared argument contract", tools[i].Name)
+				}
+			}
+		})
+	}
+}
+
 func TestPrepareResponsesRequestsAutomaticReasoningSummary(t *testing.T) {
 	provider := New(Config{API: "responses", BaseURL: "https://example.invalid/v1", Path: "/responses"})
 	for _, test := range []struct {

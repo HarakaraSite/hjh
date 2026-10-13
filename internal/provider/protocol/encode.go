@@ -126,6 +126,9 @@ func (provider *Provider) prepareResponses(request contracts.ModelRequest) ([]by
 				"name":        tool.Name,
 				"description": tool.Description,
 				"parameters":  tool.InputSchema,
+				// Responses may normalize omitted strictness by requiring optional
+				// fields. Keep the tool's declared required/optional contract.
+				"strict": false,
 			})
 		}
 		if provider.config.Options.NamespaceTools {

@@ -19,6 +19,10 @@
     "openai-api-key": {
       "env": "OPENAI_API_KEY",
       "file": "~/.local/state/henji-harness/v1/credentials/openai-api-key"
+    },
+    "exa-api-key": {
+      "env": "EXA_API_KEY",
+      "file": "~/.local/state/henji-harness/v1/credentials/exa-api-key"
     }
   },
   "providers": {
@@ -118,7 +122,7 @@
       "revision": "1",
       "description": "General-purpose work role that completes requests and verifies the result.",
       "instruction": "Complete the requested work, verify the result with the available tools, and report what changed. Use web_fetch to read web pages; use http when a raw HTTP response is needed.",
-      "tools": ["run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch"]
+      "tools": ["run_js", "run_agent", "spawn_agent", "agent_status", "steer_agent", "collect_agent", "cancel_agent", "read_file", "write_file", "edit_file", "command", "http", "web_fetch", "web_search"]
     },
     "reviewer": {
       "revision": "1",
@@ -133,8 +137,11 @@
   "tools": [
     {
       "name": "read_file",
-      "description": "Read a UTF-8 text file from the workspace.",
-      "inputSchema": {"type":"object","properties":{"path":{"type":"string"}},"required":["path"]},
+      "description": "Read a complete UTF-8 text file. Returns an object with path and text.",
+      "promptGuidelines": [
+        "The result is {path, text}; use result.text when processing file contents. When run_js is available and you only need part of a file, read and extract the relevant text there before returning it to your next model input."
+      ],
+      "inputSchema": {"type":"object","properties":{"path":{"type":"string","description":"Workspace-relative or absolute file path."}},"required":["path"]},
       "module": "index.js",
       "export": "readFile"
     },
@@ -147,15 +154,22 @@
     },
     {
       "name": "edit_file",
-      "description": "Replace every exact occurrence of oldText with newText in a UTF-8 text file.",
-      "inputSchema": {"type":"object","properties":{"path":{"type":"string"},"oldText":{"type":"string"},"newText":{"type":"string"}},"required":["path","oldText","newText"]},
+      "description": "Replace every exact occurrence of oldText with newText in a UTF-8 text file. Returns {path, replacements, bytes}.",
+      "promptGuidelines": [
+        "oldText is literal text, not a regular expression; every exact match is replaced. Check replacements before assuming the requested edit happened: no match or an empty oldText returns replacements: 0 without a tool error. newText may be empty to delete matching text."
+      ],
+      "inputSchema": {"type":"object","properties":{"path":{"type":"string","description":"Workspace-relative or absolute file path."},"oldText":{"type":"string","description":"Exact literal text to replace everywhere; an empty string performs no replacements."},"newText":{"type":"string","description":"Replacement text; an empty string deletes each match."}},"required":["path","oldText","newText"]},
       "module": "index.js",
       "export": "editFile"
     },
     {
       "name": "command",
-      "description": "Run a program in the workspace and return its exit code, stdout, and stderr.",
-      "inputSchema": {"type":"object","properties":{"program":{"type":"string"},"args":{"type":"array","items":{"type":"string"}},"stdin":{"type":"string"}},"required":["program"]},
+      "description": "Execute a program directly with the workspace as its working directory. Waits for exit and returns {exitCode, stdout, stderr}.",
+      "promptGuidelines": [
+        "Pass the executable in program and individual arguments in args; shell syntax is not interpreted automatically. For pipes, redirection, variable expansion, or &&, explicitly use a shell, for example {program: \"sh\", args: [\"-c\", \"pwd && ls\"]}.",
+        "Omit unused args and stdin; they default to [] and an empty string. A launched program exiting with a nonzero code returns a normal result, so inspect exitCode and stderr to determine whether it succeeded."
+      ],
+      "inputSchema": {"type":"object","properties":{"program":{"type":"string","description":"Executable name or path, such as rg or sh; not a whole shell command line."},"args":{"type":"array","items":{"type":"string"},"description":"Individual argument strings passed directly to the executable; defaults to []."},"stdin":{"type":"string","description":"Text supplied to standard input; omit when no input is needed."}},"required":["program"]},
       "module": "index.js",
       "export": "command"
     },
@@ -169,44 +183,133 @@
     {
       "name": "web_fetch",
       "description": "Read an http or https page or API response. HTML is converted to readable text; text responses are limited to 1 MiB. Set save_to to save the original response bytes to a workspace-relative or absolute path without returning the body.",
+      "promptGuidelines": [
+        "To read a page in context, pass url and omit save_to. Include save_to only when saving the original response to a concrete file path; do not fill an unused save_to with an empty string."
+      ],
       "inputSchema": {"type":"object","properties":{"url":{"type":"string"},"save_to":{"type":"string"}},"required":["url"],"additionalProperties":false},
       "module": "index.js",
       "export": "webFetch"
     },
     {
+      "name": "web_search",
+      "description": "Search the public web with Exa. Return ordered source URLs, titles, page text or highlights, metadata, and optional synthesized output. Defaults to auto search with highlights.",
+      "promptGuidelines": [
+        "Only include optional arguments needed for this search. Omit unused fields rather than filling them with empty strings, nulls, empty arrays, or guessed values. A query alone uses the default auto search with highlights. If a request fails, use the reported provider error to decide what to change instead of retrying unrelated search options.",
+        "Choose the task source before exploring. If the user explicitly identifies the current repository, a local file, or a canonical URL or API, use that source first and do not add web search unless it leaves a current or external question unresolved. If current or external information is requested and the target identity or canonical source is not already established, use web_search as the first source-discovery tool; do not inspect the workspace, sibling repositories, handoff files, or try guessed endpoints with bash or curl merely because a software workspace exists. When external sources alone can answer the task, stay on that route. After discovery, obtain fast-changing lists or precise current values from the direct canonical source with web_fetch and disclose retrieval time or conflicts with search results. Put independent read-only retrievals in distinct tool calls in the same model step when their targets are already known; perform result-dependent retrievals sequentially. Give a specific query describing the information needed.",
+        "Treat results[].text and results[].highlights as source material; summary and output are synthesized material. Cite direct source URLs near supported claims, do not copy provider-local citation numbers, and do not add facts unsupported by the returned material. Say when sources do not answer the question and label inference.",
+        "Choose type and contents for the task. Use contents.text for full page text, highlights for relevant excerpts, and outputSchema for synthesized text or structured output. AdditionalQueries apply to deep search modes. Category accepts custom hints; company and people do not support published-date filters or excludeDomains. Dates use ISO 8601. userLocation accepts a two-letter country code or an object with country, latitude, and longitude. Tool results are complete JSON; transport streaming is disabled. Dynamic highlights and verbosity automatically enable the documented Exa beta header.",
+        "Choose contents deliberately: highlights (optionally with maxCharacters) answer most lookups, while full page text can add tens of thousands of context tokens for one result. Bound text with maxCharacters, or use web_fetch save_to when only parts of a long page matter."
+      ],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {"type": "string", "description": "Specific search query or research question."},
+          "type": {"type": "string", "enum": ["instant", "fast", "auto", "deep-lite", "deep", "deep-reasoning"], "description": "Search mode; defaults to auto."},
+          "numResults": {"type": "integer", "description": "Requested result count (1–100, mode dependent)."},
+          "includeDomains": {"type": "array", "items": {"type": "string"}, "description": "Include domains, subdomains, or URL paths."},
+          "excludeDomains": {"type": "array", "items": {"type": "string"}, "description": "Exclude domains, subdomains, or URL paths."},
+          "startPublishedDate": {"type": "string", "description": "Earliest publication time, ISO 8601."},
+          "endPublishedDate": {"type": "string", "description": "Latest publication time, ISO 8601."},
+          "category": {"type": "string", "description": "Category hint: company, people, news, research paper, personal site, financial report, or a custom hint."},
+          "additionalQueries": {"type": "array", "items": {"type": "string"}, "description": "Alternative queries for deep search modes."},
+          "userLocation": {
+            "anyOf": [
+              {"type": "string", "description": "Two-letter country code, such as JP."},
+              {"type": "object", "properties": {"country": {"type": "string"}, "latitude": {"type": "number"}, "longitude": {"type": "number"}}}
+            ]
+          },
+          "objective": {"type": "string", "description": "Broader goal and factual needs to guide ranking."},
+          "moderation": {"type": "boolean"},
+          "outputSchema": {
+            "anyOf": [
+              {"type": "object", "description": "JSON Schema for synthesized output: root type text for text or type object with properties for structured output (up to 10 properties and 2 nesting levels).", "additionalProperties": true},
+              {"type": "null"}
+            ]
+          },
+          "systemPrompt": {"type": "string", "description": "Additional synthesized-output instructions."},
+          "contents": {
+            "anyOf": [
+              {
+                "type": "object",
+                "description": "Content retrieval; defaults to highlights:true when omitted.",
+                "properties": {
+                  "text": {"anyOf": [{"type": "boolean"}, {"type": "object", "properties": {"maxCharacters": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "includeHtmlTags": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}, "verbosity": {"anyOf": [{"type": "string", "enum": ["compact", "standard", "full"]}, {"type": "null"}]}, "includeSections": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}, "excludeSections": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}}}, {"type": "null"}]},
+                  "highlights": {"anyOf": [{"type": "boolean"}, {"type": "object", "properties": {"query": {"anyOf": [{"type": "string"}, {"type": "null"}]}, "maxCharacters": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "verbosity": {"anyOf": [{"type": "string", "enum": ["low", "medium", "high"]}, {"type": "null"}], "description": "Beta length preset; incompatible with maxCharacters."}, "dynamic": {"anyOf": [{"type": "boolean"}, {"type": "null"}], "description": "Beta shared context budget; incompatible with maxCharacters."}}}, {"type": "null"}]},
+                  "summary": {"anyOf": [{"type": "boolean"}, {"type": "object", "properties": {"query": {"anyOf": [{"type": "string"}, {"type": "null"}]}, "schema": {"anyOf": [{"type": "object", "additionalProperties": true}, {"type": "null"}]}}}, {"type": "null"}]},
+                  "extras": {"anyOf": [{"type": "object", "properties": {"links": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "imageLinks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "richLinks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "richImageLinks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "codeBlocks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}}}, {"type": "null"}]},
+                  "maxAgeHours": {"anyOf": [{"type": "integer"}, {"type": "null"}], "description": "Cache age: 0 fetches fresh content; -1 uses cache; positive values in hours."},
+                  "livecrawlTimeout": {"anyOf": [{"type": "integer"}, {"type": "null"}], "description": "Fetch timeout in milliseconds."},
+                  "snapshotAsOf": {"anyOf": [{"type": "string"}, {"type": "null"}], "description": "Stored version as of ISO date/time."},
+                  "subpages": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                  "subpageTarget": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}, {"type": "null"}]}
+                }
+              },
+              {"type": "null"}
+            ]
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": true
+      },
+      "module": "web-search.js",
+      "export": "webSearch"
+    },
+    {
       "name": "run_agent",
       "revision": "1",
-      "description": "Run an independent task as a child agent.",
+      "description": "Run an independent child task and wait for completion. Returns {executionId, outcome, finalText?, error?}.",
       "promptGuidelines": [
         "Use run_agent to delegate an independent task. Include the context the child needs in task because its conversation is independent.",
-        "It accepts optional role, model selection (provider, modelId, effort), and tool list values; the result includes executionId and outcome, with optional finalText or error."
+        "It accepts optional role, model selection (provider, modelId, effort), and tool list values; the result includes executionId and outcome, with optional finalText or error.",
+        "Omit optional settings you do not need. Role omission selects config.defaultRole, not the parent's role. Model selection starts from the parent, applies the child role's model settings, then your explicit model overrides; changing provider uses that provider's defaults for omitted modelId and effort. Tools omission uses the selected role's tools; tools: [] selects no tools.",
+        "This call waits for the child's result. Use spawn_agent when available to start a child and continue your own work before collecting. Inspect outcome and error when receiving a settled result; a child's failed outcome can be returned as a normal tool result."
       ],
-      "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"},"model":{"type":"object","properties":{"provider":{"type":"string"},"modelId":{"type":"string"},"effort":{"type":"string"}}},"tools":{"type":"array","items":{"type":"string"}}},"required":["task"]},
+      "inputSchema": {
+        "type":"object",
+        "properties": {
+          "task":{"type":"string","description":"Independent child request, including the context it needs; parent conversation is not copied."},
+          "role":{"type":"string","description":"Configured role name; omission selects config.defaultRole, not the parent role."},
+          "model":{"type":"object","description":"Optional overrides applied after parent selection and child role model settings; omit unused fields.","properties":{"provider":{"type":"string","description":"Configured provider ID. When changed, omitted modelId and effort use the new provider's defaults."},"modelId":{"type":"string","description":"Model ID on the resolved provider; omit to keep the resolved selection."},"effort":{"type":"string","description":"Reasoning effort; omit to keep the resolved setting."}}},
+          "tools":{"type":"array","items":{"type":"string"},"description":"Replace the selected role's tool list for this child. Omit to use role tools; [] means no tools."}
+        },
+        "required":["task"]
+      },
       "module": "run-agent.js",
       "export": "runAgent"
     },
     {
       "name": "spawn_agent",
       "revision": "1",
-      "description": "Start a child agent.",
+      "description": "Start an independent child task and return {executionId, state} before it finishes. Use collect_agent to wait for its final result.",
       "promptGuidelines": [
         "Use spawn_agent to start independent child work. Its conversation is independent, so include necessary context in task. It returns an executionId while running and accepts optional role, model selection (provider, modelId, effort), and tools list values.",
-        "Start independent children before collecting when useful, and continue your own work between starting and collecting."
+        "Start independent children before collecting when useful, and continue your own work between starting and collecting.",
+        "Omit optional settings you do not need. Role omission selects config.defaultRole, not the parent's role. Model selection starts from the parent, applies the child role's model settings, then your explicit model overrides; changing provider uses that provider's defaults for omitted modelId and effort. Tools omission uses the selected role's tools; tools: [] selects no tools.",
+        "Keep the returned executionId for agent_status, steer_agent, collect_agent, and cancel_agent. The returned state describes startup, not task completion. Collect results needed for your answer before finishing the parent task, since remaining children are cancelled when the parent finishes."
       ],
-      "inputSchema": {"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"},"model":{"type":"object","properties":{"provider":{"type":"string"},"modelId":{"type":"string"},"effort":{"type":"string"}}},"tools":{"type":"array","items":{"type":"string"}}},"required":["task"]},
+      "inputSchema": {
+        "type":"object",
+        "properties": {
+          "task":{"type":"string","description":"Independent child request, including the context it needs; parent conversation is not copied."},
+          "role":{"type":"string","description":"Configured role name; omission selects config.defaultRole, not the parent role."},
+          "model":{"type":"object","description":"Optional overrides applied after parent selection and child role model settings; omit unused fields.","properties":{"provider":{"type":"string","description":"Configured provider ID. When changed, omitted modelId and effort use the new provider's defaults."},"modelId":{"type":"string","description":"Model ID on the resolved provider; omit to keep the resolved selection."},"effort":{"type":"string","description":"Reasoning effort; omit to keep the resolved setting."}}},
+          "tools":{"type":"array","items":{"type":"string"},"description":"Replace the selected role's tool list for this child. Omit to use role tools; [] means no tools."}
+        },
+        "required":["task"]
+      },
       "module": "agent-control.js",
       "export": "spawnAgent"
     },
     {
       "name": "agent_status",
       "revision": "1",
-      "description": "Read a child agent's current state.",
+      "description": "Read a spawned child's current state, progress, instruction receipts, and saved assistant reports without waiting for completion. Returns reports and nextCursor.",
       "promptGuidelines": [
         "Use agent_status after starting independent work to read the child's state, progress, latest instruction receipts, and saved assistant reports. Omit after to receive all reports, then pass nextCursor as after to read newer ones.",
-        "Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. Do not poll status to wait for completion.",
+        "Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. Do not poll status to wait for completion. Use collect_agent when you need the final result.",
         "Steer receipts can be accepted, applied, or unapplied. Accepted means the guidance was saved; applied means it entered the child's loop. Neither means the model followed it."
       ],
-      "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"},"after":{"type":"integer"}},"required":["executionId"]},
+      "inputSchema": {"type":"object","properties":{"executionId":{"type":"string","description":"The executionId returned by spawn_agent for a child of this parent; not a Session ID."},"after":{"type":"integer","description":"Pass the previous nextCursor for this same child to read newer reports. Omit on the first read to receive all reports; do not guess a cursor."}},"required":["executionId"]},
       "module": "agent-control.js",
       "export": "agentStatus"
     },

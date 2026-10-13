@@ -36,8 +36,8 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 
 | 機能 | 旧Henji | 現在のhjhと不足している点 |
 | --- | --- | --- |
-| Web検索 | Exaの`web_search`。URL、タイトル、抜粋、本文などを取得 | **未実装**。`web_fetch`は指定URLの読取りであり、検索機能とは別 |
-| tool用の認証付きHTTP | 外部toolが認証profileを指定してサービスへrequest | **未実装**。現在のtool用HTTPはURL指定のGET。POST、headers、body、認証profileを扱う共通入口がない |
+| Web検索 | Exaの`web_search`。URL、タイトル、抜粋、本文などを取得 | **完了（I-22）**。Exa版を外部toolへ移植し、直接/生成JS/子から実検索・結果利用・保存を確認。[確認結果](i22-exa-web-search.md) |
+| tool用の認証付きHTTP | 外部toolが認証profileを指定してサービスへrequest | **対応（I-22）**。実装API requestProviderでmethod、headers、JSON body、API-key profileを扱い、GoでBearerを付ける。一般http toolはURL指定GET。[契約](../design/web-search.md) |
 | ディレクトリ一覧 | `ls`。tree表示、entry情報 | **専用toolなし**。`command`で代替可能 |
 | ファイル検索 | `find`。glob、種類、ページ指定 | **専用toolなし**。`command`で代替可能 |
 | 本文検索 | `grep`。正規表現、固定文字列、周辺行、一致ファイル一覧 | **専用toolなし**。`command`で代替可能 |
@@ -53,8 +53,8 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 
 ファイル検索やGit確認は、専用toolを持つかどうかの差である。
 一方、Web検索には検索サービスとの接続が必要で、HTML読取りの改善だけでは補えない。
-認証付きHTTPの不足も、既存のモデルprovider認証が未実装という意味ではなく、
-外部toolから非モデルサービスを呼ぶ共通経路の不足である。
+I-22で外部toolから非モデルサービスを呼ぶ認証付きHTTP共通経路を追加した。
+既存のモデルprovider認証とは別の利用経路で、同じcredential ownerを使う。
 
 参照先：
 
@@ -177,6 +177,7 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 認証 | APIキー、ChatGPTの追加と再認証と複数accountの選択機構 | [認証UI](i12-authentication-ui.md) |
 | 指示とskills | AGENTS.md、role指示、起動時のskill一覧、利用時の本文読取り | [workspace指示とskills](../design/workspace-instructions-skills.md) |
 | Web読取り | HTML可読化、1MiB上限、`save_to` | [Webと予算管理](i14-web-context.md) |
+| Web検索 | Exa auto/highlights、各option、直接/生成JS/子の利用、認証付きHTTPと保存 | [I-22の完了結果](i22-exa-web-search.md) |
 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
 | 子agent | 非同期開始・並列実行・状態確認・回収・取消、model/provider/effort/tools指定、報告差分、親からの追加指示 | [I-19の完了結果](i19-child-agent-control.md) |
 | 外部拡張 | role、tool、六種類のhook、開始文脈、開始時のsource捕捉、次実行への編集反映 | [外部拡張](../design/extensions.md)、[hookの完了結果](i20-lifecycle-hooks.md) |
@@ -211,7 +212,6 @@ hjhの方式は[初期製品の採用方針](../design/initial-product.md)、[wo
 
 作業の完了方法や日常操作への影響が大きい候補は、次のとおりである。実装順序は未決定。
 
-- Web検索と、非モデルサービスを呼ぶ認証付きHTTP。
 - 部分読取り、複数編集、ファイル検索など、ファイル操作toolの充実。
 - コマンドの途中出力と、大量出力の分割取得。
 - 会話の要約checkpoint保存・再利用（利用者指定により、まだ実装しない）。

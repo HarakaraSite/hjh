@@ -54,6 +54,9 @@ selection優先順位、credential形式は[provider・model設定](providers.md
 
 `tools` のexportは `(args, api) => result` を実装する。`api.readFile`、`api.writeFile`、
 `api.command`、`api.http`、`api.webFetch` はcontext付きGo基礎操作へ接続する。
+認証付き外部serviceには`api.requestProvider({authProfile,endpoint,method,headers?,body?})`を使う。
+JSON bodyとcredential参照だけを渡し、Go側で認証headerを付ける。戻り値は`{status,body}`。
+この実装APIは生成JSへ直接公開せず、選択toolを通す。[Exa Web検索](web-search.md)を参照する。
 `api.tools.<name>(args)` は別の登録toolを同じVM内で呼ぶ。
 各内側callは親IDを持ち、hookや基礎操作の子callを含めてObserverへ通知される。
 
@@ -79,6 +82,43 @@ optional `promptGuidelines`を保存する。元configは従来どおりexact so
 provider tool definitionはname/description/inputSchemaのままで、専用fieldをwireへ送らない。
 集約した指示は通常のcontext budgetとmodel request保存・attributionの対象になる。
 編集は次Workerのcaptureから反映し、現在のWorkerや過去の保存履歴を変更しない。
+
+標準toolのdescription・引数description・guidelinesは実装済みの入力と戻り値を説明する。
+
+| tool | 標準の利用案内 |
+| --- | --- |
+| read_file | 全文を`{path,text}`で返す。JSで加工する場合はtextを使い、run_jsが利用可能なら必要部分を抽出して返せる。 |
+| edit_file | literalの全一致を置換し、`{path,replacements,bytes}`を返す。空oldText・一致なしは0件、空newTextは一致箇所の削除。 |
+| command | programとargsで直接実行し、workspaceをDirにする。shell構文はshellを明示する。args/stdinは省略でき、非0終了も通常結果のexitCode/stderrで判断する。 |
+| run_agent / spawn_agent | blocking結果と起動結果を区別する。role省略はconfig.defaultRole。modelは親selection→子role設定→呼出し上書き、provider変更時の省略値は変更先の既定。tools省略はrole一覧、空配列はtoolなし。 |
+| agent_status | spawnが返したexecutionIdを使う。初回after省略、以後は同じ子のnextCursorを渡す。完了待ちはcollectを使う。 |
+
+modelへ公開する引数の型・required・省略動作は変えず、説明を外部宣言に持たせる。
+子は独立会話なのでtaskに必要な文脈を書く。spawnの結果だけでは完了を示さず、
+親終了時に残る子は取消されるため、回答に必要な子の結果は親終了前に回収する。
+
+## 将来の改善候補：ツールの使い方辞書と遅延読込み
+
+2026-10-13、利用者要望。ツール増加に伴うコンテキスト圧迫への対策として、
+詳細な利用指示を必要時に検索・取得する「使い方辞書」を今後の検討に残す。
+現時点の記録は検討用であり、設計の確定や実装開始の指示ではない。
+
+- 常駐する情報と詳細な説明を分ける案。ツール名・短い用途・引数schemaと、
+  省略時の意味・戻り値の判断など正しい呼出しに必要な要点は常に渡す。
+  長い使用例、複数ツールの組合せ、子の並列実行・中間報告・追加指示の手順は必要時に読む。
+- 検索方式の候補。名前が分かる場合は直接取得（仮称tool_help）、目的から探す場合は
+  名前・別名・用途・使用例のキーワード／全文検索（BM25等）を検討する。
+  言い換えや多言語で検索漏れが観測された場合はベクター検索との併用を検討する。
+  ベクター検索や特定の検索実装を先に必須化しない。
+- 段階を分ける案。最初は詳細利用指示の遅延読込みを検討し、schema自体が大きくなった場合は、
+  検索したツールだけをモデルへ公開する機構を別に検討する。
+  現行のskillsの一覧→必要時に本文を読む方式と共通する部分を確認する。
+- 検討時は実際の入力削減、呼出しの正確さ、検索の追加往復を比較する。
+  取得した説明が履歴へ残ること、同じ説明の重複取得、ターンをまたぐ予算選択、
+  capture済みのtool定義と説明の版の一致も扱う。
+
+参考：[AnthropicのTool Searchと段階的なtool読込み](https://www.anthropic.com/engineering/advanced-tool-use)。
+hjhでprovider固有APIを採用することは未決定。
 
 ## 保存snapshot
 
@@ -155,7 +195,7 @@ hook自体もcallとしてObserverへ記録し、hook内のGo操作・別toolは
 toolまたはhookの例外は呼出し元へそのまま伝える。
 
 標準の外部toolは `run_agent`、`spawn_agent`、`agent_status`、`collect_agent`、`cancel_agent`、`steer_agent`、
-`read_file`、`write_file`、`edit_file`、`command`、`http`、`web_fetch`。
+`read_file`、`write_file`、`edit_file`、`command`、`http`、`web_fetch`、`web_search`。
 file pathとcommand `Dir` はSession workspaceから解決し、プロセス全体のworking directoryを変更しない。
 `edit_file` は `oldText` の全ての完全一致箇所を `newText` に置換して書き込み、置換数とbyte数を返す。
 `command` は `program`、`args`、`stdin` を受け、`exitCode`、`stdout`、`stderr` を返す。

@@ -129,6 +129,11 @@ Webページは`web_fetch`で読み取る。通常は1MiBまでを可読テキ�
 TUIの`/context`で有効予算、出典、選択した履歴と保存元を確認できる。
 上書きはconfig.jsonの`contextBudget.defaults/providers/models`で指定する。
 
+Web検索はExa版`web_search`。標準はauto検索＋highlightsで、domain/dateやcontents/outputSchemaも指定できる。
+`EXA_API_KEY`または`~/.local/state/henji-harness/v1/credentials/exa-api-key`を参照する。
+キーはGoで認証headerへ付け、JSや履歴へ返さない。[検索契約](design/web-search.md)を参照する。
+既存workspaceではconfigのtool/role/credential参照とweb-search.jsを追加し、新binaryでCoreを再起動する。
+
 既存workspaceの拡張は自動置換しない。`web_fetch`を追加するときは配布configのtool definitionを
 既存config.toolsへ、使うrole.toolsへ`web_fetch`を追加し、配布index.jsのwebFetch exportを反映する。
 容量を公開catalogから解決する標準OpenRouterの`catalog`、標準OpenAIの`modelsDevProviderId`も

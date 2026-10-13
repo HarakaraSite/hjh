@@ -13,6 +13,7 @@ func Preview(name string, input json.RawMessage) string {
 		Program     string   `json:"program"`
 		Args        []string `json:"args"`
 		URL         string   `json:"url"`
+		Query       string   `json:"query"`
 		Role        string   `json:"role"`
 		Task        string   `json:"task"`
 		Text        string   `json:"text"`
@@ -28,6 +29,8 @@ func Preview(name string, input json.RawMessage) string {
 		text = strings.Join(append([]string{args.Program}, args.Args...), " ")
 	case "http":
 		text = args.URL
+	case "web_search":
+		text = args.Query
 	case "run_agent", "spawn_agent":
 		text = args.Role
 		if args.Task != "" {

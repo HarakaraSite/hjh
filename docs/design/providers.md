@@ -10,6 +10,13 @@ effort is sent alongside it. Public reasoning text and summaries are separate
 conversation items. A provider returning no readable reasoning creates neither
 item; encrypted replay data remains provider state.
 
+Responses function definitions explicitly send `strict: false`, including functions
+inside a namespace. This preserves the extension schema's required and optional
+arguments instead of allowing upstream strict-mode normalization to require every
+field. The parameter schema itself is unchanged. This follows the
+[OpenAI function-calling contract](https://developers.openai.com/api/docs/guides/function-calling#strict-mode).
+Chat Completions retains its non-strict default.
+
 ## Provider, API, and authentication profile
 
 These values identify different parts of a connection:
