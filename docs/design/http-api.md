@@ -63,6 +63,7 @@ Content-Type: application/json
 | `GET /executions/{id}` | fromOrdinal/toOrdinal | execution/children/messages/records/configuration/context。省略時0/-1 |
 | `GET /executions/{id}/records/{ordinal}` | 会話detail locatorのexecutionId/ordinal | 指定した保存済みRecordだけ。別message・context・configurationを読み込まない |
 | `GET /selection` | sessionId/workspace/role/providerId/modelId/effort/authProfile | 次runの実効`{role, selection}`。実行・source capture・credential取得・保存は行わない |
+| `PUT /selection` | coreId、任意sessionId/workspace/role/providerId/modelId/effort/authProfile | 実効selectionをworkspaceの`.hjh/selection.json`に保存し、`{role, selection}`を返す。Session作成・実行・既存Session更新は行わない |
 | `GET /roles`、`GET /providers`、`GET /models` | sessionId/workspace、modelsにはproviderIdと任意authProfile | 選択scopeのcatalog。model候補は指定可能IDの制限にしない。authProfileはpreviewと同じprofileを渡す |
 | `GET /model-favorites` | sessionId/workspace/providerId | scopeId/providerId/revision/modelIds。先行favorite受付の完了後に読む。catalogやcredentialを取得しない |
 | `PUT /model-favorites` | coreId/providerId/modelId/favorite bool、任意sessionId/workspace | 保存後200。GET fieldsにmodelId/favoriteを加える。falseは解除、同値再送は集合を変えない |
@@ -96,7 +97,7 @@ importしない。一覧はJSON配列、rolesは`{defaultRole, roles}`、inspect
 
 保存JSONの内容は[履歴payload契約](history-payloads.md)を参照する。
 selection previewとrun準備は同じrole・model解決を使う。roleは明示値→保存role→defaultRole。
-新Sessionは全体model→role.model→明示値、既存Sessionは保存selection→明示値で、
+新Sessionは全体model→role.model→workspaceの記憶したselection→明示値、既存Sessionは保存selection→明示値で、
 role変更だけでrole.modelを保存selectionへ適用しない。Core起動optionもRunRequestと同じように適用する。
 previewはconfig metadataとSession metadataだけを読み、tool／hook本文や会話全体を展開しない。
 runは開始時に改めて同じ規則で解決するため、preview後の設定編集を固定しない。

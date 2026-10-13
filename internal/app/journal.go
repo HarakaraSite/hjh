@@ -283,7 +283,7 @@ func (j *journal) appendMessageOrdinal(message contracts.Message) (int64, error)
 	if err != nil {
 		return 0, err
 	}
-	return j.appendMessageContent(message, encoded, "", nil)
+	return j.appendMessageContent(message, encoded, nil)
 }
 
 func (j *journal) appendSteeringMessage(message contracts.Message, body []byte, receipt *contracts.InputReceipt) error {
@@ -294,7 +294,7 @@ func (j *journal) appendSteeringMessage(message contracts.Message, body []byte, 
 	message.Steering = &steering
 	message.ExecutionFact = &contracts.ExecutionFact{Kind: "user_message", Role: "user", Text: message.VisibleText(),
 		Conversation: contracts.ConversationMetadata{EntityKind: "steering", LocalKey: "input/" + receipt.InputID}}
-	_, err := j.appendMessageContent(message, body, receipt.ContentDigest, receipt)
+	_, err := j.appendMessageContent(message, body, receipt)
 	return err
 }
 
@@ -369,7 +369,7 @@ func (j *journal) appendChildInstructionMessageContent(message contracts.Message
 	return ordinal, nil
 }
 
-func (j *journal) appendMessageContent(message contracts.Message, encoded []byte, contentDigest string, steeringReceipt *contracts.InputReceipt) (int64, error) {
+func (j *journal) appendMessageContent(message contracts.Message, encoded []byte, steeringReceipt *contracts.InputReceipt) (int64, error) {
 	j.mu.Lock()
 	var saved []contracts.ExecutionFact
 	var messageOrdinal int64
@@ -403,7 +403,7 @@ func (j *journal) appendMessageContent(message contracts.Message, encoded []byte
 		}
 		ordinal, savedFacts, err := j.store.AppendConversationMessage(j.ctx, history.ConversationMessageInput{
 			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
-			Message: encoded, ContentDigest: contentDigest, Facts: facts, SteeringReceipt: steeringReceipt, FinalizeRequest: finalize,
+			Message: encoded, Facts: facts, SteeringReceipt: steeringReceipt, FinalizeRequest: finalize,
 		})
 		if err != nil {
 			return contracts.ExecutionCommit{}, err

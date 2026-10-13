@@ -93,6 +93,27 @@ func (h *Host) Call(ctx context.Context, name string, input json.RawMessage) (an
 		return nil, err
 	}
 	switch name {
+	case "resolveExecutable":
+		var args struct {
+			Program string `json:"program"`
+		}
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		path, err := exec.LookPath(args.Program)
+		if errors.Is(err, exec.ErrNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return filepath.Abs(path)
+	case "grepCommand":
+		var args CommandArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.grepCommand(ctx, args)
 	case "requestProvider":
 		var args ProviderRequestArgs
 		if err := json.Unmarshal(input, &args); err != nil {

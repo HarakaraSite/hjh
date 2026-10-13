@@ -103,6 +103,8 @@ Goではrole／kindに応じた型とcodecを使い、provider固有の継続情
 
 - `configurations` に旧構成snapshotを置く。実際に使うsource・依存のbytesは `contents` へ保存し、
   `resource_revision` と構成・実行の関係から辿れるようにする。独自の `config_assets` 表は作らない。
+  この初期案のsource archiveは2026-10-13に廃止した。実行時のsource捕捉は維持し、
+  現在の保存対象は[保存payload契約](../design/history-payloads.md)に従う。
 - 生成JSのモデルcall、内側tool、hook、Go操作は既存のtool／context／effect系の意味記録とrelationへ対応付ける。
   内側呼出しを独立した子Agent executionに見立てない。モデルへ返す集約結果と各操作の証拠を区別する。
 - Goの実行観測から記録を作り、存在しないDeno Worker通信を生成しない。

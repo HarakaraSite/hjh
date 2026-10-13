@@ -132,3 +132,23 @@ OpenRouter reasoning detailsは返却順にopaque JSONとして保持する。�
 TUI、子Agent、複数provider、Agent loop外部化、旧DB migrationは後続。
 他architecture／distributionは未確認。任意のNode／Deno互換・npm依存を対応済みとしない。
 この結果は初期runの受入範囲であり、全作業のモデル成功や全Linux環境の対応を意味しない。
+
+## 2026-10-13追補：実装ソースの自動保存を停止
+
+利用者指定により、親子共通の実行開始処理からextension treeのresource archiveを外した。
+ツール・hook・依存ファイル・元configの全文をDBへ自動保存しない。
+Workerのメモリ上へのsource captureと固定したmodule評価は維持する。AGENTS.mdの原文・出典、
+使用構成と指示・ツール定義、モデル入力、呼び出し・結果、生成JSは引き続き保存する。
+明示的なread_fileの結果は、実装ファイルであっても通常のツール結果として保存する。
+schemaと既存履歴は変更せず、過去のsource archiveを一括削除する処理は追加していない。
+
+親子の新しいsource反映、tool/model overrides、利用指示、workspace指示・skill、lifecycleのfocused
+testsが成功した。source archiveの存在を要求していたtestsは、自動archiveがないことの確認へ変更した。
+appのvetとdiff checkが通り、`dist/hjh`と`dist/hjh-tui`を更新した。
+
+実binaryのCLI runとSession再開を、一時workspace・DBとローカルHTTPのChat Completions応答で確認した。
+QuickJSのツールが依存moduleをimportして返した値と、同じ依存moduleを使うruntimeStart hookの指示が
+実requestに届いた。ツール・依存・hook・元config・未使用ファイルの全文はcontentsに0件、
+AGENTS.mdの原文記録は2件、送信内容を持つmodel_requestは3件だった。
+生成JS・ツール結果・構成snapshotも保存され、再開したrequestに過去の結果が含まれることと、
+foreign_key_checkが正常なことを確認した。外部の有料モデルAPIは使っていない。

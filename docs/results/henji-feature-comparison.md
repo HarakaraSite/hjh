@@ -120,7 +120,7 @@ I-19で、子を開始してIDを受け取り、親が別の判断を進め、�
 
 | No. | 機能 | 旧Henji | 現在のhjhと不足している点 |
 | ---: | --- | --- | --- |
-| 27 | セッション削除 | CLI、Session picker、Core操作にある | **未実装**。CLI、TUI、Core APIに削除操作がない |
+| 27 | セッション削除 | CLI、Session picker、Core操作にある | **CLI対応**。`hjh sessions delete 短縮ID`でCore停止後のローカル削除。セッションと子を含む実行履歴・関連記録、他の記録が使わなくなった本文・構成をtransactionで削除する。TUI・Core APIは未実装。[確認結果](cli-session-delete.md) |
 | 28 | 最新セッションへ簡単に再開 | `--continue`、`/resume latest` | **未実装**。現在の再開にはID指定かSession pickerを使う。`history --latest`は実装済み |
 | 29 | 永続Sessionを作らない対話 | `--no-session` | **未実装**。永続Sessionを作らないモードがない。旧側の指定も全実行証拠の非保存を意味するものではない |
 | 30 | 読取り専用の別セッション閲覧 | `/view`、pickerで閲覧と再開を分離 | **意図的に未採用**。以前の利用者指定どおり、hjhには追加していない |

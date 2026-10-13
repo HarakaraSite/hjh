@@ -103,7 +103,7 @@ func (e guardedExecutor) Call(ctx context.Context, name string, args json.RawMes
 }
 
 // execute owns one admitted execution. Root and child use the same Agent loop,
-// VM, source archive and settlement; only root loads/adopts Session messages.
+// VM, instruction history and settlement; only root loads/adopts Session messages.
 func execute(ctx context.Context, store *history.Store, provider contracts.Provider, input executionInput,
 	control *executionControl, progress *progressSink) (result agent.Result, err error) {
 	persist := context.WithoutCancel(ctx)
@@ -219,15 +219,12 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			"role": input.snapshot.Agent.Name, "context": input.orientation})}); err != nil {
 		return result, err
 	}
-	resources := append([]extensions.Resource(nil), input.snapshot.Resources...)
 	for _, instruction := range input.workspaceContext.Instructions {
-		resources = append(resources, extensions.Resource{LogicalIdentity: "workspace-instruction:" + instruction.Path,
-			SourceLocator: instruction.Path, ContentDigest: instruction.Digest, Bytes: instruction.Bytes})
-	}
-	for _, resource := range resources {
+		// Keep instruction provenance, but do not archive the extension tree.
+		// Captured module bytes belong to the live Worker, not the history DB.
 		_, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{Kind: "resource_revision", Payload: contracts.JSON(map[string]any{
-			"configurationId": input.snapshot.ConfigurationID, "logicalIdentity": resource.LogicalIdentity, "sourceLocator": resource.SourceLocator,
-			"contentDigest": resource.ContentDigest}), Content: resource.Bytes})
+			"configurationId": input.snapshot.ConfigurationID, "logicalIdentity": "workspace-instruction:" + instruction.Path, "sourceLocator": instruction.Path,
+			"contentDigest": instruction.Digest}), Content: instruction.Bytes})
 		if err = control.storage(e); err != nil {
 			return result, err
 		}

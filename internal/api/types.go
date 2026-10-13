@@ -319,6 +319,11 @@ type SelectionPreview struct {
 	Role      string                   `json:"role"`
 	Selection contracts.ModelSelection `json:"selection"`
 }
+
+type RememberSelectionRequest struct {
+	CoreID string `json:"coreId"`
+	SelectionRequest
+}
 type Status struct {
 	Connected        bool      `json:"connected"`
 	Identity         string    `json:"identity"`

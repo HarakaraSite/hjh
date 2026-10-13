@@ -46,7 +46,9 @@ workspaceは保存Sessionの値を使う。
 receiptは`{coreId,sessionId,runId,executionId,inputId,kind,sequence,revision,status,contentDigest,
 acceptedAt,updatedAt,next?,startedRunId?,startedExecutionId?,appliedMessageOrdinal?,
 appliedSequence?,reason?}`。nextには解決済みrole/selection/maxSteps/fromTurnを載せる。
-textはreceiptへ繰り返し複製しない。本文の明示読取はGETの`includeText=true`を使い、保存contentを読む。
+公開receiptは通常textを含めない。本文の明示読取はGETの`includeText=true`を使う。
+steeringは受付記録が直接持つMessageを読み、follow-upは保存contentを読む。
+steeringのcontentDigestは受付Messageのchecksumであり、受付本文の保存先ではない。
 Session一覧のresponseは`{coreId,sessionId,revision,activeRunId?,receipts:[...]}`とする。
 responseのcoreId/revisionは指定Coreの変更watermark（coreId省略の初回読取では現在Core）で、
 各receiptにもその保存元coreId/revisionがある。
@@ -114,9 +116,11 @@ tool_callsと各tool_resultの間へuser messageを差し込まない。
 生成中requestとtool/子Agentは既存contextのまま進む。run_js内の独立model laneも変更しない。
 
 各指示は`{role:"user",content:{kind:"text",text},steering:true}`としてmessagesへ一度追加する。
-受付時点で既存serializerによるこのMessageのJSON bytesをcontentsへ保存する。
-app/journalの既存message保存経路を拡張し、適用時は受付済みcontent digestをmessages/semantic mirrorへ
-参照し、receiptのapplied更新と同じSQL transactionでcommitする。user本文を再encode/再保存しない。
+2026-10-13、利用者指定により受付と適用messageの保存データ共有を廃止した。
+受付時点のMessageは`command_receipts.result_json.acceptedMessage`へ直接保存する。
+適用時は受付IDからそのMessageを読み、通常のmessage保存経路で実行messageとして独立に保存する。
+semantic mirrorは従来どおり適用messageを参照する。receiptのapplied更新とmessage保存は同じ
+SQL transactionでcommitする。会話全体をコピーする変更ではない。
 commitは既存executiondata.Ownerのdurable gateを使い、typed factを会話consumerへ通知する。
 Agent loopはSQLを知らず、保存済み入力を取り込む型付きinterfaceを呼ぶ。
 保存完了後にloop.messagesへ追加し、次requestのattributionで実際のモデル入力を記録する。
@@ -196,8 +200,8 @@ TUIのcancel意図は元runのWaitやnextRunIdへのattachで消さない。
 
 | 保存先 | 保存する内容 |
 | --- | --- |
-| contents | steeringは適用messageと共用する既存Message JSON bytes。follow-upは既存execution taskと共用するraw UTF-8 bytes。同じ入力の本文を更新ごとに追加しない。receipt.contentDigestはkindに対応する保存形式を指す。 |
-| command_receipts | core_epoch=coreId、command_id=inputId。operation=steering/follow-up、signature_digest、target_json={sessionId,runId,executionId,sequence}。result_jsonはschemaVersion=1の最新receipt（textなし）。completed_atは初回受付の保存完了時刻。状態更新は同じ行を更新する。 |
+| contents | steeringは適用後の実行messageを保存し、受付本文はここへ保存しない。follow-upは既存execution taskと共用するraw UTF-8 bytes。 |
+| command_receipts | core_epoch=coreId、command_id=inputId。operation=steering/follow-up、signature_digest、target_json={sessionId,runId,executionId,sequence}。result_jsonはschemaVersion=1の最新receipt（公開textなし）。steeringのみ内部fieldのacceptedMessageに受付Messageを直接持つ。completed_atは初回受付の保存完了時刻。状態更新は同じ行を更新し、acceptedMessageを保持する。 |
 | execution_control_facts | 対象rootの受付終了状態・sequence frontier・未処理件数。全receipt/全文配列を繰り返し格納しない。 |
 | core_session_cursors | core_epoch=coreId、session_id=Session ID、public_revision=入力receiptの変更revision。receipt更新と同じtransactionで増分する。この未使用tableを入力変更watermarkとして使い、Session会話のstate_revisionとは区別する。 |
 | follow_up_receipts | queue_id=inputId、session_correlation=Session ID、command_id=inputId、parent_execution_id=受付対象root、text_content_digest、status/reason、started_execution_id、作成/更新時刻。次run selection/roleとstartedRunIdはcommand_receipts側のreceiptへ置く。 |
@@ -237,5 +241,6 @@ Session変更後のreceipt responseは元Sessionへ属し、新Sessionのdraft�
 予約時selectionと後のpicker変更、F1/Session切替/Core停止、detach/resume、編集中draftの保持を対象にする。
 同ID再送による二重message/次runがないことも、HTTP response喪失の実経路で確認する。
 低速SSEやTUI不在時にも適用・予約開始・終了保存が進むことを確認する。
-DB増分と保持heapは、同じ本文量の単発/反復入力で重複が増えないことを測る。
+steering受付記録と適用messageの本文は独立保存する。状態更新によって受付行が増殖せず、
+同ID再送で指示が二重適用されないことを確認する。
 実providerの確認は保存済み認証を使うprivate環境で行い、利用者のDB/稼働processを変更しない。

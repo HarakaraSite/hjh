@@ -49,9 +49,10 @@ name省略時は親directory名。descriptionは用途説明として必要。
 読んだ本文は通常のtool結果・messageとして保存し、既存のcontext budgetと履歴投影に従う。
 新loaderのsourceはESM resource mapへ加えない。
 
-既存extensions.Captureはconfig所在directory全体をsourceとして捕捉する。
---configのrootとskill配置が重なる場合、未利用本文も従来のextension source archiveへ入る。
-そのarchiveをskill本文のモデル入力へ使わず、実利用時はdiskから読む。
+既存extensions.Captureはconfig所在directory全体を実行時のsourceとしてメモリ上へ捕捉する。
+2026-10-13、利用者指定によりそのsourceのDBへの自動archiveを廃止した。
+--configのrootとskill配置が重なっても、未利用skill本文をextension sourceとしてDBへ自動保存しない。
+実利用時はdiskから読み、通常のtool結果/messageへ保存する。
 SQL schemaは維持する。
 
 ## Core APIと表示

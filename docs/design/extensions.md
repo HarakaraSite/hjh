@@ -73,8 +73,9 @@ reviewerとexplorerにはcommand・write_file・edit_file・子委譲toolを渡�
 
 `config.json`にはprovider registry用の`providers`、credential参照の`credentials`、
 全体model既定の`model`も置ける。各roleには部分的な`model`設定を加えられる。
-これらはtool／instruction定義と同じconfig source bytesからprovider registryが読み取り、
-そのrunで使ったsource bytesとして保存される。role modelのfield、provider/API/authの区別、
+これらはtool／instruction定義と同じconfig source bytesからprovider registryが読み取る。
+元configファイルの全文はDBへ自動保存しない。実際に選んだmodelと使用したtool／instruction定義は
+既存のexecution・configurationへ保存する。role modelのfield、provider/API/authの区別、
 selection優先順位、credential形式は[provider・model設定](providers.md)を参照する。
 
 `tools` のexportは `(args, api) => result` を実装する。`api.readFile`、`api.writeFile`、
@@ -104,7 +105,8 @@ built-in run_jsもこのfieldを持つ。async本文、英文目的コメント�
 このrepositoryの利用workspaceには反映済み。
 
 組立済み欄は`instruction:active-tool-guidelines` componentへ保存し、snapshot.toolsの各宣言にも
-optional `promptGuidelines`を保存する。元configは従来どおりexact source bytesを捕捉する。
+optional `promptGuidelines`を保存する。元configは従来どおりexact source bytesを実行時に捕捉するが、
+DBへ全文を自動保存しない。
 provider tool definitionはname/description/inputSchemaのままで、専用fieldをwireへ送らない。
 集約した指示は通常のcontext budgetとmodel request保存・attributionの対象になる。
 編集は次Workerのcaptureから反映し、現在のWorkerや過去の保存履歴を変更しない。
@@ -116,7 +118,7 @@ provider tool definitionはname/description/inputSchemaのままで、専用fiel
 | read_file | 1始まりのoffset / limitで行範囲を読む。省略時は全文。textと行数、totalLines、続きがあればnextOffsetを返す。 |
 | edit_file | edits配列のliteral全一致置換を順に適用して一回保存。各editと合計の置換件数を返す。空oldText・一致なしは0件、空newTextは削除。 |
 | ls / find | entry情報とtree、またはglob・種類でpathを探索する。offsetは0始まり、limit省略は100。次頁はnextOffset。 |
-| grep | ripgrepでregex／literal・周辺行・一致file一覧。隠しfileを含みignore規則は既定で尊重する。offset/limitは周辺行込みの出力行またはfile一覧の範囲。 |
+| grep | rg優先、未導入ならGNU grepでregex／literal・周辺行・一致file一覧。隠しfileを含む。結果のbackend/ignoreAppliedで実際の探索方式を示す。offset/limitは周辺行込みの出力行またはfile一覧の範囲。 |
 | wc | pathsの各fileと合計の改行数・Unicode空白区切りの単語数・byte数を返す。 |
 | git_inspect | status / diff / log / showの読取り。paths・rev・staged・stat指定と結果範囲を使う。logはcommit単位、それ以外は出力行単位。 |
 | command | programとargsで直接実行し、workspaceをDirにする。shell構文はshellを明示する。args/stdinは省略でき、非0終了も通常結果のexitCode/stderrで判断する。 |
@@ -176,9 +178,11 @@ runtimeの外部tool API contract versionは別に `hjh-tool/v1` とする。
 hook contractは `hjh-hook/v1`。`fileAccess` は `unmanaged`、
 `paths.allow` と `paths.deny` は空配列で、旧permission動作を実装しない。
 
-実source bytesはsnapshot JSONへ埋め込まず、`Snapshot.Resources` の個別recordに保持する。
+実source bytesはsnapshot JSONへ埋め込まず、メモリ上の`Snapshot.Resources`に保持する。
 各resourceには相対 `Path`、`LogicalIdentity`、capture時の `SourceLocator`、`sha256:` digest、
-正確な `Bytes` がある。history側は旧 `contents`／`resource_revision` の保存契約へ対応付ける。
+正確な `Bytes` がある。Workerはこのbytesをmodule loaderへ渡す。
+2026-10-13の利用者指定により、ツール・hook・依存・元configをhistory DBへ自動archiveする処理は廃止した。
+AGENTS.mdの指示原文と使用構成・モデル入力・呼び出し/結果の保存は維持する。
 configurationIdはcaptureごとのUUIDであり、source digestとは別の識別子である。
 
 ## Worker APIと寿命
@@ -241,9 +245,15 @@ offset/limit省略時は全文、EOF以降のoffsetは空text。textのほかoff
 `find`のslashなしglobは各basename、slashありglobは探索root相対pathに一致させ、**はdirectoryを跨ぐ。
 file / directory / anyを選べ、excludeでdirectoryに一致すると配下も省く。
 隠し・ignored entriesを含み、.gitignoreを自動適用しない。ls/findはGo filesystemで動く。
-`grep`にはripgrep（rg）が必要。regexはripgrepの構文、patternKind:literalは固定文字列。
+`grep`はPATH上のrgを優先し、なければGNU grepを使う。初回callで選んだ実行fileをWorker内で保持する。
+regexはrgならripgrepの構文、GNUなら拡張正規表現。patternKind:literalは両方とも固定文字列。
+rgはignore fileを既定で適用し、includeIgnored:trueで無効化する。GNUは.gitignoreを適用せず、
+binary fileをskipする。globはrgのnative path glob、GNUではfilename include/exclude globとして使う。
+`!`は除外指定で、GNUでは--excludeへ渡す。globの優先順位などはbackendのnative動作に従う。
+結果にbackend:rg/grepとignoreAppliedを付け、モデル向けtool説明も両方式の違いを示す。
 lines出力のlineは1始まり、matchは一致行／周辺行を区別し、textは改行を保持する。
 UTF-8以外のpath/textは`{base64}`として保持する。output:filesは一致pathを重複なしで返す。
+GNUのtextはnative出力の改行を含み、source末尾に改行がなくてもGNUが付ける改行を含む。
 0件は通常結果。grepのmatchesは一致行数で、totalはpage対象の行数またはfile数。
 `wc`のlinesは改行文字の数で、read_fileのtotalLinesとは定義が異なる。
 `git_inspect`にはGitが必要。固定した4操作を既存command基礎操作で実行し、任意argvを公開しない。

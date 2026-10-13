@@ -27,7 +27,7 @@ func (a *steeringAdapter) Apply(ctx context.Context, final bool) ([]contracts.Me
 	}
 	messages := make([]contracts.Message, 0, len(pending))
 	for _, input := range pending {
-		body, err := a.store.Content(a.journal.ctx, input.Receipt.ContentDigest)
+		body, err := a.store.SteeringMessage(a.journal.ctx, input.Receipt.CoreID, input.Receipt.InputID)
 		if err != nil {
 			return messages, err
 		}

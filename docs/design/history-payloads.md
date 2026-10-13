@@ -5,8 +5,10 @@
 旧Core、queue、permission実装を追加する契約ではない。
 I-09で新規に書く入力receipt、予約、steering messageの設計は
 [追加入力契約](i09-runtime-input-contract.md)を参照する。schema v3を維持し、
-steeringの本文は受付contentと適用messageで共用する。semantic mirrorは本文を含まないmetadataと
-同じcontent digestを持ち、cold replayで保存Messageから本文を読む。旧receipt形式の互換変換は含めない。
+2026-10-13の利用者指定により、steeringの受付Messageは`command_receipts.result_json.acceptedMessage`へ
+直接保存し、適用時には実行messageとして独立に保存する。受付と適用messageで保存データを共用しない。
+semantic mirrorは本文を含まないmetadataと適用messageのcontent digestを持ち、cold replayで
+保存Messageから本文を読む。follow-upの保存方式は変更しない。旧receipt形式の互換変換は含めない。
 
 I-10の[recall契約](i10-context-recall-contract.md)では、操作結果をcommand_receipts、
 開始時のsource/target relationをrecall_relationsへ保存する。実参考messageはcontentsで保持し、
@@ -65,18 +67,19 @@ fileAccess／paths等のfieldの存在から旧permission機能の実装を必�
 I-21の有効tool利用指示は、各snapshot.toolsのoptional `promptGuidelines`と、
 `instruction:active-tool-guidelines` componentへ保存する。同じ集約本文をsystemInstructionへ組み込み、
 実model requestの通常context attributionから辿れる。providerのtool definitionには追加fieldを入れない。
-未選択toolの指示は含めず、宣言元configのexact bytesは従来のresource保存経路で保持する。
+未選択toolの指示は含めない。宣言元configは実行時に捕捉するが、ファイル全体のexact bytesを
+DBへ自動保存しない。使用したツール定義・利用指示は構成snapshotとモデル入力の記録へ残す。
 
-実際に読み込む各source・依存bytesはcontentsへ保存する。
-resource_revisionのpayloadにconfigurationId、logicalIdentity、sourceLocator、contentDigestを記録し、
-content_digestでも当該bytesを参照する。使用sourceの場所とbytesをexecutionから辿れるようにする。
-独自のasset表・旧snapshotを包む新しい保存形式は作らない。
+2026-10-13、利用者指定によりツール・hook・依存ファイル・元configの自動source archiveを廃止した。
+各Workerは実行に必要なsource bytesをメモリ上へ捕捉して固定し、そこからESMを評価する。
+`Snapshot.Resources`を`resource_revision`/`contents`へ自動保存しない。
+使用構成snapshot、モデル指示・入力、呼び出し・結果、モデルが生成した`run_js`コードは従来どおり保存する。
 
-I-18のAGENTS.mdも、このresource_revision/contents経路へexact bytesと出典・digestを記録する。
+I-18のAGENTS.mdは、resource_revision/contents経路へexact bytesと出典・digestを記録する。
 組立済みsystemInstructionにworkspace指示とskill manifestを追加し、生成した指示componentを
 instructionComponentsへ保存する。未利用skill本文は新カタログへ保持しない。
 利用時のread_file本文は通常のtool結果/messageへ保存し、生成JS経由なら外側returnにも含める。
-既存config source捕捉とskill配置が重なる場合のarchiveは
+既存config source捕捉とskill配置が重なる場合の扱いは
 [workspace指示・skill契約](workspace-instructions-skills.md)に従う。
 
 生成JSの外側callと内側tool／hook／host操作は普通のGo観測値から意味記録へ対応付ける。
@@ -109,7 +112,8 @@ DDL v3は変更せず、既存の `parent_execution_id`・`spawn_call_id` に直
 子は `non_canonical` のまま終了し、Sessionのrevision・turn・message countを直接更新しない。
 表示位置は同じSession相関へ追加し、execution一覧から子も閲覧できる。
 
-子ごとにtask・model・build・構成snapshot・source bytes・messages・context・途中本文・終了recordを保存する。
+子ごとにtask・model・build・構成snapshot・messages・context・途中本文・終了recordを保存する。
+実装source bytesは親子ともWorkerの実行時捕捉だけに使い、DBへ自動保存しない。
 各journalのrecord IDとcall IDは親子で混ぜず、観測payloadへexecution IDとparent execution IDを加える。
 親の委譲開始recordと子開始を `parent_call`、親の委譲結果recordと子terminalを `child_terminal` で結ぶ。
 同じexecution内のcall開始／終了・内側callのrelationも維持する。
@@ -127,13 +131,15 @@ Sessionのagent_choice_jsonは{name: 実role名}で、成功rootだけが会話�
 snapshot.agentのrevision／instruction／toolsは選択roleに対応し、agentsはrun_agent選択時のcatalog名、
 それ以外は空配列。snapshot.toolsはmodel definition・JS registryと同じ選択結果を保存する。
 run_jsは選択した場合だけbundledとして保存し、保存時にtool一覧を付け足したり上書きしたりしない。
-source.fileは実config絶対locator、resource_revisionは実使用capture bytesを保持する。
+source.fileは実config絶対locator。resource_revisionはworkspace指示のbytesを保持するが、
+外部拡張の実装ファイルや元configは自動保存しない。
 未await委譲では、子join後・外側call終了前に残るtool／hook観測をterminalへ閉じ、開始記録だけを残さない。
 
 ## I-04：実接続の保存
 
 DDL v3とselectionの既存fieldを維持する。provider・api・authProfile・modelId・effortへ実selectionを保存する。
-provider定義とrole.modelは各executionの使用config source bytesに含み、独自snapshot fieldを増やさない。
+provider定義とrole.modelは実行時に捕捉したconfigから解決する。元config全文はDBへ自動保存しない。
+実際に選んだprovider・api・authProfile・modelId・effortはexecutionのmodelとモデル入力の記録へ残す。
 providerState.replayItemsにResponsesのraw output itemを保存する。providerState.providerは、
 送信先・API・credential参照・非秘密account identityを含むdigestによる状態のidentity。
 同じ送信先・account・modelだけで再送し、別接続には可視会話とtool call／結果からinputを組み立てる。
@@ -158,7 +164,7 @@ runtime代理呼出しの開始・結果を重複保存せず、実nested call�
 ## I-20：lifecycle hookと終了後記録
 
 configuration snapshotの`hooks`にはmodule locatorと設定上の`handlers`宣言を保存し、
-実際にcapture・評価したESM source bytesは通常のresource/content経路へ保存する。
+実際にcapture・評価するESM source bytesはWorker内に保持し、DBへ自動保存しない。
 宣言一覧は呼出可否のfilterではない。Worker開始時の`hook/handlers` observationは、
 moduleから実際に見つかったlifecycle/tool hook function一覧を保存する。functionがない場合も空配列を記録する。
 後からconfiguration snapshotの宣言一覧を書き換えて実export一覧を表すことはしない。

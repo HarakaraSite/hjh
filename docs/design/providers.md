@@ -222,9 +222,24 @@ the same, omitted fields inherit from the base selection.
 
 | Run | Base selection | Higher-priority selection |
 | --- | --- | --- |
-| New Session | Global `model`, then the selected role's `model` | Explicit CLI or TUI selection |
+| New Session | Global `model`, then the selected role's `model`, then the workspace's remembered selection | Explicit CLI or TUI selection |
 | Resume Session | Saved Session selection | Explicit CLI or TUI selection |
 | Child execution | Parent's actual selection | Child role's `model` |
+
+TUI choices through `/provider`, `/model`, and `/effort` are saved immediately
+by Core in `<workspace>/.hjh/selection.json`, without requiring a run. The
+provider, model, effort, and auth profile reference are remembered together.
+They survive TUI/Core restarts and apply only to new Sessions in that workspace;
+resuming a Session uses its saved selection. `/new` also remembers the current
+Session's next-run selection before switching. Role and account tokens are not
+stored in this file. Explicit CLI flags override these defaults for that run
+without updating the remembered choice. With no remembered choice, config
+defaults apply. Children continue to inherit the actual parent selection.
+
+Changing models through `/model` resets effort to `auto`; confirming the same
+model preserves its effort. Core also uses `auto` when a top-level request
+explicitly changes model ID without specifying effort. An explicit effort on
+the same request takes precedence.
 
 The selection object can contain `provider`, `api`, `authProfile`, `modelId`,
 and `effort`. `roles.<name>.model` may contain only the fields it changes. The

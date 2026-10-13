@@ -262,14 +262,10 @@ func TestDelegationUsesSelectedConfigAndFreshChildSource(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		var found bool
 		for _, r := range records {
 			if r.Kind == "resource_revision" && string(r.Content) == source {
-				found = true
+				t.Fatalf("%s automatically archived extension source", id)
 			}
-		}
-		if !found {
-			t.Fatalf("%s source bytes were not archived", id)
 		}
 	}
 }
@@ -402,29 +398,22 @@ func TestDelegationAppliesChildModelAndToolOverridesToRequestAndSnapshot(t *test
 		requireSavedExecutionContext(t, store, child.ConfigurationID, req.Instruction, req.Model, "reviewer", workspace)
 	}
 
-	var sourceConfig []byte
 	for _, child := range children {
 		records, err := store.Records(context.Background(), child.ID, 0, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		found := false
 		for _, record := range records {
 			if record.Kind == "resource_revision" && string(record.Content) == string(configured) {
-				found = true
-				break
+				t.Fatalf("child %q automatically archived raw config", child.Task)
 			}
-		}
-		sourceConfig = configured
-		if !found {
-			t.Fatalf("child %q did not archive the original captured config bytes", child.Task)
 		}
 	}
 	current, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(current) != string(sourceConfig) || string(current) == string(original) {
+	if string(current) != string(configured) || string(current) == string(original) {
 		t.Fatal("child tool overrides rewrote the config file or did not preserve the configured bytes")
 	}
 }

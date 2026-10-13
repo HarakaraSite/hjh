@@ -113,6 +113,9 @@ export async function runtimeStop({runtime,reason},api) {
 		}
 		var terminal, after, stopOrdinal int64
 		for _, record := range records {
+			if record.Kind == "resource_revision" && string(record.Content) == source {
+				t.Fatal("lifecycle hook implementation was automatically archived")
+			}
 			if record.ID == execution.TerminalRecordID {
 				terminal = record.Ordinal
 			}

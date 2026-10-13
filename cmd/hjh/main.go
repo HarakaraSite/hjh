@@ -26,7 +26,6 @@ import (
 	"hjh/internal/corerun"
 	"hjh/internal/credentials"
 	"hjh/internal/history"
-	"hjh/internal/historyview"
 	"hjh/internal/httpapi"
 	"hjh/internal/sessionid"
 )
@@ -66,6 +65,9 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	if args[0] == "history" {
 		return runHistory(ctx, args[1:], stdout, stderr)
 	}
+	if args[0] == "sessions" {
+		return runSessions(ctx, args[1:], stdout, stderr)
+	}
 	f := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	f.SetOutput(stderr)
 	connect := ""
@@ -88,7 +90,6 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	workspace := f.String("workspace", cwd, "workspace directory")
 	dbPath := f.String("db", "", "history database (default: WORKSPACE/.hjh/history.sqlite3)")
 	sessionID := f.String("session", "", "Session ID or unique case-insensitive prefix to resume (8 characters by default)")
-	asJSON := f.Bool("json", false, "write full Session IDs as JSON (sessions only)")
 	executionID := f.String("execution", "", "execution ID to inspect")
 	modelID := f.String("model", "", "model ID on the selected connection")
 	providerID := f.String("provider", "", "provider ID from external config")
@@ -269,16 +270,6 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 			err = output.finish(result.Result.FinalText)
 		} else if *stream {
 			err = errors.Join(err, output.endLine())
-		}
-	case "sessions":
-		var sessions []history.Session
-		sessions, err = service.Sessions(ctx)
-		if err == nil {
-			if *asJSON {
-				err = writeJSON(sessions)
-			} else {
-				_, err = io.WriteString(stdout, historyview.RenderSessions(sessions))
-			}
 		}
 	case "inspect":
 		if *executionID == "" {

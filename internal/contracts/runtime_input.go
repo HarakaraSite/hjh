@@ -24,7 +24,7 @@ type InputReceipt struct {
 	Sequence              uint64          `json:"sequence"`
 	Revision              uint64          `json:"revision"`
 	Status                string          `json:"status"`
-	ContentDigest         string          `json:"contentDigest"`
+	ContentDigest         string          `json:"contentDigest"` // Steering: accepted-message checksum; follow-up: stored task reference.
 	AcceptedAt            string          `json:"acceptedAt"`
 	UpdatedAt             string          `json:"updatedAt"`
 	Next                  *InputSelection `json:"next,omitempty"`
@@ -46,7 +46,8 @@ type InputReceiptPage struct {
 }
 
 // SteeringInput is a locator passed from the Core input owner to the app.
-// The app reuses its stored Message bytes when applying the instruction.
+// The app reads the receipt's accepted Message and saves an execution message
+// independently when applying the instruction.
 type SteeringInput struct {
 	Receipt InputReceipt
 }

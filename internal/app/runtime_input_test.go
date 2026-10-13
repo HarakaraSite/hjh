@@ -27,7 +27,7 @@ func (s *testSteeringSource) Applied(_ contracts.SteeringInput, revision uint64)
 }
 func (s *testSteeringSource) Close(reason string) error { s.closeReason = reason; return nil }
 
-func TestSteeringAdapterAppliesReceiptAndReusesAcceptedMessageContent(t *testing.T) {
+func TestSteeringAdapterAppliesReceiptAndSavesExecutionMessage(t *testing.T) {
 	ctx := context.Background()
 	store, workspace := delegationStore(t)
 	session, err := store.CreateSession(ctx, history.SessionInput{ID: "steering-session", WorkspaceRoot: workspace,
@@ -88,7 +88,7 @@ func TestSteeringAdapterAppliesReceiptAndReusesAcceptedMessageContent(t *testing
 	if len(storedMessages) != 1 || !bytes.Equal(storedMessages[0].JSON, encoded) {
 		t.Fatalf("applied message bytes differ from accepted body: %+v", storedMessages)
 	}
-	storedBody, err := store.Content(ctx, accepted.ContentDigest)
+	storedBody, err := store.SteeringMessage(ctx, accepted.CoreID, accepted.InputID)
 	if err != nil || !bytes.Equal(storedBody, encoded) {
 		t.Fatalf("accepted content bytes changed: %s, %v", storedBody, err)
 	}

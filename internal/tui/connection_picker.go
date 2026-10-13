@@ -101,8 +101,13 @@ func (m *model) loadConnectionPicker(picker *connectionPickerState) {
 	job := m.newJob(cancel)
 	picker.jobID = job.id
 	m.status = "loading " + string(kind) + " selection and catalog"
+	saveTail := m.selectionSaveTail
 	m.launch(job, func() tea.Msg {
 		loaded := connectionPickerLoadedMsg{jobID: job.id, generation: generation, pickerID: pickerID, request: request}
+		if err := waitForSelectionSave(ctx, saveTail); err != nil {
+			loaded.err = err
+			return loaded
+		}
 		scope := apiclient.Scope{SessionID: request.SessionID, Workspace: request.Workspace}
 		if kind == providerPicker {
 			preview, previewErr := m.backend.Selection(ctx, request)
@@ -566,6 +571,7 @@ func (m *model) selectConnectionOption() {
 	kind := picker.kind
 	m.closeConnectionPicker()
 	if kind == providerPicker && option.id == current {
+		m.rememberSelection()
 		m.status = "next-run " + string(kind) + " unchanged: " + option.id
 		return
 	}
@@ -573,7 +579,7 @@ func (m *model) selectConnectionOption() {
 	case providerPicker:
 		m.setProvider(option.id)
 	case modelPicker:
-		m.setModel(option.id)
+		m.applyModelSelection(option.id, current)
 	case effortPicker:
 		m.setEffort(option.id)
 	}
@@ -584,6 +590,7 @@ func (m *model) setProvider(providerID string) {
 	m.providerID = providerID
 	m.modelID, m.effort, m.authProfile = "", "", ""
 	m.modelSet = false
+	m.rememberSelection()
 	if before != m.selectionRequest() {
 		m.nextSelectionChanged()
 	}
@@ -591,9 +598,25 @@ func (m *model) setProvider(providerID string) {
 }
 
 func (m *model) setModel(modelID string) {
+	current := m.modelID
+	if !m.modelSet {
+		if m.footerSelectionSet {
+			current = m.footerSelection.Selection.ModelID
+		} else {
+			current = m.lastSelection.ModelID
+		}
+	}
+	m.applyModelSelection(modelID, current)
+}
+
+func (m *model) applyModelSelection(modelID, currentModelID string) {
 	before := m.selectionRequest()
+	if modelID != currentModelID {
+		m.effort = "auto"
+	}
 	m.modelID = modelID
 	m.modelSet = true
+	m.rememberSelection()
 	if before != m.selectionRequest() {
 		m.nextSelectionChanged()
 	}
@@ -603,6 +626,7 @@ func (m *model) setModel(modelID string) {
 func (m *model) setEffort(effort string) {
 	before := m.selectionRequest()
 	m.effort = effort
+	m.rememberSelection()
 	if before != m.selectionRequest() {
 		m.nextSelectionChanged()
 	}

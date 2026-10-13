@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"hjh/internal/contracts"
@@ -61,7 +63,7 @@ func TestPreviewSelectionMatchesNewAndResumedRunResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantNew := contracts.ModelSelection{Provider: "reviewer", API: "responses", AuthProfile: "reviewer-profile",
-		ModelID: "freeform/new-model", Effort: "reviewer-effort"}
+		ModelID: "freeform/new-model", Effort: "auto"}
 	if preview.Role != "reviewer" || preview.Selection != wantNew {
 		t.Fatalf("new preview = %+v, want role reviewer / %+v", preview, wantNew)
 	}
@@ -94,7 +96,7 @@ func TestPreviewSelectionMatchesNewAndResumedRunResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantResume := contracts.ModelSelection{Provider: "reviewer", API: "responses", AuthProfile: "reviewer-profile",
-		ModelID: "freeform/resumed-model", Effort: "reviewer-effort"}
+		ModelID: "freeform/resumed-model", Effort: "auto"}
 	if resumePreview.Role != "writer" || resumePreview.Selection != wantResume {
 		t.Fatalf("resumed preview = %+v, want role writer / %+v", resumePreview, wantResume)
 	}
@@ -119,6 +121,7 @@ func TestPreviewSelectionMatchesNewAndResumedRunResolution(t *testing.T) {
 }
 
 func TestPreviewSelectionReadsEmbeddedMetadataWithoutPreparingWorkspace(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "catalog-test-key")
 	workspace := t.TempDir()
 	extensionsDir := filepath.Join(workspace, ".hjh", "extensions")
 	if err := os.MkdirAll(extensionsDir, 0755); err != nil {
@@ -132,7 +135,13 @@ func TestPreviewSelectionReadsEmbeddedMetadataWithoutPreparingWorkspace(t *testi
 		t.Fatal(err)
 	}
 	defer store.Close()
-	service := NewService(store, nil, RunOptions{Workspace: workspace})
+	client := &http.Client{Transport: webSearchTransport(func(r *http.Request) (*http.Response, error) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/models" {
+			t.Errorf("unexpected catalog request %s %s", r.Method, r.URL.Path)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"catalog-model","name":"Catalog model"}]}`))}, nil
+	})}
+	service := NewService(store, nil, RunOptions{Workspace: workspace, HTTPClient: client, CredentialStateDir: t.TempDir()})
 	defer service.Close()
 
 	preview, err := service.PreviewSelection(context.Background(), RunRequest{Workspace: workspace})
@@ -148,7 +157,7 @@ func TestPreviewSelectionReadsEmbeddedMetadataWithoutPreparingWorkspace(t *testi
 	}
 	models, err := service.Models(context.Background(), workspace, preview.Selection.Provider, preview.Selection.AuthProfile)
 	if err != nil || len(models) == 0 {
-		t.Fatalf("uninitialized static model catalog = %v, %v", models, err)
+		t.Fatalf("uninitialized model catalog = %v, %v", models, err)
 	}
 	if _, err := os.Stat(filepath.Join(extensionsDir, "config.json")); !os.IsNotExist(err) {
 		t.Fatalf("preview installed the editable config: stat err=%v", err)

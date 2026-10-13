@@ -76,6 +76,7 @@ type fakeBackend struct {
 	selection                api.SelectionPreview
 	selectionFunc            func(context.Context, api.SelectionRequest) (api.SelectionPreview, error)
 	selectionCalls           chan api.SelectionRequest
+	rememberSelectionFunc    func(context.Context, api.RememberSelectionRequest) (api.SelectionPreview, error)
 	orientation              api.Orientation
 	orientationFunc          func(context.Context, api.OrientationRequest) (api.Orientation, error)
 	orientationCalls         chan api.OrientationRequest
@@ -344,6 +345,12 @@ func (f *fakeBackend) Selection(ctx context.Context, request api.SelectionReques
 		preview.Selection.AuthProfile = request.AuthProfile
 	}
 	return preview, nil
+}
+func (f *fakeBackend) RememberSelection(ctx context.Context, request api.RememberSelectionRequest) (api.SelectionPreview, error) {
+	if f.rememberSelectionFunc != nil {
+		return f.rememberSelectionFunc(ctx, request)
+	}
+	return api.SelectionPreview{}, nil
 }
 func (f *fakeBackend) Providers(context.Context, apiclient.Scope) ([]api.ProviderDefinition, error) {
 	return f.providers, nil

@@ -139,9 +139,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(parts) == 1 && parts[0] == "selection" {
-		if !requireMethod(w, r, http.MethodGet) {
-			return
-		}
 		s.selection(w, r)
 		return
 	}
@@ -593,6 +590,13 @@ func (s *Server) models(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) selection(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPut {
+		s.rememberSelection(w, r)
+		return
+	}
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
 	query := r.URL.Query()
 	request := api.SelectionRequest{
 		SessionID: query.Get("sessionId"), Workspace: query.Get("workspace"), Role: query.Get("role"),

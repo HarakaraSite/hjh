@@ -45,6 +45,7 @@ type Backend interface {
 	Inspect(context.Context, string, int64, int64) (api.Inspection, error)
 	Record(context.Context, string, int64) (api.Record, error)
 	Selection(context.Context, api.SelectionRequest) (api.SelectionPreview, error)
+	RememberSelection(context.Context, api.RememberSelectionRequest) (api.SelectionPreview, error)
 	Providers(context.Context, apiclient.Scope) ([]api.ProviderDefinition, error)
 	Models(context.Context, apiclient.Scope, string, string) ([]api.ModelInfo, error)
 	ModelsWithAuth(context.Context, apiclient.Scope, string, string) (api.ModelsResult, error)
@@ -69,7 +70,8 @@ func (terminalOutputSink) Close() error                   { return nil }
 func (sink terminalOutputSink) Fd() uintptr               { return sink.fd }
 
 // Options selects the starting workspace, Session, model, and explicit role.
-// A model or role chosen with /model or /role applies to later runs in this TUI process.
+// Model choices are remembered by Core for later Sessions in the workspace.
+// Role choices apply to later runs in this TUI process.
 type Options struct {
 	Core                            api.Core
 	Workspace                       string

@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"hjh/internal/contracts"
 )
 
-func TestRuntimeInputReceiptRevisionAndSteeringContentShareTransactions(t *testing.T) {
+func TestRuntimeInputReceiptOwnsSteeringMessageAndAppliesAtomically(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(":memory:")
+	dbPath := filepath.Join(t.TempDir(), "history.sqlite3")
+	store, err := Open(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +45,17 @@ func TestRuntimeInputReceiptRevisionAndSteeringContentShareTransactions(t *testi
 	if accepted.Revision != 1 || accepted.ContentDigest == "" {
 		t.Fatalf("accepted steering receipt = %+v", accepted)
 	}
+	var sharedCopies int
+	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM contents WHERE content_digest=?", accepted.ContentDigest).Scan(&sharedCopies); err != nil {
+		t.Fatal(err)
+	}
+	if sharedCopies != 0 {
+		t.Fatalf("acceptance stored %d shared message bodies, want none", sharedCopies)
+	}
+	acceptedMessage, err := store.SteeringMessage(ctx, "core-a", "input-a")
+	if err != nil || !bytes.Equal(acceptedMessage, body) {
+		t.Fatalf("receipt-owned message = %s, %v", acceptedMessage, err)
+	}
 	duplicate, err := store.SaveRuntimeInput(ctx, accepted, "fingerprint-a", []byte("ignored on replay"))
 	if err != nil || duplicate.Revision != accepted.Revision || duplicate.ContentDigest != accepted.ContentDigest {
 		t.Fatalf("idempotent replay = %+v, %v", duplicate, err)
@@ -55,7 +68,7 @@ func TestRuntimeInputReceiptRevisionAndSteeringContentShareTransactions(t *testi
 	messageFacts := []contracts.ExecutionFact{{Kind: "user_message", Role: "user", Text: "add a detail",
 		Conversation: contracts.ConversationMetadata{EntityKind: "steering", LocalKey: "input/input-a"}}}
 	ordinal, facts, err := store.AppendConversationMessage(ctx, ConversationMessageInput{RootExecutionID: execution.ID, ExecutionID: execution.ID,
-		Sequence: 9, Message: body, ContentDigest: accepted.ContentDigest, Facts: messageFacts, SteeringReceipt: &accepted})
+		Sequence: 9, Message: body, Facts: messageFacts, SteeringReceipt: &accepted})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +91,18 @@ func TestRuntimeInputReceiptRevisionAndSteeringContentShareTransactions(t *testi
 		t.Fatal(err)
 	}
 	if messageDigest != accepted.ContentDigest {
-		t.Fatalf("message digest = %q, accepted digest = %q", messageDigest, accepted.ContentDigest)
+		t.Fatalf("message digest = %q, accepted checksum = %q", messageDigest, accepted.ContentDigest)
+	}
+	var receiptJSON string
+	if err := store.db.QueryRowContext(ctx, "SELECT result_json FROM command_receipts WHERE core_epoch=? AND command_id=?", "core-a", "input-a").Scan(&receiptJSON); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains([]byte(receiptJSON), []byte("add a detail")) {
+		t.Fatalf("applied receipt lost its own accepted message: %s", receiptJSON)
+	}
+	savedMessage, err := store.Content(ctx, messageDigest)
+	if err != nil || !bytes.Equal(savedMessage, body) {
+		t.Fatalf("execution's separately saved message = %s, %v", savedMessage, err)
 	}
 	var mirrorPayload, mirrorDigest string
 	if err := store.db.QueryRowContext(ctx, `SELECT payload_json,content_digest FROM semantic_records
@@ -134,6 +158,18 @@ func TestRuntimeInputReceiptRevisionAndSteeringContentShareTransactions(t *testi
 	if facts[0].Text != "add a detail" || replayed == nil || replayed.Role != facts[0].Role || replayed.Text != facts[0].Text ||
 		replayed.Conversation != facts[0].Conversation || replayed.Locator.MessageOrdinal != facts[0].Locator.MessageOrdinal {
 		t.Fatalf("live/cold steering facts diverged: live=%+v replay=%+v", facts[0], replayed)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	page, err = reopened.RuntimeInputs(ctx, session.ID, "", "new-core", 0, true)
+	if err != nil || len(page.Receipts) != 1 || page.Receipts[0].Text != "add a detail" || page.Receipts[0].Status != "applied" {
+		t.Fatalf("reopened receipt details = %+v, %v", page, err)
 	}
 }
 

@@ -22,8 +22,17 @@ export async function countFiles(args, api) {
   return api.countFiles(args);
 }
 
+let grepSelection;
+async function selectGrepBackend(api) {
+  const rg = await api.resolveExecutable({ program: "rg" });
+  if (rg) return { backend: "rg", program: rg };
+  const grep = await api.resolveExecutable({ program: "grep" });
+  if (grep) return { backend: "grep", program: grep };
+  throw new Error("grep requires rg or GNU grep on PATH");
+}
+
 // --json retains names containing newlines and records matching/context lines.
-export async function grep(args, api) {
+async function ripgrep(args, api, program) {
   const argv = ["--json", "--hidden", "--color", "never"];
   if (args.patternKind === "literal") argv.push("--fixed-strings");
   if (args.caseSensitive === false) argv.push("--ignore-case");
@@ -31,7 +40,7 @@ export async function grep(args, api) {
   if (args.context !== undefined) argv.push("--context", String(args.context));
   for (const glob of args.glob ?? []) argv.push("--glob", glob);
   argv.push("--regexp", args.pattern, "--", args.path ?? ".");
-  const result = await api.command({ program: "rg", args: argv });
+  const result = await api.command({ program, args: argv });
   if (result.exitCode > 1) throw new Error(`grep failed (${result.exitCode}): ${result.stderr.trim()}`);
   const lines = [];
   const files = new Set();
@@ -51,15 +60,39 @@ export async function grep(args, api) {
     }
     lines.push({ path, line: data.line_number, text, match: matched });
   }
+  return { lines, files: [...files].map(value => JSON.parse(value)), matches,
+    ...(result.stderr ? { warnings: result.stderr } : {}) };
+}
+
+async function gnuGrep(args, api, program) {
+  const argv = ["--recursive", "--with-filename", "--line-number", "--null",
+    "--color=never", "--no-group-separator", "--binary-files=without-match"];
+  argv.push(args.patternKind === "literal" ? "--fixed-strings" : "--extended-regexp");
+  if (args.caseSensitive === false) argv.push("--ignore-case");
+  if (args.context !== undefined) argv.push("--context", String(args.context));
+  for (const glob of args.glob ?? []) {
+    if (glob.startsWith("!")) argv.push(`--exclude=${glob.slice(1)}`);
+    else argv.push(`--include=${glob}`);
+  }
+  argv.push("--regexp", args.pattern, "--", args.path ?? ".");
+  return api.grepCommand({ program, args: argv });
+}
+
+export async function grep(args, api) {
+  const selectedBackend = await (grepSelection ??= selectGrepBackend(api));
+  const result = await (selectedBackend.backend === "rg"
+    ? ripgrep(args, api, selectedBackend.program) : gnuGrep(args, api, selectedBackend.program));
   const output = args.output ?? "lines";
   if (output !== "lines" && output !== "files") throw new Error("grep output must be lines or files");
-  const values = output === "files" ? [...files].map(value => JSON.parse(value)) : lines;
+  const values = output === "files" ? result.files : result.lines;
   const selected = page(values, args);
-  return { path: args.path ?? ".", output, matches,
+  return { path: args.path ?? ".", output, matches: result.matches,
+    backend: selectedBackend.backend,
+    ignoreApplied: selectedBackend.backend === "rg" && args.includeIgnored !== true,
     ...(output === "files" ? { files: selected.items } : { lines: selected.items }),
     offset: selected.offset, total: selected.total,
     ...(selected.nextOffset !== undefined ? { nextOffset: selected.nextOffset } : {}),
-    ...(result.stderr ? { warnings: result.stderr } : {}) };
+    ...(result.warnings ? { warnings: result.warnings } : {}) };
 }
 
 export async function gitInspect(args, api) {

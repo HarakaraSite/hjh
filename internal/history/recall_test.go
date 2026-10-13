@@ -118,7 +118,7 @@ func TestSaveRecallOperationReplaysTypedReceiptAndSharesCommandIDSpace(t *testin
 		t.Fatalf("read recall operation = %+v, %q, %v", read, signature, err)
 	}
 	if _, err := store.SaveRuntimeInput(ctx, contracts.InputReceipt{CoreID: "core-a", SessionID: sessionID, RunID: "run-a",
-		ExecutionID: "exec-a", InputID: "shared-id", Kind: "steering", Sequence: 1, Status: "accepted"}, "same-signature", []byte("input")); err != nil {
+		ExecutionID: "exec-a", InputID: "shared-id", Kind: "steering", Sequence: 1, Status: "accepted"}, "same-signature", contracts.JSON(contracts.User("input"))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.SaveRecallOperation(ctx, contracts.RecallReceipt{CoreID: "core-a", SessionID: sessionID,

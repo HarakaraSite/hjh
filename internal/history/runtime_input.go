@@ -13,7 +13,15 @@ import (
 
 var ErrInputIDConflict = errors.New("history: runtime input ID conflicts with an existing input")
 
-// SaveRuntimeInput stores the durable receipt and its one shared body. Steering
+// A steering receipt owns its accepted message independently of the message
+// later appended to the execution. The extra field is internal to persistence;
+// public receipts still expand text only on explicit detail reads.
+type storedRuntimeInput struct {
+	contracts.InputReceipt
+	AcceptedMessage json.RawMessage `json:"acceptedMessage,omitempty"`
+}
+
+// SaveRuntimeInput stores the durable receipt and accepted body. Steering
 // callers pass the serialized Message, while follow-up callers pass raw UTF-8.
 func (s *Store) SaveRuntimeInput(ctx context.Context, receipt contracts.InputReceipt, signature string, body []byte) (contracts.InputReceipt, error) {
 	if receipt.CoreID == "" || receipt.SessionID == "" || receipt.RunID == "" || receipt.InputID == "" {
@@ -59,9 +67,15 @@ func (s *Store) SaveRuntimeInput(ctx context.Context, receipt contracts.InputRec
 		return contracts.InputReceipt{}, fmt.Errorf("history read runtime input receipt: %w", err)
 	}
 
-	digest, err := putContent(ctx, tx, body)
-	if err != nil {
-		return contracts.InputReceipt{}, err
+	digest := contentDigest(body)
+	stored := storedRuntimeInput{InputReceipt: receipt}
+	if receipt.Kind == "steering" {
+		stored.AcceptedMessage = append(json.RawMessage(nil), body...)
+	} else {
+		digest, err = putContent(ctx, tx, body)
+		if err != nil {
+			return contracts.InputReceipt{}, err
+		}
 	}
 	receipt.ContentDigest = digest
 	receipt.Revision, err = nextRuntimeInputRevision(ctx, tx, receipt.CoreID, receipt.SessionID)
@@ -77,7 +91,8 @@ func (s *Store) SaveRuntimeInput(ctx context.Context, receipt contracts.InputRec
 	if err != nil {
 		return contracts.InputReceipt{}, fmt.Errorf("history encode runtime input target: %w", err)
 	}
-	result, err := json.Marshal(receipt)
+	stored.InputReceipt = receipt
+	result, err := contracts.EncodeJSON(stored)
 	if err != nil {
 		return contracts.InputReceipt{}, fmt.Errorf("history encode runtime input receipt: %w", err)
 	}
@@ -134,7 +149,7 @@ func updateRuntimeInputTx(ctx context.Context, tx *sql.Tx, receipt contracts.Inp
 	if err != nil {
 		return contracts.InputReceipt{}, fmt.Errorf("history read runtime input for update: %w", err)
 	}
-	var stored contracts.InputReceipt
+	var stored storedRuntimeInput
 	var resultJSON string
 	if err := tx.QueryRowContext(ctx, `SELECT result_json FROM command_receipts WHERE core_epoch=? AND command_id=?`, receipt.CoreID, receipt.InputID).Scan(&resultJSON); err != nil {
 		return contracts.InputReceipt{}, fmt.Errorf("history read runtime input state: %w", err)
@@ -161,7 +176,8 @@ func updateRuntimeInputTx(ctx context.Context, tx *sql.Tx, receipt contracts.Inp
 		return contracts.InputReceipt{}, err
 	}
 	receipt.UpdatedAt = runtimeInputTimestamp()
-	result, err := json.Marshal(receipt)
+	stored.InputReceipt = receipt
+	result, err := contracts.EncodeJSON(stored)
 	if err != nil {
 		return contracts.InputReceipt{}, fmt.Errorf("history encode runtime input update: %w", err)
 	}
@@ -191,26 +207,45 @@ func (s *Store) RuntimeInput(ctx context.Context, coreID, inputID string, includ
 		}
 		return contracts.InputReceipt{}, fmt.Errorf("history read runtime input: %w", err)
 	}
-	var receipt contracts.InputReceipt
-	if err := json.Unmarshal([]byte(raw), &receipt); err != nil {
+	var stored storedRuntimeInput
+	if err := json.Unmarshal([]byte(raw), &stored); err != nil {
 		return contracts.InputReceipt{}, fmt.Errorf("history decode runtime input: %w", err)
 	}
+	receipt := stored.InputReceipt
 	if includeText {
-		body, err := readContent(ctx, s.db, receipt.ContentDigest)
-		if err != nil {
-			return contracts.InputReceipt{}, err
-		}
 		if receipt.Kind == "steering" {
 			var message contracts.Message
-			if err := json.Unmarshal(body, &message); err != nil {
+			if err := json.Unmarshal(stored.AcceptedMessage, &message); err != nil {
 				return contracts.InputReceipt{}, fmt.Errorf("history decode steering message content: %w", err)
 			}
 			receipt.Text = message.VisibleText()
 		} else {
+			body, err := readContent(ctx, s.db, receipt.ContentDigest)
+			if err != nil {
+				return contracts.InputReceipt{}, err
+			}
 			receipt.Text = string(body)
 		}
 	}
 	return receipt, nil
+}
+
+// SteeringMessage reads the receipt's own accepted message, not a shared
+// contents row or the execution message that is saved when it is applied.
+func (s *Store) SteeringMessage(ctx context.Context, coreID, inputID string) (json.RawMessage, error) {
+	var raw string
+	if err := s.db.QueryRowContext(ctx, `SELECT result_json FROM command_receipts
+		WHERE core_epoch=? AND command_id=? AND operation='steering'`, coreID, inputID).Scan(&raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("history read accepted steering message: %w", err)
+	}
+	var stored storedRuntimeInput
+	if err := json.Unmarshal([]byte(raw), &stored); err != nil {
+		return nil, fmt.Errorf("history decode accepted steering message: %w", err)
+	}
+	return stored.AcceptedMessage, nil
 }
 
 // RuntimeInputs reads the receipt rows and their change watermark in one SQL
@@ -257,26 +292,27 @@ func (s *Store) RuntimeInputs(ctx context.Context, sessionID, coreID, currentCor
 			_ = rows.Close()
 			return contracts.InputReceiptPage{}, fmt.Errorf("history scan runtime input: %w", err)
 		}
-		var receipt contracts.InputReceipt
-		if err := json.Unmarshal([]byte(raw), &receipt); err != nil {
+		var stored storedRuntimeInput
+		if err := json.Unmarshal([]byte(raw), &stored); err != nil {
 			_ = rows.Close()
 			return contracts.InputReceiptPage{}, fmt.Errorf("history decode runtime input: %w", err)
 		}
+		receipt := stored.InputReceipt
 		receipt.ManagedByThisCore = currentCoreID != "" && storedCore == currentCoreID
 		if includeText {
-			body, err := readContentTx(ctx, tx, receipt.ContentDigest)
-			if err != nil {
-				_ = rows.Close()
-				return contracts.InputReceiptPage{}, err
-			}
 			if receipt.Kind == "steering" {
 				var message contracts.Message
-				if err := json.Unmarshal(body, &message); err != nil {
+				if err := json.Unmarshal(stored.AcceptedMessage, &message); err != nil {
 					_ = rows.Close()
 					return contracts.InputReceiptPage{}, fmt.Errorf("history decode steering message content: %w", err)
 				}
 				receipt.Text = message.VisibleText()
 			} else {
+				body, err := readContentTx(ctx, tx, receipt.ContentDigest)
+				if err != nil {
+					_ = rows.Close()
+					return contracts.InputReceiptPage{}, err
+				}
 				receipt.Text = string(body)
 			}
 		}

@@ -94,7 +94,7 @@ func TestRuntimeInputRoutesApplyAndStartFollowUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := "/api/v2/runs/" + initial.RunID + "/inputs"
-	steer := api.SubmitInputRequest{CoreID: coreID, SessionID: state.SessionID, InputID: "steer-one", Kind: "steering", Text: "apply this instruction"}
+	steer := api.SubmitInputRequest{CoreID: coreID, SessionID: state.SessionID, InputID: "steer-one", Kind: "steering", Text: "apply <this> & 日本語 instruction"}
 	var accepted api.InputReceipt
 	if status := call(http.MethodPost, path, steer, &accepted); status != http.StatusAccepted || accepted.Status != "accepted" {
 		t.Fatalf("admission: %d %+v", status, accepted)

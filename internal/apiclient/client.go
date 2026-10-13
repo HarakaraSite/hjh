@@ -172,6 +172,13 @@ func (c *Client) Selection(ctx context.Context, request api.SelectionRequest) (a
 	return result, err
 }
 
+// RememberSelection saves the resolved model defaults for the next Session.
+func (c *Client) RememberSelection(ctx context.Context, request api.RememberSelectionRequest) (api.SelectionPreview, error) {
+	var result api.SelectionPreview
+	err := c.jsonRequest(ctx, http.MethodPut, apiPrefix+"/selection", request, &result)
+	return result, err
+}
+
 func (c *Client) LoginStatus(ctx context.Context, scope Scope, providerID string) (api.Status, error) {
 	query := scopeQuery(scope)
 	query.Set("providerId", providerID)

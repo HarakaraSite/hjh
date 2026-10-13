@@ -175,7 +175,7 @@ func TestOrientationPreviewDoesNotCreateSessionOrExtensions(t *testing.T) {
 	}
 }
 
-func TestWorkspaceContextOverlappingExtensionArchiveUsesCurrentRead(t *testing.T) {
+func TestWorkspaceContextOverlappingExtensionCaptureUsesCurrentReadWithoutArchive(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 	store, workspace := delegationStore(t)
@@ -209,13 +209,9 @@ func TestWorkspaceContextOverlappingExtensionArchiveUsesCurrentRead(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := false
 	for _, record := range records {
 		if record.Kind == "resource_revision" && string(record.Content) == skillText+"ARCHIVED_OLD_BODY" {
-			found = true
+			t.Error("unread skill body was automatically archived with the extension tree")
 		}
-	}
-	if !found {
-		t.Error("existing overlapping source capture was changed")
 	}
 }

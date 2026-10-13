@@ -180,6 +180,7 @@ type model struct {
 
 	sessionGeneration      uint64
 	selectionGeneration    uint64
+	selectionSaveTail      <-chan struct{}
 	sessionLoading         bool
 	resumeRequest          uint64
 	resumePending          bool
@@ -455,6 +456,11 @@ func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case footerSelectionLoadedMsg:
 		m.acceptFooterSelection(msg)
+		return m, nil
+	case selectionSaveFailedMsg:
+		if msg.coreID == m.core.CoreID && msg.workspace == m.workspace {
+			m.status = "model selection save failed: " + msg.err.Error()
+		}
 		return m, nil
 	case footerTickMsg:
 		if m.activeRun != nil && msg.jobID == m.activeRun.jobID {
@@ -899,7 +905,7 @@ func (m *model) startRun(task string) {
 		Effort: effort, AuthProfile: authProfile, Workspace: run.workspace,
 		Role: roleID, MaxSteps: m.maxSteps, FromTurn: m.fromTurn,
 	}
-	run.handle = m.backend.StartRun(request, func(event apiclient.RunEvent) {
+	run.handle = m.startRunAfterSelectionSave(request, func(event apiclient.RunEvent) {
 		m.sendMessage(runProgressMsg{jobID: job.id, value: event})
 	})
 	m.launch(job, func() tea.Msg {

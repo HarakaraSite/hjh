@@ -27,7 +27,8 @@ JavaScriptの実行にNode.jsやDenoのインストールは必要ありませ�
 ## 使い始める
 
 Go 1.27以降でソースからビルドします。依存関係は[go.mod](go.mod)を参照してください。
-本文検索にはripgrep（`rg`）、Git確認にはGitが必要です。
+本文検索はripgrep（`rg`）があれば優先し、なければGNU grepを使います。
+Git確認にはGitが必要です。
 
 ```sh
 git clone https://forge.harakara.site/littleisland/hjh.git
@@ -67,6 +68,16 @@ TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモ�
 逐次表示には`--stream`を使います。フラグは依頼文より前に指定してください。
 セッションIDは一意な短縮形を指定でき、通常は8文字です。
 
+保存済みセッションをローカルで削除する場合は、CoreとCLI内の実行を先に停止します。
+
+```sh
+./dist/hjh core stop --connect http://127.0.0.1:8765
+./dist/hjh sessions delete SESSION_ID
+```
+
+セッションと実行履歴、他の記録から参照されなくなった本文・構成を削除します。
+削除した領域は再利用できます。DBファイル自体の縮小は自動では行いません。
+
 起動済みCoreへ依頼し、同じセッションをTUIで開くこともできます。
 
 ```sh
@@ -82,6 +93,8 @@ TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモ�
 workspaceの設定と編集可能なツールは`.hjh/extensions/`に置きます。
 ツール・hook・role設定の変更は次の実行から反映されます。
 履歴はローカルの`.hjh/history.sqlite3`へ保存します。
+TUIで選んだprovider・モデル・effortは、再起動後も同じworkspaceの新規セッションへ
+引き継ぎます。
 
 認証情報はLinuxでは`~/.config/hjh/credentials/`、`XDG_CONFIG_HOME`の指定時は
 `$XDG_CONFIG_HOME/hjh/credentials/`へ保存します。APIキーはworkspaceの設定や

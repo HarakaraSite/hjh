@@ -191,7 +191,11 @@ func (m *model) requestCoreShutdown() {
 	ctx, cancel := context.WithCancel(m.ctx)
 	job := m.newJob(cancel)
 	coreID := m.core.CoreID
+	saveTail := m.selectionSaveTail
 	m.launch(job, func() tea.Msg {
+		if err := waitForSelectionSave(ctx, saveTail); err != nil {
+			return coreShutdownMsg{err: err}
+		}
 		return coreShutdownMsg{err: m.backend.ShutdownCore(ctx, coreID)}
 	})
 }

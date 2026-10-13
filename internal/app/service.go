@@ -21,6 +21,7 @@ type Service struct {
 	options     RunOptions
 	connections *connectionFactory
 	favorites   *modelfavorites.Store
+	selectionMu sync.Mutex
 	closeOnce   sync.Once
 	closeErr    error
 }

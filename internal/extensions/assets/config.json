@@ -364,16 +364,16 @@
     },
     {
       "name": "grep",
-      "description": "Search UTF-8 file contents with ripgrep. Returns matching/context lines or unique matching files.",
+      "description": "Search file contents with rg when available, otherwise GNU grep. Returns matching/context lines or unique matching files, plus backend and ignoreApplied.",
       "promptGuidelines": [
-        "Use grep to find relevant content before read_file. No matches is a normal empty result. Hidden files are included, ignore rules are respected by default, and binary content follows ripgrep behavior. In lines output, line is 1-based and match distinguishes matches from context; offset/limit page all returned lines, including context."
+        "Use grep to find relevant content before read_file. No matches is a normal empty result. Hidden files are included. The result identifies backend and ignoreApplied: rg respects ignore files by default; GNU grep does not apply .gitignore. Regex and glob syntax follow the selected native backend. GNU grep uses extended regex, basename include/exclude globs, and skips binary files. In lines output, line is 1-based and match distinguishes matches from context; offset/limit page all returned lines, including context."
       ],
       "inputSchema": {
         "type": "object",
         "properties": {
           "pattern": {
             "type": "string",
-            "description": "Search pattern. Regular expressions use ripgrep syntax."
+            "description": "Search pattern. Uses ripgrep regex when rg is available, otherwise GNU extended regex."
           },
           "path": {
             "type": "string",
@@ -406,14 +406,14 @@
           },
           "glob": {
             "type": "array",
-            "description": "Ordered ripgrep globs; ! excludes a pattern.",
+            "description": "Native backend globs. rg supports ordered path globs and ! exclusions; GNU grep uses filename include/exclude globs.",
             "items": {
               "type": "string"
             }
           },
           "includeIgnored": {
             "type": "boolean",
-            "description": "Defaults to false; true searches ignored entries too."
+            "description": "Defaults to false; true disables rg ignore rules. GNU grep always searches ignored entries."
           },
           "offset": {
             "type": "integer",

@@ -15,7 +15,7 @@ import (
 	"hjh/internal/history"
 )
 
-func TestToolGuidelinesFollowParentAndChildSelectionAndPreserveSource(t *testing.T) {
+func TestToolGuidelinesFollowParentAndChildSelectionAndPreserveConfigFile(t *testing.T) {
 	store, workspace := delegationStore(t)
 	dir := filepath.Join(workspace, ".hjh", "extensions")
 	if err := extensions.InstallDefaults(dir); err != nil {
@@ -141,14 +141,10 @@ func TestToolGuidelinesFollowParentAndChildSelectionAndPreserveSource(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		archived := false
 		for _, r := range records {
 			if r.Kind == "resource_revision" && string(r.Content) == string(configured) {
-				archived = true
+				t.Fatal("tool guideline config was automatically archived")
 			}
-		}
-		if !archived {
-			t.Fatal("guideline selection altered archived config bytes")
 		}
 	}
 	// Editing the same external declaration affects the next turn only.

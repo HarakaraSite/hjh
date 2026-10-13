@@ -15,7 +15,8 @@
 
 直接callとrun_js内のcallは同じ外部module・host・hook・履歴経路を使う。
 新しい状態ownerや履歴schemaは追加していない。tool自身の利用指示と保存snapshotも既存経路。
-grepだけはrg、Git確認はGitが必要。今回のVMでは実行中CoreのPATHからもrgを解決できることを確認した。
+当初grepはrg必須だった。後続改善でrg優先・GNU grepへのfallbackに変更した。
+Git確認はGitが必要。今回のVMでは実行中CoreのPATHからもrgを解決できることを確認した。
 findはGo filesystem探索で、隠し・ignored entryを含む。必要な省略はexcludeで指定する。
 
 reviewer / explorerはrun_js・read_file・ls・find・grep・wc・git_inspect。

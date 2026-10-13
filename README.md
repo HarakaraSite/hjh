@@ -26,7 +26,8 @@ runtime testing has been performed on Linux/amd64.
 ## Get started
 
 Build from source with Go 1.27 or later; dependencies are listed in [go.mod](go.mod).
-Content search requires ripgrep (`rg`); Git inspection requires Git.
+Content search uses ripgrep (`rg`) when installed, otherwise GNU grep.
+Git inspection requires Git.
 
 ```sh
 git clone https://forge.harakara.site/littleisland/hjh.git
@@ -67,6 +68,17 @@ The final answer goes to stdout; progress and session IDs go to stderr.
 Use `--stream` for incremental output. Flags go before the task text.
 Session IDs accept unique prefixes, normally eight characters.
 
+To delete a saved session locally, stop the Core and any standalone runs first:
+
+```sh
+./dist/hjh core stop --connect http://127.0.0.1:8765
+./dist/hjh sessions delete SESSION_ID
+```
+
+This removes the session, its execution history, and content and configuration
+records that are no longer referenced. Freed database space is reusable; the
+database file is not compacted automatically.
+
 To run through an existing Core and open the same session in the TUI:
 
 ```sh
@@ -82,6 +94,8 @@ Use the session ID printed by `run`. The default Core endpoint is
 Workspace configuration and editable tools live in `.hjh/extensions/`.
 Changes to tools, hooks, and role settings take effect on the next run.
 History is stored locally in `.hjh/history.sqlite3`.
+The TUI remembers your provider, model, and effort for new sessions in the same
+workspace, including after a restart.
 
 Credentials are stored in `~/.config/hjh/credentials/` on Linux, or under
 `$XDG_CONFIG_HOME/hjh/credentials/` when set. API keys stay outside workspace

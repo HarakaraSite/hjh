@@ -94,7 +94,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if err != nil {
 		return output, err
 	}
-	model, err := resolveModelSelection(registry, snapshot.Agent.Name, options.SessionID != "", active, options)
+	model, err := resolveModelSelection(registry, snapshot.Agent.Name, options.SessionID != "", active, workspace, options)
 	if err != nil {
 		return output, err
 	}

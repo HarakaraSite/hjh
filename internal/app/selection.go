@@ -63,7 +63,7 @@ func (s *Service) PreviewSelection(ctx context.Context, request RunRequest) (Sel
 	if err != nil {
 		return SelectionPreview{}, err
 	}
-	selection, err := resolveModelSelection(registry, role, options.SessionID != "", active, options)
+	selection, err := resolveModelSelection(registry, role, options.SessionID != "", active, workspace, options)
 	if err != nil {
 		return SelectionPreview{}, err
 	}
@@ -90,7 +90,7 @@ func (s *Service) selectionConfig(workspace, configPath string) (string, []byte,
 	return path, data, err
 }
 
-func resolveModelSelection(registry *providers.Registry, role string, resumed bool, active contracts.ModelSelection, options RunOptions) (contracts.ModelSelection, error) {
+func resolveModelSelection(registry *providers.Registry, role string, resumed bool, active contracts.ModelSelection, workspace string, options RunOptions) (contracts.ModelSelection, error) {
 	base := active
 	if !resumed {
 		var err error
@@ -102,6 +102,18 @@ func resolveModelSelection(registry *providers.Registry, role string, resumed bo
 		if err != nil {
 			return contracts.ModelSelection{}, err
 		}
+		remembered, err := readRememberedSelection(workspace)
+		if err != nil {
+			return contracts.ModelSelection{}, err
+		}
+		if remembered.Provider != "" {
+			base = remembered
+		}
+	}
+	// Effort belongs to the selected model. Omission on an explicit model
+	// change means automatic effort, rather than the previous model's value.
+	if options.ModelID != "" && options.ModelID != base.ModelID && options.Effort == "" {
+		options.Effort = "auto"
 	}
 	return registry.Resolve(base, contracts.ModelSelection{
 		Provider: options.ProviderID, ModelID: options.ModelID,

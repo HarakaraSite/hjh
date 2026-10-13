@@ -39,7 +39,11 @@ func (m *model) requestFooterSelection() {
 	job := m.newJob(cancel)
 	m.footerSelectionJobID = job.id
 	request, generation, coreID := m.selectionRequest(), m.selectionGeneration, m.core.CoreID
+	saveTail := m.selectionSaveTail
 	m.launch(job, func() tea.Msg {
+		if err := waitForSelectionSave(ctx, saveTail); err != nil {
+			return footerSelectionLoadedMsg{job.id, generation, coreID, request, api.SelectionPreview{}, err}
+		}
 		value, err := m.backend.Selection(ctx, request)
 		return footerSelectionLoadedMsg{job.id, generation, coreID, request, value, err}
 	})

@@ -301,6 +301,9 @@ func (m *model) changeSession(action sessionAction) {
 }
 
 func (m *model) applySessionAction(action sessionAction) {
+	if action.newSession && m.sessionID != "" {
+		m.rememberSelection()
+	}
 	m.closeConnectionPicker()
 	m.closeSessionPicker()
 	m.sealOpeningHeaderForSessionSwitch()

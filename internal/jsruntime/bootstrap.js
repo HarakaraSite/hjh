@@ -28,6 +28,8 @@ function implementationApiFor(parent) {
     requestProvider: input => hostCall('requestProvider', input),
     webFetch: input => hostCall('webFetch', input),
     command: input => hostCall('command', input),
+    resolveExecutable: input => hostCall('resolveExecutable', input),
+    grepCommand: input => hostCall('grepCommand', input),
     readFile: input => hostCall('readFile', input),
     listDirectory: input => hostCall('listDirectory', input),
     countFiles: input => hostCall('countFiles', input),

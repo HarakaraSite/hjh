@@ -109,6 +109,78 @@ func TestPickerConfirmsInheritedModelAndEffortBeforeChangingRole(t *testing.T) {
 	}
 }
 
+func TestModelPickerResetsEffortForDifferentModelAndRemembersPair(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		name := "inherited-session-selection"
+		if explicit {
+			name = "explicit-tui-selection"
+		}
+		t.Run(name, func(t *testing.T) {
+			const firstModel = "deepseek/deepseek-v4.1-flash"
+			const nextModel = "xiaomi/mimo-v2.6-pro"
+			saves := make(chan api.RememberSelectionRequest, 2)
+			backend := &fakeBackend{
+				core: api.Core{CoreID: "core-1"}, runCalls: make(chan runCall, 1),
+				selectionFunc: func(_ context.Context, request api.SelectionRequest) (api.SelectionPreview, error) {
+					modelID, effort := firstModel, "max"
+					if request.ModelID != "" {
+						modelID = request.ModelID
+					}
+					if request.Effort != "" {
+						effort = request.Effort
+					}
+					return api.SelectionPreview{Role: "default", Selection: contracts.ModelSelection{Provider: "openrouter", ModelID: modelID, Effort: effort}}, nil
+				},
+				models: []api.ModelInfo{{ID: firstModel, Efforts: []string{"high", "max"}}, {ID: nextModel}},
+				rememberSelectionFunc: func(_ context.Context, request api.RememberSelectionRequest) (api.SelectionPreview, error) {
+					saves <- request
+					return api.SelectionPreview{}, nil
+				},
+			}
+			options := Options{Core: backend.core, Workspace: "/work", SessionID: "previous"}
+			if explicit {
+				options.ModelID, options.Effort = firstModel, "max"
+			}
+			m, messages, cancel := testModel(backend, options)
+			defer func() { cancel(); m.shutdown() }()
+			m.openConnectionPicker(modelPicker)
+			loadedConnectionPicker(t, backend, m, messages)
+			// Confirming the current model must retain its effort.
+			update(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+			unchanged := <-saves
+			if unchanged.ModelID != firstModel || (explicit && unchanged.Effort != "max") || (!explicit && unchanged.Effort != "") {
+				t.Fatalf("same model lost its effort: %+v", unchanged)
+			}
+			m.openConnectionPicker(modelPicker)
+			loadedConnectionPicker(t, backend, m, messages)
+			for i, option := range m.connectionPickerOptions() {
+				if option.id == nextModel {
+					m.connectionPicker.index = i
+				}
+			}
+			update(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+			saved := <-saves
+			if m.effort != "auto" || saved.ModelID != nextModel || saved.Effort != "auto" {
+				t.Fatalf("changed model retained previous effort: UI=%s, save=%+v", m.effort, saved)
+			}
+			m.openConnectionPicker(effortPicker)
+			loadedConnectionPicker(t, backend, m, messages)
+			for _, option := range m.connectionPickerOptions() {
+				if option.id == "max" {
+					t.Fatal("previous model's max remains in the new effort picker")
+				}
+			}
+			m.closeConnectionPicker()
+			m.startRun("use the changed model")
+			call := <-backend.runCalls
+			call.handle.finish(api.RunState{RunID: call.request.RunID}, nil)
+			if call.request.ModelID != nextModel || call.request.Effort != "auto" {
+				t.Fatalf("run did not use the remembered model/effort pair: %+v", call.request)
+			}
+		})
+	}
+}
+
 func TestProviderAndEffortPickerShowResolvedDetailsAndCatalogValues(t *testing.T) {
 	backend := &fakeBackend{
 		core: api.Core{CoreID: "core-1"},
