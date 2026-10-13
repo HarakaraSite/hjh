@@ -193,9 +193,8 @@ type model struct {
 	modelFavoriteSnapshots map[string]api.ModelFavorites
 	modelFavoriteOps       map[string]*modelFavoriteOperation
 	modelFavoriteOpSeq     uint64
-	completionActive       bool
-	completionPrefix       string
-	completionIndex        int
+	commandMenu            *commandMenuState
+	commandMenuDismissed   string
 	activeRun              *activeRun
 	pendingSession         *sessionAction
 	chainCancel            *inputChainCancellation
@@ -759,22 +758,20 @@ func (m *model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if m.connectionPicker != nil {
 		return m.handleConnectionPickerKey(msg)
 	}
+	if m.handleCommandMenuKey(msg) {
+		if m.quitting {
+			return tea.Quit
+		}
+		return nil
+	}
 	switch msg.String() {
 	case "esc":
 		if m.pickerOpen {
 			m.closeSessionPicker()
 			m.status = "ready"
-		} else if m.completionActive {
-			m.completionActive = false
-			m.status = "ready"
 		}
 		return nil
 	case "tab":
-		before := m.textarea.Value()
-		m.completeCommand()
-		if m.textarea.Value() != before {
-			m.noteDraftEdit()
-		}
 		return nil
 	case "enter":
 		if m.pickerOpen {
@@ -826,7 +823,6 @@ func (m *model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.movePicker(delta)
 		return nil
 	default:
-		m.completionActive = false
 		before := m.textarea.Value()
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
@@ -867,8 +863,8 @@ func isSlashCommand(line string) bool {
 	if len(fields) == 0 {
 		return false
 	}
-	for _, command := range commandNames {
-		if fields[0] == command {
+	for _, command := range slashCommands {
+		if fields[0] == command.name {
 			return true
 		}
 	}

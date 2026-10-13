@@ -659,21 +659,23 @@ func TestJapaneseEditorModifierEnterPasteCompletionAndClear(t *testing.T) {
 	if !strings.Contains(m.textarea.Value(), "貼り付け\nした文章") {
 		t.Fatalf("bracketed paste did not reach the multiline editor: %q", m.textarea.Value())
 	}
-	m.textarea.SetValue("/he")
+	m.clearDraft()
+	update(m, tea.PasteMsg{Content: "/he"})
 	m.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.textarea.Value() != "/help " {
 		t.Fatalf("Tab did not complete a supported slash command: %q", m.textarea.Value())
 	}
-	m.textarea.SetValue("/tools")
+	m.clearDraft()
+	update(m, tea.PasteMsg{Content: "/tools"})
 	m.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.textarea.Value() != "/tools " {
 		t.Fatalf("Tab did not complete /tools: %q", m.textarea.Value())
 	}
-	m.textarea.SetValue("/tool")
-	m.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	m.clearDraft()
+	update(m, tea.PasteMsg{Content: "/tool"})
 	m.handleKey(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.textarea.Value() != "/tool " {
-		t.Fatalf("Tab did not complete /tool after cycling its shared prefix: %q", m.textarea.Value())
+		t.Fatalf("Tab did not prefer exact /tool over /tools: %q", m.textarea.Value())
 	}
 
 	m.textarea.SetValue("日本語の依頼\n2行目")

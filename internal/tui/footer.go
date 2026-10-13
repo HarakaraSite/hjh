@@ -83,7 +83,9 @@ func (m *model) footerControls(width int) string {
 		return styleFooterControls(ansi.Truncate("↑/↓ select · Enter resumes · Esc close", width, "…"), "")
 	}
 	if !m.shutdownPending && !m.detachPending {
-		if strings.HasPrefix(strings.TrimSpace(m.textarea.Value()), "/") {
+		if m.commandMenuVisible() {
+			controls = append(controls, "↑/↓ select", "Enter choose", "Tab complete", "Esc close")
+		} else if strings.HasPrefix(strings.TrimSpace(m.textarea.Value()), "/") {
 			controls = append(controls, "Enter command")
 		} else if m.activeRun == nil && !m.sessionLoading && !m.resumePending {
 			controls = append(controls, "Enter send")

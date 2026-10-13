@@ -10,11 +10,6 @@ import (
 	"hjh/internal/tui/renderer"
 )
 
-var commandNames = []string{
-	"/sessions", "/new", "/resume", "/rename", "/detach", "/history", "/inputs", "/context", "/recall", "/executions", "/tools", "/tool", "/inspect", "/model", "/models",
-	"/provider", "/providers", "/effort", "/auth", "/login", "/roles", "/role", "/help", "/quit",
-}
-
 const toolReceiptSource = "tool"
 
 func (m *model) mergedEntities() []api.ConversationEntity {
@@ -202,12 +197,13 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	if m.pickerOpen {
 		childRows = nil
 	}
+	commandRows := m.commandMenuRows(rows - len(footerRows) - len(inputRows) - len(childRows) - 2)
 	divider := strings.Repeat("─", columns)
 	var committed []string
 	var bodyRows []string
 	committedThrough := doc.startRow
 	bodyStart := doc.startRow
-	bodyHeight := max(1, rows-len(footerRows)-len(inputRows)-len(childRows)-1)
+	bodyHeight := max(1, rows-len(footerRows)-len(inputRows)-len(childRows)-len(commandRows)-1)
 	if m.pickerOpen {
 		m.viewport.SetHeight(bodyHeight)
 		m.refreshViewport(false)
@@ -262,6 +258,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	liveRows := make([]string, 0, len(bodyRows)+1+len(footerRows)+len(inputRows))
 	liveRows = append(liveRows, bodyRows...)
 	liveRows = append(liveRows, childRows...)
+	liveRows = append(liveRows, commandRows...)
 	liveRows = append(liveRows, divider)
 	liveRows = append(liveRows, controlsRows...)
 	liveRows = append(liveRows, inputRows...)
@@ -269,8 +266,8 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	frame := renderer.Frame{
 		CommittedRows: committed,
 		LiveRows:      liveRows,
-		DockRows:      len(childRows) + 1 + len(inputRows) + len(footerRows),
-		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+len(childRows)+1+len(controlsRows)), Cell: 0},
+		DockRows:      len(childRows) + len(commandRows) + 1 + len(inputRows) + len(footerRows),
+		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+len(childRows)+len(commandRows)+1+len(controlsRows)), Cell: 0},
 		Size:          renderer.Size{Columns: columns, Rows: rows},
 	}
 	var cursor *tea.Cursor
@@ -286,7 +283,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	} else if !m.pickerOpen {
 		if textareaCursor := m.textarea.Cursor(); textareaCursor != nil {
 			cursor = textareaCursor
-			cursor.Position.Y += len(bodyRows) + len(childRows) + 1 + len(controlsRows)
+			cursor.Position.Y += len(bodyRows) + len(childRows) + len(commandRows) + 1 + len(controlsRows)
 			frame.Cursor = renderer.Cursor{Row: cursor.Position.Y, Cell: cursor.Position.X}
 		}
 	}
@@ -296,50 +293,6 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 
 func (m *model) sealCurrentFrame() {
 	m.sealTranscriptDocument()
-}
-
-func (m *model) completeCommand() {
-	value := strings.TrimSpace(m.textarea.Value())
-	if value == "" || strings.ContainsAny(value, " \t\r\n") || !strings.HasPrefix(value, "/") {
-		return
-	}
-	matches := make([]string, 0, len(commandNames))
-	for _, command := range commandNames {
-		if strings.HasPrefix(command, value) {
-			matches = append(matches, command)
-		}
-	}
-	if len(matches) == 0 {
-		return
-	}
-	if len(matches) == 1 {
-		m.textarea.SetValue(matches[0] + " ")
-		m.completionActive = false
-		m.status = "command completed · type arguments or press Enter"
-		return
-	}
-	if m.completionActive && m.completionPrefix == value {
-		m.completionIndex = (m.completionIndex + 1) % len(matches)
-		m.textarea.SetValue(matches[m.completionIndex] + " ")
-		m.completionActive = false
-		m.status = "command completed · type arguments or press Enter"
-		return
-	}
-	common := matches[0]
-	for _, candidate := range matches[1:] {
-		for !strings.HasPrefix(candidate, common) && common != "" {
-			common = common[:len(common)-1]
-		}
-	}
-	if len(common) > len(value) {
-		m.textarea.SetValue(common)
-		m.completionPrefix = common
-	} else {
-		m.completionPrefix = value
-	}
-	m.completionActive = true
-	m.completionIndex = 0
-	m.status = "commands: " + strings.Join(matches, " · ")
 }
 
 func (m *model) applySessionSnapshot(snapshot api.ConversationSnapshot) {

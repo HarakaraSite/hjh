@@ -86,7 +86,7 @@ func TestFooterRunUsesCoreStartTimeAndAvailableControls(t *testing.T) {
 		t.Fatal("idle footer clock kept running")
 	}
 	update(m, tea.KeyPressMsg{Code: '/', Text: "/"})
-	if !strings.Contains(ansi.Strip(m.footerControls(120)), "Enter command") {
+	if !strings.Contains(ansi.Strip(m.footerControls(120)), "Enter choose") || !strings.Contains(ansi.Strip(m.footerControls(120)), "Tab complete") {
 		t.Fatal("slash draft did not change controls")
 	}
 }

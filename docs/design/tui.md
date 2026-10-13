@@ -25,6 +25,8 @@ Bubble Teaのupdate loopで入力と表示状態を管理し、独立writerで�
 pickerと認証の選択画面は一時的なalternate screenへ描く。通常画面の会話とcursorを保持し、
 キャンセル・選択完了で元の画面へ戻す。選択画面の内容を会話のscrollbackへ残さない。
 picker表示中に確定した親本文は通常画面へ戻ってから一度だけ出力する。
+Slash command候補は通常画面の入力欄の上へ一時表示し、alternate screenへ切り替えない。
+候補の行は入力欄と同じdockに含め、会話履歴・scrollbackへ保存しない。
 端末の検索・コピーは端末／tmuxのscrollbackを使う。
 
 I-13の起動入口は[計画と操作契約](../plans/i13-core-startup.md)を参照する。
@@ -107,6 +109,7 @@ Commands are:
 
 | Command | Behavior |
 | --- | --- |
+| `/`入力 | Show command names, argument hints and descriptions. Type to filter, arrows to select, Tab to complete, Enter to choose, Esc to close. Commands requiring arguments leave the completed name in the editor. |
 | F4 / `/sessions` | Select a Session with arrows/j/k, PgUp/PgDn, Home/End; Enter resumes and Esc closes. |
 | `/new` | Start a new conversation in the current workspace. A Session is created by its first run. |
 | `/resume SESSION_ID` | Load saved history and attach to the same active run, if present. |
@@ -186,6 +189,11 @@ Core owns pending OAuth callbacks and their captured workspace/provider/profile.
 Showing a login URL does not change the next-run provider selection.
 
 ## I-08: connection pickers
+
+2026-10-14、[slash command候補](slash-command-menu.md)を追加した。
+名前・引数hint・説明はTUI catalogを認識・候補・helpで共有する。
+Tabは補完のみ、Enterは引数なしのcommand実行または引数入力へ進む。
+入力に引数・改行がある場合はコマンド名候補を表示しない。
 
 `/provider`、`/model`、`/effort`は引数なしでpickerを開く。providerは外部定義の
 ID・表示名・API・認証方式・既定modelを表示し、modelはIDと表示名を検索できる。

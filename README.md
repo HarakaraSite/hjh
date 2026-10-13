@@ -43,6 +43,7 @@ Keep `hjh` and `hjh-tui` in the same directory.
 In the TUI, use `/login` to configure credentials, then `/provider` and `/model`
 to choose a connection and model. OpenRouter is the default connection.
 Type a request and press Enter to send it.
+Type `/` to browse commands; use arrows to select, Tab to complete, and Enter to choose.
 
 | Command | Action |
 | --- | --- |

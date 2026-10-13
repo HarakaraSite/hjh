@@ -26,7 +26,10 @@ type inputChainCancellation struct {
 	runID  string
 }
 
-func (m *model) noteDraftEdit() { m.draftRevision++ }
+func (m *model) noteDraftEdit() {
+	m.draftRevision++
+	m.updateCommandMenu(false)
+}
 
 func (m *model) clearDraft() {
 	if m.textarea.Value() != "" {

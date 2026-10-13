@@ -499,36 +499,12 @@ func formatToolDetail(record api.Record) string {
 	return messageText(record.Payload)
 }
 
-var helpText = strings.Join([]string{
-	"/tools · /tool NUMBER_OR_ENTITY_ID — saved tool call/result detail",
-	"/inputs                           list accepted steering and follow-up receipt status",
-	"/context                          show saved parent input and pending recall",
-	"/recall [ID|latest|clear]           prepare stopped execution for the next root once",
-	"F4 / /sessions                    choose a saved Session with arrows and Enter",
-	"/new                              start a new conversation in this workspace",
-	"/resume SESSION_ID                resume history or attach to its running execution",
-	"/rename TEXT                      rename the current Session",
-	"/detach (Ctrl+D)                  exit TUI and let Core keep running",
-	"/history [FROM_TURN TO_TURN]      show the complete adopted turn range",
-	"/executions                       list executions, including failed and cancelled runs",
-	"/inspect ID [FROM TO]             show execution, children, messages, records, configuration, and context",
-	"/model [MODEL_ID]                 search/select a model for the next run",
-	"/providers                        show external provider definitions",
-	"/provider [PROVIDER_ID]           select a connection for the next run",
-	"/models [PROVIDER_ID]              show models for a connection",
-	"/effort                            select an effort from the picker",
-	"/login PROVIDER_ID                 Continue with ChatGPT",
-	"/login complete PROVIDER_ID         complete a local browser callback",
-	"/login callback PROVIDER_ID URL     complete login with the browser callback URL",
-	"/auth [PROVIDER_ID]                show ChatGPT login status",
-	"/roles                            show configured roles and their tools",
-	"/role [NAME]                      show role state or select a role for the next run",
-	"/help                             show these commands",
-	"/quit (Ctrl+Q)                    stop Core, wait for saves, then exit",
+var helpText = slashCommandHelp() + "\n" + strings.Join([]string{
 	"Enter submits while idle; during a run it keeps the draft. F2 reserves a follow-up and F3 sends steering when shown.",
 	"Alt/Shift/Ctrl+Enter inserts a newline; F1 cancels the run input chain; Ctrl+C clears the draft.",
+	"F4 opens sessions; Ctrl+D detaches; Ctrl+Q stops Core and exits.",
 	"Model search accepts text and paste; arrows, PgUp/PgDn, Home/End navigate; Esc closes a picker.",
-	"Tab completes slash commands; Esc closes a picker or completion.",
+	"Type / to find commands; arrows select, Tab completes, Enter chooses, Esc closes suggestions.",
 }, "\n")
 
 func formatRoleCatalog(catalog api.RoleCatalog) string {

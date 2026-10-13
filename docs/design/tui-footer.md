@@ -6,6 +6,8 @@ effortは右端へ分離せず、`openrouter / model-name / high`のようにmod
 操作案内・通知の行は区切り線の下、入力欄の上へ表示する。
 状態・workspace／Sessionとprovider／model／effortの2行は入力欄の下へ表示する。
 これらはlive bandだけに属し、会話へ保存・確定出力しない。
+Slash command候補を開いている間は上下・Enter・Tab・Escの案内へ切り替える。
+候補は区切り線の上に置き、入力欄と情報footerの下部固定を維持する。
 入力欄とfooterは画面下部へ固定する。生成中本文の伸長、確定、次の生成開始によって
 表示位置を上下させない。上の空き行はwriterが調整し、本文のreceiptやscrollbackへ加えない。
 確定会話は通常画面のscrollbackへ一度だけ出力する。

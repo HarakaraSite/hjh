@@ -13,8 +13,8 @@ workspaceのモデル選択保存、CLIセッション削除、履歴保存とpr
 
 | 対象 | 比較時点 |
 | --- | --- |
-| hjh | `/home/agent/projects/hjh`。HEAD `6a0c47983771700d968f46245bcdfe508b664ab8`と、その上の基本指示差替えの実装・結果文書 |
-| 更新時の未コミット変更 | ユーザー共通base.mdによる基本指示の差替えと、この比較の更新を含む |
+| hjh | `/home/agent/projects/hjh`。HEAD `2a2a718177fb670ef99532464ca4784766fb13b3`と、その上のslash command候補の実装・結果文書 |
+| 更新時の未コミット変更 | slash command候補と、この比較の更新を含む。ユーザー共通base.mdの差替えはコミット済み |
 | 旧Henji | `/home/agent/projects/henji-harness`。HEAD `2eb586316f80ec8297873a96122568d0088971eb`の現行実装 |
 
 旧Henjiの実行ファイルもCLI上では`hjh`と表示するが、本書の「旧Henji」はDeno版の
@@ -135,7 +135,7 @@ run_js内部にも選択されたtoolだけを公開する。親向けrole catal
 | 30 | 読取り専用の別セッション閲覧 | `/view`、pickerで閲覧と再開を分離 | **意図的に未採用**。以前の利用者指定どおり、hjhには追加していない |
 | 31 | TUI内の会話browser | 項目選択、前後ページ、本文chunk表示 | **未実装**。現在は端末やtmuxのscrollbackと`/history`を使う |
 | 32 | tool本文の詳細閲覧 | browserから選択して分割閲覧 | **一部対応**。`/tools`と`/tool`はあるが、専用browserや本文の分割閲覧はない |
-| 33 | slash command候補 | `/`入力から絞り込みpickerを表示 | **一部対応**。現在はTab補完 |
+| 33 | slash command候補 | `/`入力から絞り込みpickerを表示 | **実装済み**。`/`で入力欄の上に名前・引数hint・説明を表示し、文字で絞込・上下で選択。Tabは補完、Enterは実行または必須引数入力、Escはdraftを保持して候補だけ閉じる。Pi/OpenCodeを参考に、会話履歴へ残さないinline表示を採用。[確認結果](slash-command-menu.md) |
 | 34 | modelとeffort選択の即時保存 | idle時の選択をSessionと新規Session用の既定へ保存 | **実装済み（workspace単位）**。provider/model/effort/authProfile参照を選択時に`.hjh/selection.json`へ保存し、実行せず終了・TUI/Core再起動後も同じworkspaceの新規Sessionで使う。既存Sessionの保存選択は正常run採用時に更新し、再開時はその保存値を使う。[確認結果](remembered-model-selection.md) |
 | 35 | Core IDでTUI接続 | TUIに`--core ID` | **入口なし**。現在は`--endpoint URL`。CLIの`core --core ID`はある |
 

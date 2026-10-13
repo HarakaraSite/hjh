@@ -223,7 +223,10 @@ Coreを別端末で起動する既存の`hjh serve ...`も使える。
 I-15以前から稼働しているCoreは再起動後に登録・新しい状態APIが有効になる。
 
 通常画面に会話を出し、端末／tmuxのscrollbackで検索・コピーする。
-Enterで依頼、Alt／Shift／Ctrl+EnterまたはCtrl+Jで改行。Tabでコマンド補完、Escで選択表示を閉じる。
+Enterで依頼、Alt／Shift／Ctrl+EnterまたはCtrl+Jで改行。
+`/`入力でcommand候補を表示し、文字で絞込・上下で選択・Tabで補完・Enterで確定する。
+引数必須のcommandは名前補完後に入力を待つ。Escは入力を保持して候補だけ閉じる。
+[操作契約](design/slash-command-menu.md)を参照する。
 実行中のEnterはdraftを保持する。受付可能な期間はF2で次run予約、F3で現在の親runへ指示を追加する。
 F1で現在runの予約列をキャンセルし、Ctrl+Cで入力を消す。`/inputs`で受付・適用・予約の状態を読む。
 停止後は`/recall [ID|latest]`で参考情報を準備し、`/context`でsourceと次回選択を確認して新しい依頼を送る。
