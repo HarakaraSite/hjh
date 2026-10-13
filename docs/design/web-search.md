@@ -45,7 +45,7 @@ text/highlightsと合成summary/outputを区別し、回答の根拠へ直接URL
 ```json
 "exa-api-key": {
   "env": "EXA_API_KEY",
-  "file": "~/.local/state/henji-harness/v1/credentials/exa-api-key"
+  "file": "${XDG_CONFIG_HOME}/hjh/credentials/exa-api-key"
 }
 ```
 

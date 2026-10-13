@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math/big"
@@ -22,6 +23,77 @@ import (
 
 	"hjh/internal/api"
 )
+
+func TestDefaultCredentialStorageAndProfileFilesUseUserConfigDirectory(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		name := "home-default"
+		if configured {
+			name = "xdg-config"
+		}
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("XDG_CONFIG_HOME", "")
+			t.Setenv("XDG_STATE_HOME", t.TempDir())
+			configDir := filepath.Join(home, ".config")
+			if configured {
+				configDir = t.TempDir()
+				t.Setenv("XDG_CONFIG_HOME", configDir)
+			}
+			root := filepath.Join(configDir, "hjh", "credentials")
+			if err := os.MkdirAll(root, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "test-api-key"), []byte("test-external-key\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			profile := Profile{File: "${XDG_CONFIG_HOME}/hjh/credentials/test-api-key"}
+			target := Target{ConfigPath: filepath.Join(t.TempDir(), "config.json"), Name: "test-api-key", Kind: KindAPIKey, Profile: profile}
+			manager := NewManager(Options{})
+			defer manager.Close()
+			external, err := manager.Resolve(t.Context(), KindAPIKey, target.Name, profile)
+			if err != nil || external.Token != "test-external-key" {
+				t.Fatalf("direct profile resolution did not read config credentials: %v", err)
+			}
+			binding, err := manager.Capture(t.Context(), target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			captured, err := binding.Resolve(t.Context())
+			if err != nil || captured.Token != external.Token {
+				t.Fatalf("run binding did not read config credentials: %v", err)
+			}
+			if _, err := manager.RegisterAPIKey(t.Context(), resolveCredentialTarget(target), "test-registration", "test-managed-key"); err != nil {
+				t.Fatal(err)
+			}
+			digest := sha256.Sum256([]byte(target.Name))
+			recordPath := filepath.Join(root, "api-keys", credentialScopeID(target.ConfigPath), hex.EncodeToString(digest[:])+".json")
+			if _, err := os.Stat(recordPath); err != nil {
+				t.Fatalf("registered key not saved in config credentials: %v", err)
+			}
+			reopened := NewManager(Options{})
+			defer reopened.Close()
+			binding, err = reopened.Capture(t.Context(), target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			captured, err = binding.Resolve(t.Context())
+			if err != nil || captured.Token != "test-managed-key" {
+				t.Fatalf("new manager did not reuse registered config credential: %v", err)
+			}
+			oauthPath, err := manager.oauthPath("test-chatgpt", Profile{})
+			if err != nil || filepath.Dir(oauthPath) != filepath.Join(root, "chatgpt") {
+				t.Fatalf("OAuth path does not use config credentials: %s, %v", oauthPath, err)
+			}
+			if _, err := manager.ensureHostID(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(root, "chatgpt", "host.json")); err != nil {
+				t.Fatalf("OAuth host identity not saved in config credentials: %v", err)
+			}
+		})
+	}
+}
 
 func TestManagerResolvesAPIKeyProfileWithoutProviderIdentity(t *testing.T) {
 	state := t.TempDir()

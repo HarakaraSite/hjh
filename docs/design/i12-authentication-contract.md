@@ -29,7 +29,7 @@ Serviceと非対話CLIが同じManager操作を使い、別のcredential cache�
 
 ## 2. APIキーの保存と使用
 
-credential state root `R` は現在の `$XDG_STATE_HOME/hjh`、未指定なら `~/.local/state/hjh`。
+credential storage root `R` は `$XDG_CONFIG_HOME/hjh`、Linuxで未指定なら `~/.config/hjh`。
 共通 `CredentialStateDir` とCLIの `--credential-state-dir` でRを指定できるようにする。
 serve・run・models・authは同じoptionをManagerへ渡す。明示 `oauthFile` は従来通りそのpathを使う。
 
@@ -39,7 +39,9 @@ keyは専用credential fileだけに置き、一覧・HTTP response・model inpu
 同じprofileを使うprovider間で共有し、別configの同名profileと分離する。
 
 解決順序は次の通り：明示 `--credential-file` → このownerの登録キー → 既存env → 既存file。
-外部env/fileの現在の読取り規則を使い、登録操作では外部参照fileやconfigを書き換えない。
+標準外部fileは `${XDG_CONFIG_HOME}/hjh/credentials/<profile>` を参照する。
+このprefixは環境変数未指定時も `os.UserConfigDir()` で解決する。`~/` と明示pathも使える。
+登録操作では外部参照fileやconfigを書き換えない。
 登録前のmanaged file未作成は未登録という状態であり、壊れた登録fileを未登録として隠さない。
 登録画面はAPIキーの削除・旧認証への復帰操作を今回追加しない。
 

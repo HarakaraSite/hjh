@@ -97,7 +97,7 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 	effort := f.String("effort", "", "reasoning effort (default: auto)")
 	configPath := f.String("config", "", "extension config JSON (default: WORKSPACE/.hjh/extensions/config.json)")
 	credentialFile := f.String("credential-file", "", "override API key file for the selected credential profile")
-	credentialStateDir := f.String("credential-state-dir", "", "credential state root (default: XDG_STATE_HOME/hjh or ~/.local/state/hjh)")
+	credentialStateDir := f.String("credential-state-dir", "", "credential storage root (default: XDG_CONFIG_HOME/hjh or ~/.config/hjh; records under credentials/)")
 	modelFavoritesDir := f.String("model-favorites-dir", "", "favorite state directory (default: XDG_STATE_HOME/hjh/model-favorites or ~/.local/state/hjh/model-favorites)")
 	maxSteps := f.Int("max-steps", 0, "model step limit; 0 is unlimited")
 	stream := f.Bool("stream", false, "display assistant text on stdout as it arrives")

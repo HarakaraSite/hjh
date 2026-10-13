@@ -83,6 +83,10 @@ workspaceの設定と編集可能なツールは`.hjh/extensions/`に置きま�
 ツール・hook・role設定の変更は次の実行から反映されます。
 履歴はローカルの`.hjh/history.sqlite3`へ保存します。
 
+認証情報はLinuxでは`~/.config/hjh/credentials/`、`XDG_CONFIG_HOME`の指定時は
+`$XDG_CONFIG_HOME/hjh/credentials/`へ保存します。APIキーはworkspaceの設定や
+Git履歴へ含めません。
+
 workspaceの指示は`AGENTS.md`、skillsは`.hjh/skills/<name>/SKILL.md`に置きます。
 skillの説明は実行開始時に読み込み、詳しい指示は必要になったときに読みます。
 Exa検索には`EXA_API_KEY`を利用できます。

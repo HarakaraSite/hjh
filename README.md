@@ -83,6 +83,10 @@ Workspace configuration and editable tools live in `.hjh/extensions/`.
 Changes to tools, hooks, and role settings take effect on the next run.
 History is stored locally in `.hjh/history.sqlite3`.
 
+Credentials are stored in `~/.config/hjh/credentials/` on Linux, or under
+`$XDG_CONFIG_HOME/hjh/credentials/` when set. API keys stay outside workspace
+configuration and Git history.
+
 Add workspace instructions in `AGENTS.md` and skills in
 `.hjh/skills/<name>/SKILL.md`. Skill descriptions are loaded at run start;
 their full instructions are read when needed. Exa search can use `EXA_API_KEY`.

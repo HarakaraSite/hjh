@@ -16,8 +16,18 @@ import (
 )
 
 func TestModelsCLIUsesRegisteredCredentialState(t *testing.T) {
+	t.Run("explicit-root", func(t *testing.T) { testModelsCLIUsesRegisteredCredentialState(t, true) })
+	t.Run("default-config-root", func(t *testing.T) { testModelsCLIUsesRegisteredCredentialState(t, false) })
+}
+
+func testModelsCLIUsesRegisteredCredentialState(t *testing.T, explicitRoot bool) {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	workspace := t.TempDir()
-	state := filepath.Join(workspace, "private-state")
+	state := ""
+	if explicitRoot {
+		state = filepath.Join(workspace, "private-state")
+	}
 	path := filepath.Join(workspace, "config.json")
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer cli-test-registered" {
@@ -44,7 +54,11 @@ func TestModelsCLIUsesRegisteredCredentialState(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"models", "--workspace", workspace, "--config", path, "--credential-state-dir", state, "--provider", "test"}, io.NopCloser(strings.NewReader("")), &stdout, &stderr)
+	args := []string{"models", "--workspace", workspace, "--config", path, "--provider", "test"}
+	if explicitRoot {
+		args = append(args, "--credential-state-dir", state)
+	}
+	code := run(args, io.NopCloser(strings.NewReader("")), &stdout, &stderr)
 	if code != 0 || !strings.Contains(stdout.String(), "cli-model") {
 		t.Fatalf("CLI exit=%d stderr=%s stdout=%s", code, stderr.String(), stdout.String())
 	}

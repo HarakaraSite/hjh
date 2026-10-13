@@ -43,6 +43,7 @@ git diff --check
 - Exa Web検索とResponses任意引数の修正：[I-22結果](results/i22-exa-web-search.md)。
 - 標準toolの引数・省略値・戻り値の説明改善：[確認結果](results/tool-definition-guidance.md)。
 - run_jsと内側toolの字下げ：[確認結果](results/tui-tool-nesting.md)。
+- APIキー・ChatGPT認証情報のユーザー設定配下への集約：[確認結果](results/credential-config-directory.md)。
 - 今後の検討： [使い方辞書と遅延読込み](design/extensions.md#将来の改善候補ツールの使い方辞書と遅延読込み)、
   [DB容量](design/history-schema.md#将来の改善候補db容量の最適化)、
   [テーマ差替え](design/tui-rendering.md#将来の改善候補テーマの差し替え)。

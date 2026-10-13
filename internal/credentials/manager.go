@@ -44,8 +44,8 @@ type Status struct {
 }
 
 type Options struct {
-	// StateDir is the hjh state directory. When empty, XDG_STATE_HOME/hjh or
-	// ~/.local/state/hjh is used.
+	// StateDir is the credential storage root (its credentials/ subdirectory
+	// contains the records). When empty, os.UserConfigDir()/hjh is used.
 	StateDir   string
 	HTTPClient *http.Client
 }
@@ -182,14 +182,11 @@ func (m *Manager) stateRoot() (string, error) {
 	if m.stateDir != "" {
 		return m.stateDir, nil
 	}
-	if base := os.Getenv("XDG_STATE_HOME"); base != "" {
-		return filepath.Join(base, "hjh"), nil
-	}
-	home, err := os.UserHomeDir()
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("find home directory for credential state: %w", err)
+		return "", fmt.Errorf("find user config directory for credentials: %w", err)
 	}
-	return filepath.Join(home, ".local", "state", "hjh"), nil
+	return filepath.Join(configDir, "hjh"), nil
 }
 
 func (m *Manager) oauthPath(profileName string, profile Profile) (string, error) {
@@ -209,6 +206,16 @@ func (m *Manager) oauthPath(profileName string, profile Profile) (string, error)
 }
 
 func expandHome(path string) (string, error) {
+	// Standard profiles use this explicit prefix so they follow XDG_CONFIG_HOME
+	// even when the variable is unset and the platform default must be used.
+	const configPrefix = "${XDG_CONFIG_HOME}/"
+	if strings.HasPrefix(path, configPrefix) {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("expand credential config path: %w", err)
+		}
+		return filepath.Join(configDir, strings.TrimPrefix(path, configPrefix)), nil
+	}
 	if path == "~" {
 		return os.UserHomeDir()
 	}

@@ -51,7 +51,9 @@ engineのMIT、go-intlのUnicode license、Math実装のfdlibm noticeを`license
 `--provider ID`・`--model ID`・`--effort VALUE` で切替できる。
 APIキーは `/login` の専用入力欄から登録できる。明示 `--credential-file PATH` → 登録キー → env → fileの順に使う。
 登録先は実効configとprofileごとの専用state。`--credential-state-dir PATH` はCore／CLIの保存rootを指定する。
-標準file参照は `~/.local/state/henji-harness/v1/credentials/` の各APIキー。
+既定保存rootは `$XDG_CONFIG_HOME/hjh`、Linuxで未指定なら `~/.config/hjh`。
+標準file参照はその `credentials/` の各APIキー。ChatGPT認証情報も同じ配下に保存する。
+configの `${XDG_CONFIG_HOME}/` prefixは、未指定時の既定directoryを含めて解決する。
 配布先では利用先のcredential参照へ設定を編集する。APIキーは設定JSONに書かない。
 ChatGPTは `hjh auth --provider openai-chatgpt login` でhjh自身の認証を保存し、
 `hjh models --provider openai-chatgpt` から利用可能modelを確認する。
@@ -131,7 +133,7 @@ TUIの`/context`で有効予算、出典、選択した履歴と保存元を確�
 上書きはconfig.jsonの`contextBudget.defaults/providers/models`で指定する。
 
 Web検索はExa版`web_search`。標準はauto検索＋highlightsで、domain/dateやcontents/outputSchemaも指定できる。
-`EXA_API_KEY`または`~/.local/state/henji-harness/v1/credentials/exa-api-key`を参照する。
+`EXA_API_KEY`または`${XDG_CONFIG_HOME}/hjh/credentials/exa-api-key`を参照する。
 キーはGoで認証headerへ付け、JSや履歴へ返さない。[検索契約](design/web-search.md)を参照する。
 既存workspaceではconfigのtool/role/credential参照とweb-search.jsを追加し、新binaryでCoreを再起動する。
 

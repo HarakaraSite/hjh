@@ -10,19 +10,19 @@
   "credentials": {
     "openrouter-api-key": {
       "env": "OPENROUTER_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/openrouter-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/openrouter-api-key"
     },
     "opencode-go-api-key": {
       "env": "OPENCODE_GO_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/opencode-go-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/opencode-go-api-key"
     },
     "openai-api-key": {
       "env": "OPENAI_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/openai-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/openai-api-key"
     },
     "exa-api-key": {
       "env": "EXA_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/exa-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/exa-api-key"
     }
   },
   "providers": {

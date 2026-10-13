@@ -104,11 +104,16 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 		t.Fatal(err)
 	}
 	const key = "search-secret-must-stay-in-Go-transport"
-	keyPath := filepath.Join(workspace, "exa-key")
+	configDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configDir)
+	t.Setenv("EXA_API_KEY", "")
+	keyPath := filepath.Join(configDir, "hjh", "credentials", "exa-api-key")
+	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(keyPath, []byte(key), 0600); err != nil {
 		t.Fatal(err)
 	}
-	config["credentials"].(map[string]any)["exa-api-key"] = map[string]string{"file": keyPath}
 	config["roles"].(map[string]any)["default"].(map[string]any)["tools"] = []string{"run_js", "spawn_agent", "collect_agent", "web_search"}
 	if err := os.WriteFile(path, contracts.JSON(config), 0644); err != nil {
 		t.Fatal(err)

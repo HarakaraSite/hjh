@@ -61,7 +61,7 @@ by `hjh providers`.
   "credentials": {
     "openrouter-api-key": {
       "env": "OPENROUTER_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/openrouter-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/openrouter-api-key"
     }
   },
   "providers": {
@@ -148,11 +148,11 @@ credential references rather than these fields.
   "credentials": {
     "openai-api-key": {
       "env": "OPENAI_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/openai-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/openai-api-key"
     },
     "opencode-go-api-key": {
       "env": "OPENCODE_GO_API_KEY",
-      "file": "~/.local/state/henji-harness/v1/credentials/opencode-go-api-key"
+      "file": "${XDG_CONFIG_HOME}/hjh/credentials/opencode-go-api-key"
     }
   }
 }
@@ -164,14 +164,22 @@ by `env`, then `file`. Registration belongs to the effective config path and
 profile, and never changes the external env/file references. Registered values
 are saved beneath the Core's credential state root, which can be selected with
 `--credential-state-dir` for serve, run, models, and auth.
-The file path may start with `~/`; other shell expressions are not expanded.
+The file path may start with `~/`. The standard profiles use
+`${XDG_CONFIG_HOME}/hjh/credentials/<profile>`; that explicit prefix resolves
+through `os.UserConfigDir()`, using `~/.config` on Linux when XDG_CONFIG_HOME
+is unset. Other shell expressions are not expanded.
 Either reference may be omitted when the other is used.
 
 Use `auth: {"kind":"none"}` for a route that does not require a credential.
 For `auth.kind: "chatgpt-oauth"`, `auth.profile` names the hjh-owned ChatGPT
 account. Its tokens are managed by hjh rather than placed in this JSON. An
 optional `oauthFile` on the matching credential entry selects the record path;
-otherwise hjh uses `$XDG_STATE_HOME/hjh` or `~/.local/state/hjh`.
+otherwise hjh saves it under `$XDG_CONFIG_HOME/hjh/credentials/chatgpt/`,
+or `~/.config/hjh/credentials/chatgpt/` on Linux when XDG_CONFIG_HOME is unset.
+Registered API keys use the same credential directory, under
+`api-keys/<config-scope>/<profile-digest>.json`. The explicit
+`--credential-state-dir PATH` option uses `PATH/credentials/` for both kinds.
+Core registry and model favorites continue to use XDG_STATE_HOME.
 Issued client/host registration is stored separately from account tokens, so a
 failed initial code exchange can begin fresh authorization with the same
 issued client. CLI login prompts again on `invalid_grant`; in the TUI, start

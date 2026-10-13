@@ -21,6 +21,7 @@ import (
 // The public registration operation must supply the actual catalog and run,
 // preserve external key files, and remain usable after a Core restart.
 func TestAuthenticationRegistrationCatalogRunAndRestart(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	workspace := t.TempDir()
 	configDir := filepath.Join(workspace, ".hjh", "extensions")
 	if err := extensions.InstallDefaults(configDir); err != nil {
@@ -69,9 +70,8 @@ func TestAuthenticationRegistrationCatalogRunAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	stateRoot := filepath.Join(workspace, "state")
 	start := func() (*apiclient.Client, *app.Service, func()) {
-		service := app.NewService(store, nil, app.RunOptions{Workspace: workspace, ConfigPath: configPath, CredentialStateDir: stateRoot})
+		service := app.NewService(store, nil, app.RunOptions{Workspace: workspace, ConfigPath: configPath})
 		handler := New(service, corerun.New(service, workspace))
 		server := httptest.NewServer(handler)
 		client, err := apiclient.New(server.URL)

@@ -80,7 +80,7 @@ func parseOptions(args []string, stderr io.Writer) (startupOptions, tui.Options,
 	dbPath := flags.String("db", "", "Core startup: history database (default: WORKSPACE/.hjh/history.sqlite3)")
 	configPath := flags.String("config", "", "Core startup: extension config JSON")
 	credentialFile := flags.String("credential-file", "", "Core startup: override API key file")
-	credentialStateDir := flags.String("credential-state-dir", "", "Core startup: credential state root")
+	credentialStateDir := flags.String("credential-state-dir", "", "Core startup: credential storage root (default: XDG_CONFIG_HOME/hjh or ~/.config/hjh; records under credentials/)")
 	modelFavoritesDir := flags.String("model-favorites-dir", "", "Core startup: model favorite state directory")
 	sessionID := flags.String("session", "", "Session short ID (unique prefix) to resume")
 	modelID := flags.String("model", "", "model ID for the next run")
