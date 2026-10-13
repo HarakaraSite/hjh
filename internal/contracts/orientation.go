@@ -3,6 +3,8 @@ package contracts
 // BaseInstruction identifies the common instruction sources without their text.
 type BaseInstruction struct {
 	BuiltinVersion       string `json:"builtinVersion"`
+	Path                 string `json:"path,omitempty"`
+	Digest               string `json:"digest,omitempty"`
 	ConfigPath           string `json:"configPath"`
 	HasSystemInstruction bool   `json:"hasSystemInstruction"`
 }

@@ -219,6 +219,14 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			"role": input.snapshot.Agent.Name, "context": input.orientation})}); err != nil {
 		return result, err
 	}
+	if source := input.snapshot.BaseInstructionSource; source != nil {
+		_, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{Kind: "resource_revision", Payload: contracts.JSON(map[string]any{
+			"configurationId": input.snapshot.ConfigurationID, "logicalIdentity": source.LogicalIdentity, "sourceLocator": source.SourceLocator,
+			"contentDigest": source.ContentDigest}), Content: source.Bytes})
+		if err = control.storage(e); err != nil {
+			return result, err
+		}
+	}
 	for _, instruction := range input.workspaceContext.Instructions {
 		// Keep instruction provenance, but do not archive the extension tree.
 		// Captured module bytes belong to the live Worker, not the history DB.

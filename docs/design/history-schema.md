@@ -310,3 +310,12 @@ schemaは変更せず、過去に保存済みのソースは一括削除しな�
 新しい実行記録からDBだけで調べることはできなくなる。
 以前の「source bytesをarchiveする」という初期設計は、この決定により上記範囲で置き換える。
 [確認結果](../results/initial-run.md#2026-10-13追補実装ソースの自動保存を停止)を参照する。
+
+### ユーザー共通の基本指示
+
+2026-10-14、[基本指示の差替え](base-instructions.md)により選択したbaseのpath/digestまたは
+built-in versionを使用構成snapshot・実行orientationへ保存する。
+基本指示本文はinstructionComponentsと組立済み指示に残し、外部base.mdの原文と出典は
+AGENTS.md同様、既存のresource_revision/contentsへ保存する。
+これは利用者が書く指示の記録であり、ツール実装ソース一式の自動archiveは行わない。
+schema変更と既存履歴の変換は追加していない。

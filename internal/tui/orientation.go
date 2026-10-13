@@ -162,18 +162,20 @@ func orientationLabel(mode string) string {
 }
 
 func formatBaseInstruction(base contracts.BaseInstruction) string {
-	builtin := "built-in"
-	if base.BuiltinVersion != "" {
-		builtin += " v" + base.BuiltinVersion
+	label := "built-in"
+	if base.Path != "" {
+		label = base.Path
+	} else if base.BuiltinVersion != "" {
+		label += " v" + base.BuiltinVersion
 	}
 	if !base.HasSystemInstruction {
-		return builtin + " · config system instruction absent"
+		return label + " · config system instruction absent"
 	}
 	config := base.ConfigPath
 	if config == "" {
 		config = "config path unavailable"
 	}
-	return builtin + " · config system instruction present · " + config
+	return label + " · config system instruction present · " + config
 }
 
 func formatOrientationDetails(value api.Orientation, fallback string) string {

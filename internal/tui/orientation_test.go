@@ -26,6 +26,20 @@ func testOrientation(mode, workspace, role, path, skill string) api.Orientation 
 	}
 }
 
+func TestExternalBaseInstructionSourceInHeaderAndContext(t *testing.T) {
+	const path = "/home/user/.config/hjh/instructions/base.md"
+	orientation := testOrientation("actual", "/work", "default", "/work/AGENTS.md", "report")
+	orientation.Base = contracts.BaseInstruction{Path: path, Digest: "captured-digest", ConfigPath: "/config/hjh.json", HasSystemInstruction: true}
+	m := model{headerOrientation: orientation, headerOrientationSet: true}
+	base, _, _ := m.headerOrientationValues()
+	details := formatOrientationDetails(orientation, "actual")
+	for _, displayed := range []string{base, details} {
+		if !strings.Contains(displayed, path) || strings.Contains(displayed, "built-in") {
+			t.Fatalf("external base source misrepresented: %s", displayed)
+		}
+	}
+}
+
 func TestInitialInputCanRunBeforePreviewAndActualWinsHeaderBeforeBody(t *testing.T) {
 	entered := make(chan api.OrientationRequest, 1)
 	release := make(chan struct{})

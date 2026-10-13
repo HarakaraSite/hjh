@@ -24,8 +24,11 @@ func contextWrite(t *testing.T, path, text string) {
 }
 
 func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
 	t.Setenv("HOME", t.TempDir())
+	basePath := filepath.Join(xdg, "hjh", "instructions", "base.md")
+	contextWrite(t, basePath, "BASE_ONE\n")
 	store, workspace := delegationStore(t)
 	agents := filepath.Join(workspace, "AGENTS.md")
 	skill := filepath.Join(workspace, ".hjh", "skills", "report", "SKILL.md")
@@ -60,10 +63,14 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 		counts[task]++
 		switch task {
 		case "first":
+			if !strings.Contains(req.Instruction, "BASE_ONE") || strings.Contains(req.Instruction, "BASE_TWO") || strings.Contains(req.Instruction, "You are a generic agent") {
+				t.Error("first execution did not freeze the replacing base instruction")
+			}
 			if !strings.Contains(req.Instruction, "AGENTS_ONE") || !strings.Contains(req.Instruction, "DESCRIPTION_ONE") || strings.Contains(req.Instruction, "BODY_ONE") {
 				t.Errorf("incorrect first instruction: %s", req.Instruction)
 			}
 			if counts[task] == 1 {
+				contextWrite(t, basePath, "BASE_TWO\n")
 				contextWrite(t, skill, body("DESCRIPTION_TWO", "BODY_TWO"))
 				contextWrite(t, agents, "AGENTS_TWO\n")
 				return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "read", Name: "read_file", Arguments: contracts.JSON(map[string]string{"path": skill})}}}, nil
@@ -73,6 +80,9 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 			}
 			return contracts.ModelResult{Text: "first done"}, nil
 		case "second":
+			if !strings.Contains(req.Instruction, "BASE_TWO") || strings.Contains(req.Instruction, "BASE_THREE") || strings.Contains(req.Instruction, "BASE_ONE") {
+				t.Error("resume did not refresh and freeze the replacing base")
+			}
 			if !strings.Contains(req.Instruction, "AGENTS_TWO") || !strings.Contains(req.Instruction, "DESCRIPTION_TWO") {
 				t.Error("resume did not refresh instruction and catalog")
 			}
@@ -85,10 +95,14 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 					t.Error("JS outer result did not return skill body")
 				}
 				contextWrite(t, agents, "AGENTS_THREE\n")
+				contextWrite(t, basePath, "BASE_THREE\n")
 				return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "child", Name: "run_agent", Arguments: contracts.JSON(map[string]string{"role": "reviewer", "task": "child"})}}}, nil
 			}
 			return contracts.ModelResult{Text: "second done"}, nil
 		case "child":
+			if !strings.Contains(req.Instruction, "BASE_THREE") || strings.Contains(req.Instruction, "BASE_TWO") || strings.Contains(req.Instruction, "You are a generic agent") {
+				t.Error("child did not read the current replacing base")
+			}
 			if !strings.Contains(req.Instruction, "AGENTS_THREE") || !strings.Contains(req.Instruction, "DESCRIPTION_THREE") || !strings.Contains(req.Instruction, "CHILD_ROLE_ONLY") || strings.Contains(req.Instruction, "PARENT_ROLE_ONLY") {
 				t.Errorf("child context incorrect: %s", req.Instruction)
 			}
@@ -103,6 +117,12 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 		return contracts.ModelResult{}, fmt.Errorf("unexpected task %q", task)
 	})
 	ctx := context.Background()
+	service := NewService(store, provider, RunOptions{Workspace: workspace})
+	defer service.Close()
+	preview, err := service.Orientation(ctx, RunRequest{})
+	if err != nil || preview.Base.Path != basePath || preview.Base.Digest != extensions.Digest([]byte("BASE_ONE\n")) || preview.Base.BuiltinVersion != "" {
+		t.Fatalf("base preview: %+v %v", preview.Base, err)
+	}
 	first, err := Run(ctx, store, provider, RunOptions{Task: "first", Workspace: workspace, ModelID: "test/model"})
 	if err != nil || !first.Result.OK {
 		t.Fatalf("first: %+v %v", first, err)
@@ -115,8 +135,11 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	foundSource, foundWire, foundBudget := false, false, false
+	foundSource, foundWire, foundBudget, foundBase := false, false, false, false
 	for _, r := range records {
+		if r.Kind == "resource_revision" && string(r.Content) == "BASE_ONE\n" && strings.Contains(string(r.Payload), basePath) {
+			foundBase = true
+		}
 		if r.Kind == "resource_revision" && string(r.Content) == "AGENTS_ONE\n" {
 			foundSource = true
 		}
@@ -127,8 +150,8 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 			foundBudget = true
 		}
 	}
-	if !foundSource || !foundWire || !foundBudget {
-		t.Fatalf("source/wire/budget=%v/%v/%v", foundSource, foundWire, foundBudget)
+	if !foundSource || !foundWire || !foundBudget || !foundBase {
+		t.Fatalf("source/wire/budget/base=%v/%v/%v/%v", foundSource, foundWire, foundBudget, foundBase)
 	}
 	configuration, err := store.Configuration(ctx, mustExecution(t, store, first.ExecutionID).ConfigurationID)
 	if err != nil {
@@ -136,6 +159,12 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 	}
 	if !strings.Contains(string(configuration.Snapshot), "AGENTS_ONE") || strings.Contains(string(configuration.Snapshot), "BODY_ONE") {
 		t.Fatalf("configuration body was eager-loaded: %s", configuration.Snapshot)
+	}
+	var saved struct {
+		Base contracts.BaseInstruction `json:"baseInstruction"`
+	}
+	if err := json.Unmarshal(configuration.Snapshot, &saved); err != nil || saved.Base != preview.Base {
+		t.Fatalf("actual stored base differs from the initial preview: %+v %v", saved.Base, err)
 	}
 }
 

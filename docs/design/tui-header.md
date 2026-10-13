@@ -27,6 +27,10 @@ previewと、実runが固定したactual metadataを区別する。本文はhead
 実metadataが先に届いた場合はそれで確定する。後の更新でheaderを追加しない。
 狭幅headerは2行を維持し、Session未作成でも/contextから出典と利用可能skillを確認できる。
 
+ユーザー共通の[base.md](base-instructions.md)を使う場合、baseの行と/contextにはそのpathを表示する。
+組込み基本指示を使う場合は従来通りbuilt-inとversionを示す。
+actualの出典は実行開始時の値を保持し、後のファイル編集や再接続によって差し替えない。
+
 Glamour導入後は、実terminalの幅で最初から描画する。
 metadataが確定したframeでheaderに続けて保存済み本文を一度だけ出力し、
 opening前に履歴の末尾だけを画面へ出したり、追加入力まで本文の確定出力を待ったりしない。

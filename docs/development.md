@@ -253,6 +253,10 @@ Coreの`--model-favorites-dir PATH`で保存先だけを変更でき、credentia
 既定DBはworkspace内 `.hjh/history.sqlite3`、外部tool・hookは `.hjh/extensions/`。
 `index.js`・`hooks.js`・`config.json` を編集すると次のrunから反映される。
 設定の `model` は `{"provider":"openrouter-responses","modelId":"deepseek/deepseek-v4.1-flash","effort":"auto"}` のように指定する。
+`~/.config/hjh/instructions/base.md`があれば組込み基本指示を置き換える。
+XDG_CONFIG_HOME指定時はその配下の`hjh/instructions/base.md`を使う。
+role/tool指示・AGENTS.md・skillsは別に組み合わせ、編集は次の親ターン・再開・子開始から反映する。
+[基本指示の契約](design/base-instructions.md)を参照する。
 別DBや配布設定を使う場合は `--db PATH`・`--config PATH` を指定する。
 新規接続は明示選択、role.model、全体modelの順。再開は明示選択、Session保存selectionの順で選ぶ。
 roleは明示flag／TUI選択、Session保存role、config.defaultRoleの順。親も子も共通genericへ外部roleを渡す。

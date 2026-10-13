@@ -14,9 +14,10 @@ filesystemの祖先からworkspaceまでのAGENTS.mdを、この順に組み込�
 各親ターン、Session再開、子開始時に再読し、その実行中は本文を固定する。
 F3追加入力では組み直さず、予約入力は実行開始時の内容を使う。
 
-既存の組込み共通指示・role指示・systemInstruction・委譲案内へ本文を追加する。
+基本指示・role指示・systemInstruction・委譲案内へ本文を追加する。
 configのinstructionComponentsは保存metadataのままで、新しい命令入力として解釈しない。
-独立したbase instruction資産管理やモデルID別の指示は追加しない。
+基本指示は2026-10-14に[ユーザー共通ファイルでの差替え](base-instructions.md)を追加した。
+instruction資産の登録管理やモデルID別の指示は追加していない。
 
 ## Skill一覧と本文
 

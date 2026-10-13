@@ -1,9 +1,9 @@
 # hjhと旧Henjiの機能比較
 
-2026-10-13更新。初回の比較に、子agent、hook、読取りtool、標準role、認証保存先、
+2026-10-14更新。初回の比較に、子agent、hook、読取りtool、標準role、認証保存先、基本指示の差替え、
 workspaceのモデル選択保存、CLIセッション削除、履歴保存とprovider互換性の後続改善を反映した。
 通常の対話、Core、履歴、認証、コンテキスト予算管理はhjhにも揃っている。
-残る差は、コマンド途中出力・分割取得、要約checkpoint、基本指示全体の差替え、
+残る差は、コマンド途中出力・分割取得、要約checkpoint、
 設定管理CLI、TUI・Core経由のセッション削除などである。未実装の項目すべてを採用する方針ではない。
 
 この比較は未実装機能を検討するための調査結果であり、全機能の移植を要求する要件や実装計画ではない。
@@ -13,8 +13,8 @@ workspaceのモデル選択保存、CLIセッション削除、履歴保存とpr
 
 | 対象 | 比較時点 |
 | --- | --- |
-| hjh | `/home/agent/projects/hjh`。HEAD `36748e04f9aebca6dc044a22897fecfebe448e0b`までの実装と結果文書 |
-| 更新時の未コミット変更 | この比較文書のみ。初回調査時のフッター・Glamour・配色等はコミット済み |
+| hjh | `/home/agent/projects/hjh`。HEAD `6a0c47983771700d968f46245bcdfe508b664ab8`と、その上の基本指示差替えの実装・結果文書 |
+| 更新時の未コミット変更 | ユーザー共通base.mdによる基本指示の差替えと、この比較の更新を含む |
 | 旧Henji | `/home/agent/projects/henji-harness`。HEAD `2eb586316f80ec8297873a96122568d0088971eb`の現行実装 |
 
 旧Henjiの実行ファイルもCLI上では`hjh`と表示するが、本書の「旧Henji」はDeno版の
@@ -83,7 +83,7 @@ I-22で外部toolから非モデルサービスを呼ぶ認証付きHTTP共通�
 | 22 | hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **完了（I-20）**。runtimeStart/beforeTurnの追加文脈、予算管理、hook結果と実requestのattributionを実装・確認済み。次turnへ累積しない |
 | 23 | 要約checkpointの保存と再利用 | `after_turn`から要約と対象turn境界を返し、後続会話へ渡せる | **未実装**。現在は予算内に収まる履歴を選んで送る方式 |
 | 24 | tool自身が持つ利用指示 | `promptGuidelines`を有効toolから集めて共通指示へ追加 | **完了（I-21）**。任意外部toolの宣言から親・子の有効tool分だけ収集し、run_js・子操作も同じ経路を使う。snapshot・実requestへ保存。[確認結果](i21-tool-guidelines.md) |
-| 25 | 基本指示全体の差替え | ユーザーの`instruction.md`で組込み基本指示を置換 | **未実装**。現在の`systemInstruction`、role指示、AGENTS.mdは追加する方式 |
+| 25 | 基本指示全体の差替え | ユーザーの`instruction.md`で組込み基本指示を置換 | **実装済み**。`~/.config/hjh/instructions/base.md`（XDG対応）で組込み基本指示を置換。親・子・再開に適用し、role/tool/AGENTS/skillsは別に追加。原文・出典を保存し、headerと/contextに出典を表示。[確認結果](base-instructions.md) |
 | 26 | 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **完了（I-20）**。標準runtimeStart例がGo由来の開始日時・UTC offset・timezone表示名を文脈へ渡す。編集済みhookを自動上書きしない |
 
 ### 子agentの操作範囲
@@ -195,7 +195,7 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 52 | 停止した作業の引継ぎ | `/recall` | [contextとrecall](i10-context-recall.md) |
 | 53 | 接続選択 | provider、model、effort picker、お気に入り、workspaceごとの即時保存と新規Sessionへの引継ぎ、モデル変更時のeffortリセット | [接続選択](i08-connection-selection.md)、[選択保存](remembered-model-selection.md)、[お気に入り](i11-model-favorites.md) |
 | 54 | 認証 | APIキー、ChatGPTの追加と再認証と複数accountの選択機構。既定保存先は`~/.config/hjh/credentials/`（XDG_CONFIG_HOME対応）、モデルとtoolの認証は同じManagerを使用 | [認証UI](i12-authentication-ui.md)、[保存先集約](credential-config-directory.md) |
-| 55 | 指示とskills | ユーザー共通・祖先・workspaceのAGENTS.md、role指示、起動・各親子開始時のskill一覧、利用時の本文読取り。`~/.config/hjh/skills/`と`workspace/.hjh/skills/`を探索 | [workspace指示とskills](../design/workspace-instructions-skills.md) |
+| 55 | 指示とskills | ユーザー共通base.mdによる基本指示差替え、共通・祖先・workspaceのAGENTS.md、role指示、起動・各親子開始時のskill一覧、利用時の本文読取り。`~/.config/hjh/skills/`と`workspace/.hjh/skills/`を探索 | [基本指示](base-instructions.md)、[workspace指示とskills](../design/workspace-instructions-skills.md) |
 | 56 | Web読取り | HTML可読化、1MiB上限、`save_to` | [Webと予算管理](i14-web-context.md) |
 | 57 | Web検索 | Exa auto/highlights、各option、直接/生成JS/子の利用、認証付きHTTPと保存 | [I-22の完了結果](i22-exa-web-search.md) |
 | 58 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
@@ -219,7 +219,7 @@ DBは引き続き実行・メッセージ・詳細記録・使用構成とconten
 セッション削除では関連履歴に加え、他の記録から参照されなくなった本文・構成も回収する。
 実行中の追加指示は受付本文と適用後のメッセージを独立に保存する。
 ツール・hook・依存ファイル・元configのソース一式は自動保存しないが、AGENTS.md原文、
-使用指示・ツール定義、モデル送信内容、ツール呼出し・結果は保存する。
+使用指示・ツール定義、モデル送信内容、ツール呼出し・結果、外部base.mdの原文・出典は保存する。
 共有本文構造全体の廃止と、DBファイルの縮小は未対応。[保存契約](../design/history-schema.md)を参照する。
 
 ## 方式差と旧側も未完成の機能
@@ -250,7 +250,7 @@ hjhの方式は[初期製品の採用方針](../design/initial-product.md)、[wo
 
 - コマンドの途中出力と、大量出力の分割取得。
 - 会話の要約checkpoint保存・再利用（利用者指定により、まだ実装しない）。
-- 基本指示全体の差替え、設定管理CLI、runの機械向けイベント出力。
+- 設定管理CLI、runの機械向けイベント出力。
 - TUI・Core経由のSession削除、最新Session再開などの人間向け操作。
 
 専用toolの不足、一般操作では代替できない機構、意図的に採用していない操作を区別し、

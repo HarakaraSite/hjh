@@ -101,6 +101,10 @@ Credentials are stored in `~/.config/hjh/credentials/` on Linux, or under
 `$XDG_CONFIG_HOME/hjh/credentials/` when set. API keys stay outside workspace
 configuration and Git history.
 
+To replace the built-in base instructions, create `~/.config/hjh/instructions/base.md`
+on Linux (or `$XDG_CONFIG_HOME/hjh/instructions/base.md`). Role, tool, and workspace
+instructions are still combined with it. Edits take effect on the next run.
+
 Add workspace instructions in `AGENTS.md` and skills in
 `.hjh/skills/<name>/SKILL.md`. Skill descriptions are loaded at run start;
 their full instructions are read when needed. Exa search can use `EXA_API_KEY`.

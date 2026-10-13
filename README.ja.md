@@ -100,6 +100,10 @@ TUIで選んだprovider・モデル・effortは、再起動後も同じworkspace
 `$XDG_CONFIG_HOME/hjh/credentials/`へ保存します。APIキーはworkspaceの設定や
 Git履歴へ含めません。
 
+組込み基本指示を差し替えるには、Linuxでは`~/.config/hjh/instructions/base.md`
+（XDG_CONFIG_HOME指定時は`$XDG_CONFIG_HOME/hjh/instructions/base.md`）を作成します。
+role・tool・workspaceの指示は引き続き組み合わせ、編集は次の実行から反映します。
+
 workspaceの指示は`AGENTS.md`、skillsは`.hjh/skills/<name>/SKILL.md`に置きます。
 skillの説明は実行開始時に読み込み、詳しい指示は必要になったときに読みます。
 Exa検索には`EXA_API_KEY`を利用できます。

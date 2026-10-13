@@ -100,7 +100,9 @@ role.toolsと子の明示tools上書きの解決後、有効tool順・配列順�
 
 built-in run_jsもこのfieldを持つ。async本文、英文目的コメント、QuickJSの待機方法と、
 選択された子操作に対応するJS APIを案内する。標準の六つの子操作は外部config側で指示を持つ。
-無効なtoolのguidelinesは加えない。role本文・共通の途中報告指示・子role catalogは別の指示として扱う。
+無効なtoolのguidelinesは加えない。role本文・基本指示・子role catalogは別の指示として扱う。
+組込み基本指示には共通の途中報告指示も含む。[base.mdでの差替え](base-instructions.md)は
+この組込み基本指示全体を置換し、有効toolのguidelinesは引き続き追加する。
 既存workspaceの外部configは自動上書きしないため、既存子toolには配布configのguidelinesを反映する。
 このrepositoryの利用workspaceには反映済み。
 

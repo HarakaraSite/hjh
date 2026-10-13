@@ -112,16 +112,17 @@ type LegacyHook struct {
 }
 
 type configurationSnapshot struct {
-	SchemaVersion         int               `json:"schemaVersion"`
-	ConfigurationID       string            `json:"configurationId"`
-	Agent                 LegacyAgent       `json:"agent"`
-	Source                LegacySource      `json:"source"`
-	SystemInstruction     string            `json:"systemInstruction"`
-	InstructionComponents []json.RawMessage `json:"instructionComponents"`
-	ToolPaths             LegacyToolPaths   `json:"toolPaths"`
-	Tools                 []LegacyTool      `json:"tools"`
-	Hooks                 []LegacyHook      `json:"hooks"`
-	Rejections            []json.RawMessage `json:"rejections"`
+	SchemaVersion         int                       `json:"schemaVersion"`
+	ConfigurationID       string                    `json:"configurationId"`
+	Agent                 LegacyAgent               `json:"agent"`
+	Source                LegacySource              `json:"source"`
+	BaseInstruction       contracts.BaseInstruction `json:"baseInstruction"`
+	SystemInstruction     string                    `json:"systemInstruction"`
+	InstructionComponents []json.RawMessage         `json:"instructionComponents"`
+	ToolPaths             LegacyToolPaths           `json:"toolPaths"`
+	Tools                 []LegacyTool              `json:"tools"`
+	Hooks                 []LegacyHook              `json:"hooks"`
+	Rejections            []json.RawMessage         `json:"rejections"`
 }
 
 type Resource struct {
@@ -139,6 +140,7 @@ type Snapshot struct {
 	Source                LegacySource
 	SystemInstruction     string
 	BaseInstruction       contracts.BaseInstruction
+	BaseInstructionSource *Resource
 	InstructionComponents []json.RawMessage
 	ToolPaths             []string
 	Tools                 []Tool
@@ -364,18 +366,19 @@ func capture(root, configPath, selectedRole string, toolOverride *[]string) (Sna
 		Root:                  root,
 	}
 	activeGuidelines := toolGuidelinesSection(selectedTools)
-	snapshot.SystemInstruction = assembleInstruction(cfg.SystemInstruction, role, roleName, selectedTools, activeGuidelines, catalog.Roles)
+	base, err := selectBaseInstruction(cfg, configPath, roleName)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	snapshot.SystemInstruction = assembleInstruction(base.text, cfg.SystemInstruction, role, selectedTools, activeGuidelines, catalog.Roles)
+	snapshot.BaseInstruction, snapshot.BaseInstructionSource = base.base, base.source
+	snapshot.InstructionComponents = append(snapshot.InstructionComponents,
+		contracts.JSON(map[string]any{"identity": baseInstructionIdentity, "text": base.text, "source": base.base}))
 	if activeGuidelines != "" {
 		snapshot.InstructionComponents = append(snapshot.InstructionComponents,
 			contracts.JSON(map[string]string{"identity": "instruction:active-tool-guidelines", "text": activeGuidelines}))
 	}
-	snapshot.BaseInstruction = instructionBase(cfg, configPath)
 	return snapshot, nil
-}
-
-func instructionBase(cfg Config, configPath string) contracts.BaseInstruction {
-	return contracts.BaseInstruction{BuiltinVersion: buildinfo.Version, ConfigPath: configPath,
-		HasSystemInstruction: cfg.SystemInstruction != ""}
 }
 
 // InstructionProfile resolves the metadata needed for context discovery without
@@ -399,8 +402,12 @@ func ResolveInstructionProfile(data []byte, configPath, selectedRole string) (In
 	if err != nil {
 		return InstructionProfile{}, err
 	}
+	base, err := selectBaseInstruction(cfg, configPath, name)
+	if err != nil {
+		return InstructionProfile{}, err
+	}
 	return InstructionProfile{Role: name, ReadFile: containsToolFromTools(tools, "read_file"),
-		Base: instructionBase(cfg, configPath)}, nil
+		Base: base.base}, nil
 }
 
 // EmbeddedConfig returns the built-in configuration bytes without installing
@@ -562,10 +569,11 @@ func toolGuidelinesSection(tools []Tool) string {
 	return "## Active tool guidelines\n" + strings.Join(guidelines, "\n")
 }
 
-func assembleInstruction(configInstruction string, role Role, roleName string, tools []Tool, activeGuidelines string, catalog []RoleInfo) string {
+func assembleInstruction(baseInstruction, configInstruction string, role Role, tools []Tool, activeGuidelines string, catalog []RoleInfo) string {
 	var sections []string
-	sections = append(sections, "You are a generic agent executing role \""+roleName+"\". Use the registered tool definitions to perform the requested work and report the result.")
-	sections = append(sections, "During multi-step work, share useful findings and progress as concise ordinary assistant text before continuing with tools.")
+	if baseInstruction != "" {
+		sections = append(sections, baseInstruction)
+	}
 	if activeGuidelines != "" {
 		sections = append(sections, activeGuidelines)
 	}
@@ -630,6 +638,7 @@ func (s Snapshot) JSON() ([]byte, error) {
 	}
 	return json.Marshal(configurationSnapshot{
 		SchemaVersion: 1, ConfigurationID: s.ConfigurationID, Agent: s.Agent, Source: s.Source,
+		BaseInstruction:   s.BaseInstruction,
 		SystemInstruction: s.SystemInstruction, InstructionComponents: s.InstructionComponents,
 		ToolPaths: LegacyToolPaths{Source: toolPathSource, Deny: []string{}}, Tools: tools,
 		Hooks: s.Hooks, Rejections: s.Rejections,
