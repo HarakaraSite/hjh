@@ -2,11 +2,13 @@
 
 [日本語](README.ja.md)
 
+**hjh** is short for **henji-harness**. *Henji* (返事) means "reply" in Japanese.
+
 A terminal AI agent for working with files, commands, and web sources.
 Use it interactively or from the command line, keep your session history, and
 delegate work to child agents.
 
-Currently in early development. The supported target is Linux/amd64.
+This project is still under development. The supported target is Linux/amd64.
 
 ## Features
 
