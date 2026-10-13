@@ -9,6 +9,9 @@ Responses requests include `reasoning.summary: "auto"`; an explicitly selected
 effort is sent alongside it. Public reasoning text and summaries are separate
 conversation items. A provider returning no readable reasoning creates neither
 item; encrypted replay data remains provider state.
+Summaries are requested explicitly, streamed when returned, saved in history,
+and shown in the TUI as `thinking summary`. Availability depends on the model's
+response, as described in the [OpenAI reasoning guide](https://developers.openai.com/api/docs/guides/reasoning#reasoning-summaries).
 
 Responses function definitions explicitly send `strict: false`, including functions
 inside a namespace. This preserves the extension schema's required and optional
@@ -135,9 +138,30 @@ The `adapter` values map to the shared protocol options. `store` is the
 Responses request's store value. `namespaceTools` applies the tool namespace
 expected by the selected route. `reasoningReplay` permits provider state to be
 replayed for the same destination and model, and `reasoningField` names the
-provider-specific Chat Completions field used for reasoning state. `headers`
+provider-specific Chat Completions field read for public thinking and reasoning state. `headers`
 and `sessionHeader` are passed to the transport; keep credential values in
 credential references rather than these fields.
+
+The standard OpenCode Go Chat definition sets
+`"adapter": {"reasoningField": "reasoning_content", "reasoningReplay": true}`.
+This reads thinking text for live progress and saved history, and preserves it
+in assistant messages sent back to the same destination, account and model.
+The field is declared by the official OpenCode model definitions for
+[DeepSeek V4.1 Flash](https://github.com/anomalyco/models.dev/blob/dev/providers/opencode-go/models/deepseek-v4.1-flash.toml),
+[MiMo V2.6 Pro](https://github.com/anomalyco/models.dev/blob/dev/providers/opencode-go/models/mimo-v2.6-pro.toml), and
+[GLM 5.3](https://github.com/anomalyco/models.dev/blob/dev/providers/opencode-go/models/glm-5.3.toml).
+Leaving `reasoningField` empty disables Chat Completions thinking extraction,
+even if usage reports reasoning tokens. Other provider definitions should use
+their documented field; this does not add automatic field detection.
+Existing edited config files are not overwritten by default installation.
+
+All standard Responses definitions set `store: false` and `reasoningReplay: true`.
+For the same destination, account and model, this reuses the returned output
+items, including reasoning state, before the matching tool result in the next
+request. Public summary extraction does not depend on `reasoningReplay`.
+The current [OpenAI stateless reasoning contract](https://developers.openai.com/api/docs/guides/reasoning)
+returns encrypted reasoning state by default with `store: false`; the legacy
+`include: ["reasoning.encrypted_content"]` option is not required.
 
 ## Credentials
 

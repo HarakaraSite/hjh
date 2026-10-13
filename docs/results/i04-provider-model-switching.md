@@ -94,3 +94,48 @@ OAuthの更新前・更新後tokenもDB・ログ・PTYに存在しないこと�
 対象はLinux/amd64と指定した実model。GoのMessages API、別OS、旧config／DB／tokenの自動変換、公開は対象外。
 初回登録のexpired-code回復と複数process refresh直列化は公式契約に対応するtestで確認した。
 実ブラウザで期限切れcodeを意図的に生成する確認や、実時間で1時間を跨ぐrunは実施していない。
+
+## 2026-10-13追補：OpenCode Go Chatのthinking設定漏れ
+
+利用者指定のSession `b881e477`はOpenCode Go Chat／DeepSeek V4.1 Flash／maxで9回生成し、
+usageのreasoning tokensは合計18,089だったが、thinking本文は保存されていなかった。
+標準・workspaceのprovider定義で`adapter.reasoningField`が未設定だったため、共通Chat受信処理が
+thinkingを読み取らない状態だった。Git履歴では最初のcommit `4c9bb5b`から未指定であり、
+今回のソース保存停止やセッション削除変更によるregressionではない。
+以前のOpenCode Go Chat Session `9ad5278e`も本文0件で、OpenRouter ResponsesのDeepSeekでは
+Session `c008fb3a`等にthinking本文が保存されていた。
+
+配布configと利用者のworkspace configへ`reasoningField: "reasoning_content"`、
+`reasoningReplay: true`を設定した。公開thinkingの受信・保存と、同じ接続・account・modelへの
+assistant reasoning stateの再送を有効にする。モデル固有のハードコードやフィールド推測は追加しない。
+DeepSeekだけの形式ではなく、公式モデル定義のMiMo V2.6 ProとGLM 5.3も同じfieldを指定している。
+[設定契約と出典](../design/providers.md)を参照する。
+
+標準配布configを使う新しいapp testで、HTTPストリームのthinkingがlive通知・保存履歴へ届き、
+read_file実行後の入力へ返されることを確認した。既存のprotocol focused tests、appのvet、diff checkも成功。
+更新した実binaryと一時DB・ローカルHTTPでも、thinking本文2つの保存・CLI history表示、
+ツール後の再送を確認した。実際の外部providerへのAPI呼出しは行っていない。
+既存Sessionの受信ストリーム自体は保存されていないので、失われた本文の復元は行わない。
+workspaceの修正は次の実行でcaptureされる。編集済みの他workspaceのconfigを自動変換する処理は追加しない。
+
+## 2026-10-13追補：標準provider設定の横断確認
+
+標準5接続についてconfig→registry→connection factory→wire生成・受信→履歴の経路を確認した。
+OpenAI API ResponsesとOpenCode Go Responsesでは`adapter.reasoningReplay`が未指定でfalseとなり、
+保存したreasoning outputを次のrequestへ返していなかった。配布configと現在のworkspace configへ
+`store: false`、`reasoningReplay: true`を設定した。OpenRouter ResponsesとChatGPT Responsesは既に有効だった。
+
+OpenAIのthinking summaryは以前から`reasoning.summary: "auto"`で要求し、受信・保存・TUI表示する。
+今回の再送設定とは独立しており、要約を受信しても次requestのreasoning stateを省く状態があり得た。
+現行の[OpenAI公式契約](https://developers.openai.com/api/docs/guides/reasoning)では`store: false`で
+encrypted reasoningが既定で返るため、旧Henjiが指定したlegacy include項目は追加しない。
+
+標準configの4つのResponses接続をそのままfactoryへ渡すapp testで、ローカルHTTPからのsummaryを
+live通知・復元履歴で確認し、read_file後にreasoning・function_call・結果が順序通り次requestへ届くことを確認した。
+OpenCode Goのsession headerとUser-Agentも同じ実経路で確認した。テスト用のendpoint・auth・capacity metadataだけを
+置き換え、adapterは配布設定を使用した。Chatのthinking testも含めたfocused testsとvet、diff checkが成功した。
+両binaryを再buildし、一時workspace・DBで実CLIのOpenAI API ResponsesとOpenCode Go Responsesを
+ローカルHTTPへ接続した。summaryの要求、reasoning stateのツール後再送、最終回答のstdout、
+`hjh history`へのsummary表示を確認した。一時データは確認後に削除した。
+外部APIによる実確認は行っていない。接続先、認証profile参照、model/APIの分離、既存namespace指定については、
+現行実装・旧Henjiの実行証拠・公式契約と突き合わせ、今回追加修正を要する設定漏れは確認しなかった。
