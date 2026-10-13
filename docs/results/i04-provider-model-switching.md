@@ -139,3 +139,25 @@ OpenCode Goのsession headerとUser-Agentも同じ実経路で確認した。テ
 `hjh history`へのsummary表示を確認した。一時データは確認後に削除した。
 外部APIによる実確認は行っていない。接続先、認証profile参照、model/APIの分離、既存namespace指定については、
 現行実装・旧Henjiの実行証拠・公式契約と突き合わせ、今回追加修正を要する設定漏れは確認しなかった。
+
+## 2026-10-13追補：ツール結果の余分なnameを省略
+
+Session `60dd8278`／OpenCode Go Chat／GLM-5.3-Flash／maxは、最初の生成とfind実行が成功した後、
+2回目の生成が`messages[3]: "name" is not supported by this endpoint`というHTTP 400で失敗した。
+送信wireのrole=toolに`name: "find"`が付いていた。GLM-5.3のSession `01f6755d`と
+DeepSeek V4.1 Flashの`b881e477`では同じname付きの結果を送り正常完了しており、
+Goのモデル別API経路で受け付け方に差がある。GLM全体の制限とは位置付けない。
+OpenRouter経由のGLM-5.3-Flashの実挙動は未確認であり、同じ失敗を推測で当てはめない。
+
+旧HenjiはChatとResponsesのどちらでも結果にnameを付けていなかった。
+利用者の採用に従い、hjhも両wire encoderから結果のname付与を除いた。
+call ID・結果本文・既存namespaceは保持し、tool宣言・呼出し・DB履歴のnameは変更しない。
+モデル別例外、設定項目、エラー後の再試行は追加していない。
+
+既存protocol testsで結果にnameを出さずcall ID・本文・namespaceを保持し、呼出し側のnameは保持することを確認した。
+標準configのChat app testでは、name付き結果をHTTP 400で拒否するローカル応答に対してread_file後の
+継続・thinking・ツール名の復元履歴を確認した。4つのResponses app testsでも結果のname省略と呼出し名の保持を確認した。
+focused tests、protocol/app vet、diff checkが成功し、両binaryを再buildした。
+実CLI・一時workspace・DBでOpenCode Go Chat／GLM-5.3-FlashとOpenAI ResponsesをローカルHTTPへ接続し、
+find→結果返却→最終回答・履歴表示が完了した。常用履歴の修正や有料API呼出しは行っていない。
+起動中Coreは旧コードを使うため、このwire変更を常用TUIへ適用するにはCoreの再起動が必要。

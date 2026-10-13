@@ -75,9 +75,6 @@ func (provider *Provider) encodeChatMessage(message contracts.Message, modelID s
 					"tool_call_id": result.CallID,
 					"content":      result.Text,
 				}
-				if result.Name != "" {
-					toolMessage["name"] = result.Name
-				}
 				wire = append(wire, toolMessage)
 			}
 			return wire, nil
@@ -169,9 +166,6 @@ func (provider *Provider) encodeResponsesMessage(message contracts.Message, mode
 					"type":    "function_call_output",
 					"call_id": result.CallID,
 					"output":  result.Text,
-				}
-				if result.Name != "" {
-					item["name"] = result.Name
 				}
 				if provider.config.Options.NamespaceTools {
 					item["namespace"] = namespaceName

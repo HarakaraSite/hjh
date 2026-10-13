@@ -230,13 +230,6 @@ func (m *model) connectionPickerOptions() []connectionOption {
 				options = append(options, connectionOption{id: effort, label: effort, detail: modelInfo.EffortSource})
 			}
 		}
-		current := picker.preview.Selection.Effort
-		if current == "" {
-			current = "auto"
-		}
-		if !containsOption(options, current) {
-			options = append(options, connectionOption{id: current, label: current, detail: "current next-run value · not listed in catalog"})
-		}
 	}
 	return options
 }
@@ -426,7 +419,7 @@ func (m *model) connectionPickerRows() ([]string, []int) {
 		} else if found && len(modelInfo.Efforts) > 0 {
 			source = "catalog"
 		}
-		header = "Effort · " + picker.preview.Selection.ModelID + " · " + source + " · /effort VALUE is also available"
+		header = "Effort · " + picker.preview.Selection.ModelID + " · " + source + " · ↑/↓ select · Enter confirms · Esc closes"
 	}
 	preview := picker.preview
 	rows := renderer.WrapText(header, width)

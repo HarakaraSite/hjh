@@ -1,8 +1,35 @@
 # I-08：接続先・model・effortの選択
 
 2026-10-11。実装・focused test・通常／批判的review・実provider／PTY・配布物確認を完了した。
+
+2026-10-13の利用者指示で、TUI effortはpickerからのみ選ぶ方式へ変更した。
+以下の初回結果中にあるeffort直接指定の記載は当時の動作であり、現在は
+[/effortの現行契約](../design/tui.md)に従う。
 [計画](../plans/i08-connection-selection.md)、[TUI操作](../design/tui.md)、
 [HTTP契約](../design/http-api.md)、[provider定義](../design/providers.md)を参照する。
+
+## 2026-10-13：effortはpickerから選択する
+
+利用者指示により、`/effort VALUE`は選択を変更せずpicker利用の案内を表示する。
+`/effort`ではautoと当該modelに宣言された候補のみを選ぶ。保存値が候補外でも選択肢へ追加しない。
+CLI flag、role.model、子agentのmodel.effortの契約は今回変更しない。
+
+標準OpenCode Go Chat 19件・Responses 6件の既存modelを
+[公式モデル定義](https://github.com/anomalyco/models.dev/tree/dev/providers/opencode-go/models)と照合し、
+各`reasoning_options`のeffort値を配布config・現在のworkspace configの`efforts`へ設定した。
+GLM-5.3はlow/high/max、MiMo V2.6 Proはeffort値なしなのでautoのみ。
+toggleだけを宣言するmodelにもeffort値を推測で追加しない。model候補の追加やAPI経路の切替は行わない。
+
+[Go公式docs](https://opencode.ai/v2/docs/console/go/#models)はmodel一覧APIを案内している。
+現行workspaceの接続先に対応する[`/zen/go/v1/models`](https://opencode.ai/zen/go/v1/models)と
+新docsの`/inference/go/v1/models`の実GET応答を確認した。どちらもmodelのID等を返すが、
+2026-10-13の応答にeffort metadataはないため、今回はconfigの確認済み候補を使う。
+
+配布configを使うTUI testで、直接指定が選択を変更しないこと、候補外の保存済みxhighを
+GLM-5.3の選択肢へ混ぜないこと、highの選択が次のStartRunRequestへ届くこと、MiMoでautoのみになることを確認した。
+関連picker tests、TUI vet、diff checkも成功し、両binaryを再buildした。
+実PTY・一時Core・workspaceでも直接指定の案内、GLM-5.3の候補表示、選択したhighのCore保存を確認した。
+モデル生成は行わず、常用Core・履歴・認証には触れていない。一時processとデータは確認後に片付けた。
 
 ## 利用者の動作と責務
 

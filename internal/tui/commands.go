@@ -516,7 +516,7 @@ var helpText = strings.Join([]string{
 	"/providers                        show external provider definitions",
 	"/provider [PROVIDER_ID]           select a connection for the next run",
 	"/models [PROVIDER_ID]              show models for a connection",
-	"/effort [VALUE]                    select a listed or directly specified effort",
+	"/effort                            select an effort from the picker",
 	"/login PROVIDER_ID                 Continue with ChatGPT",
 	"/login complete PROVIDER_ID         complete a local browser callback",
 	"/login callback PROVIDER_ID URL     complete login with the browser callback URL",

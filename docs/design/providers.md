@@ -20,6 +20,16 @@ field. The parameter schema itself is unchanged. This follows the
 [OpenAI function-calling contract](https://developers.openai.com/api/docs/guides/function-calling#strict-mode).
 Chat Completions retains its non-strict default.
 
+Tool results match calls by ID and omit the redundant `name` field on every
+route: Chat Completions sends `role`, `tool_call_id`, and `content`; Responses
+sends `type`, `call_id`, and `output`, retaining a configured namespace.
+Tool declarations and calls keep their names, as do saved tool results and
+history displays. This follows the
+[OpenAI Chat tool-message shape](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
+and [Responses function-result exchange](https://developers.openai.com/api/docs/guides/function-calling).
+OpenRouter Chat permits an optional name, but it is unnecessary for matching
+results; OpenCode Go's GLM-5.3-Flash route was observed to reject it.
+
 ## Provider, API, and authentication profile
 
 These values identify different parts of a connection:
@@ -219,13 +229,21 @@ applies to newly prepared runs. OAuth refresh continues on the captured account.
 ## Selection precedence
 
 Model catalog DTOs include optional `efforts` and `effortSource` (`config` or
-`catalog`). Missing information does not prevent model or effort selection.
-The standard OpenCode Go Chat entry for `deepseek-v4.1-flash` declares
-`low`, `high`, and `max`, following the publisher's
-[OpenCode Go model metadata](https://github.com/anomalyco/models.dev/blob/dev/providers/opencode-go/models/deepseek-v4.1-flash.toml).
-The effort picker also offers `auto`; explicit values are sent as the existing
-Chat Completions `reasoning_effort` field. Other models do not inherit these
-choices automatically.
+`catalog`). The TUI's `/effort` opens a picker containing `auto` and the selected
+model's declared values. Direct `/effort VALUE` is not accepted, and an existing
+unlisted value is not added to the picker. Missing effort information offers
+only `auto`. CLI and child model settings keep their existing explicit fields.
+
+Standard OpenCode Go entries declare per-model `efforts`, including empty lists
+for models without effort options, following the publisher's
+[OpenCode Go model metadata](https://github.com/anomalyco/models.dev/tree/dev/providers/opencode-go/models).
+For example, GLM-5.3 and DeepSeek V4.1 Flash declare `low`, `high`, and `max`;
+MiMo V2.6 Pro declares no effort values. The Go
+[model-list API](https://opencode.ai/zen/go/v1/models) response inspected on
+2026-10-13 supplied IDs but no effort metadata, so the standard configuration
+supplies the confirmed values for both Chat and Responses routes. Selected
+values are sent as Chat Completions `reasoning_effort` or Responses
+`reasoning.effort`; `auto` omits the effort field.
 OpenRouter's `data[].reasoning.supported_efforts` is also read as catalog effort
 choices, preserving the returned order. An omitted field does not declare effort
 choices; explicit `null` declares the gateway effort values. For mandatory
@@ -298,7 +316,7 @@ The login command prints the authorization URL and accepts the pasted browser
 callback URL, or an empty line after an automatic local callback. In the TUI,
 use `/provider`, `/model`, and `/effort` to open pickers. `/model` searches IDs
 and display names while keeping the conversation draft separate. Direct
-`/provider PROVIDER_ID`, `/model MODEL_ID`, and `/effort VALUE` remain available,
+`/provider PROVIDER_ID` and `/model MODEL_ID` remain available,
 as do `/providers` and `/models PROVIDER_ID` listings. `/login` opens the authentication
 profile picker; `/login PROVIDER_ID` opens its API-key input or ChatGPT account screen.
 Account Enter selects a connected slot or authorizes an unconnected slot; `a` adds

@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"hjh/internal/api"
 	"hjh/internal/contracts"
+	"hjh/internal/extensions"
+	"hjh/internal/providers"
 )
 
 func loadedConnectionPicker(t *testing.T, backend *fakeBackend, m *model, messages <-chan tea.Msg) {
@@ -24,6 +26,64 @@ func loadedConnectionPicker(t *testing.T, backend *fakeBackend, m *model, messag
 			(m.connectionPicker.kind != modelPicker || (!m.connectionPicker.modelsLoading && !m.connectionPicker.favoritesLoading)) {
 			return
 		}
+	}
+}
+
+func TestEffortCommandUsesOnlyConfiguredPickerChoices(t *testing.T) {
+	config, err := extensions.EmbeddedConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry, err := providers.Parse(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, err := registry.Definition("opencode-go-chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &fakeBackend{
+		core: api.Core{CoreID: "core-1"}, runCalls: make(chan runCall, 1),
+		selection: api.SelectionPreview{Selection: contracts.ModelSelection{
+			Provider: "opencode-go-chat", ModelID: "glm-5.3", Effort: "xhigh",
+		}},
+	}
+	for _, info := range definition.Models {
+		backend.models = append(backend.models, api.ModelInfo{ID: info.ID, Name: info.Name, Efforts: info.Efforts, EffortSource: info.EffortSource})
+	}
+	m, messages, cancel := testModel(backend, Options{Core: backend.core, Effort: "auto"})
+	defer func() { cancel(); m.shutdown() }()
+	m.handleCommand("/effort xhigh")
+	if m.effort != "auto" || m.connectionPicker != nil || !strings.Contains(m.status, "Use /effort") {
+		t.Fatalf("direct effort changed selection: effort=%q picker=%v status=%q", m.effort, m.connectionPicker, m.status)
+	}
+	m.handleCommand("/effort")
+	loadedConnectionPicker(t, backend, m, messages)
+	var ids []string
+	for _, option := range m.connectionPickerOptions() {
+		ids = append(ids, option.id)
+	}
+	if strings.Join(ids, ",") != "auto,low,high,max" {
+		t.Fatalf("GLM picker should show configured choices without saved xhigh: %v", ids)
+	}
+	update(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	update(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	update(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.connectionPicker != nil || m.effort != "high" {
+		t.Fatalf("picker did not select high: effort=%q picker=%v", m.effort, m.connectionPicker)
+	}
+	m.startRun("use selected effort")
+	call := <-backend.runCalls
+	call.handle.finish(api.RunState{RunID: call.request.RunID}, nil)
+	if call.request.Effort != "high" {
+		t.Fatalf("selected effort not sent to Core: %+v", call.request)
+	}
+	backend.selection.Selection.ModelID, backend.selection.Selection.Effort = "mimo-v2.6-pro", "max"
+	m.openConnectionPicker(effortPicker)
+	loadedConnectionPicker(t, backend, m, messages)
+	options := m.connectionPickerOptions()
+	if len(options) != 1 || options[0].id != "auto" {
+		t.Fatalf("MiMo picker offered an undeclared effort: %+v", options)
 	}
 }
 

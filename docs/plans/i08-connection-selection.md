@@ -3,6 +3,10 @@
 2026-10-11。I-07の利用確認後、利用者が次のインクリメントへ進むよう指示した。
 [I-06の優先順位](i06-conversation-tui.md)の次段階から、provider／model／effort pickerと検索を具体化する。
 この文書はI-08の承認済み計画である。
+
+2026-10-13追記：利用者指示により、TUIのeffort直接指定と候補外の保存値をpickerへ追加する
+動作は廃止した。effortはautoまたはmodelの確認済み候補から選ぶ。
+以下の初回計画の該当記述より、[現在のTUI契約](../design/tui.md)を優先する。
 実装・test・通常／批判的review・実provider／PTY・配布物の確認結果は[結果文書](../results/i08-connection-selection.md)に記録した。
 
 ## 利用者の必要な動作

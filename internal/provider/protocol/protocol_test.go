@@ -73,6 +73,12 @@ func TestPrepareResponsesEncodesNamespacedToolsAndOpaqueReplay(t *testing.T) {
 	if toolResult["type"] != "function_call_output" || toolResult["namespace"] != namespaceName || toolResult["call_id"] != "call_1" || toolResult["output"] != "1" {
 		t.Fatalf("function output = %#v", toolResult)
 	}
+	if _, exists := toolResult["name"]; exists {
+		t.Fatalf("function output includes a name instead of matching by call_id: %#v", toolResult)
+	}
+	if !strings.Contains(string(input[2]), `"name":"run_js"`) {
+		t.Fatalf("tool call lost its name: %s", input[2])
+	}
 	var tools []map[string]json.RawMessage
 	if err := json.Unmarshal(wire["tools"], &tools); err != nil || len(tools) != 1 {
 		t.Fatalf("decode namespaced tools: %v; %s", err, wire["tools"])
@@ -233,6 +239,12 @@ func TestPrepareChatCompletionsUsesCommonMessagesAndConfiguredReasoningField(t *
 	}
 	if string(wire.Messages[2]["tool_calls"]) == "" || string(wire.Messages[3]["tool_call_id"]) != `"call_a"` || len(wire.Tools) != 1 {
 		t.Fatalf("tool exchange was not encoded: %s", body)
+	}
+	if _, exists := wire.Messages[3]["name"]; exists {
+		t.Fatalf("tool result includes the unsupported name field: %s", body)
+	}
+	if string(wire.Messages[3]["content"]) != `"1"` || !strings.Contains(string(wire.Messages[2]["tool_calls"]), `"name":"run_js"`) {
+		t.Fatalf("tool call name or result was lost: %s", body)
 	}
 }
 

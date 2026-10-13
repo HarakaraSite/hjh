@@ -64,9 +64,12 @@ func TestStandardResponsesProvidersPreserveReasoningAcrossToolCalls(t *testing.T
 					case `"reasoning"`:
 						foundReasoning = string(item["id"]) == `"rs_read"` && string(item["encrypted_content"]) == `"synthetic-replay-state"` && strings.Contains(string(item["summary"]), "Inspecting README.")
 					case `"function_call"`:
-						foundCall = foundReasoning && string(item["id"]) == `"fc_read"` && string(item["call_id"]) == `"read-call"`
+						foundCall = foundReasoning && string(item["id"]) == `"fc_read"` && string(item["call_id"]) == `"read-call"` && string(item["name"]) == `"read_file"`
 					case `"function_call_output"`:
 						foundResult = foundCall && string(item["call_id"]) == `"read-call"` && strings.Contains(string(item["output"]), "A small project.")
+						if _, exists := item["name"]; exists {
+							t.Error("function output must match by call_id without name")
+						}
 					}
 				}
 				if !foundReasoning || !foundCall || !foundResult {

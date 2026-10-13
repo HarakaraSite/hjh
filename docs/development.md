@@ -245,7 +245,8 @@ F4／`/sessions`でSessionを選び、`/rename 名前`で現在Sessionを命名�
 保存先は`$XDG_STATE_HOME/hjh/model-favorites/`または`~/.local/state/hjh/model-favorites/`。
 Coreの`--model-favorites-dir PATH`で保存先だけを変更でき、credentialの保存先には影響しない。
 上下で選びEnterで確定、Escで閉じる。`/providers`・`/models [PROVIDER]`の一覧表示と、
-`/provider ID`・`/model ID`・`/effort VALUE`の直接指定も使える。`/roles` はrole一覧、`/role NAME` は次の実行のrole選択、
+`/provider ID`・`/model ID`の直接指定も使える。effortは`/effort`のpickerから選ぶ。
+`/roles` はrole一覧、`/role NAME` は次の実行のrole選択、
 `/role` は選択状態を表示する。実行中の選択変更は次runから反映する。成功rootのmodelとroleはSessionへ保存される。
 画面内の `/help` と[操作・責務](design/tui.md)に詳細を記載する。
 

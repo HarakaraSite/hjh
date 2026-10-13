@@ -28,15 +28,11 @@ func (m *model) connectionCommand(fields []string) {
 		}
 		m.setProvider(fields[1])
 	case "/effort":
-		if len(fields) == 1 {
-			m.openConnectionPicker(effortPicker)
+		if len(fields) != 1 {
+			m.status = "Use /effort to select an effort from the picker."
 			return
 		}
-		if len(fields) != 2 {
-			m.status = "usage: /effort EFFORT"
-			return
-		}
-		m.setEffort(fields[1])
+		m.openConnectionPicker(effortPicker)
 	case "/providers":
 		m.query("providers", func(ctx context.Context) (string, error) {
 			definitions, err := m.backend.Providers(ctx, scope)

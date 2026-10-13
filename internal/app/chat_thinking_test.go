@@ -44,6 +44,12 @@ func TestStandardOpenCodeChatSavesPublishesAndReplaysThinking(t *testing.T) {
 			}
 			if string(message["role"]) == `"tool"` && strings.Contains(string(message["content"]), "A small project.") {
 				foundResult = true
+				if _, exists := message["name"]; exists {
+					// Session 60dd8278: the GLM-5.3-Flash upstream rejected this field.
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprint(w, `{"error":{"message":"tool result name is not supported"}}`)
+					return
+				}
 			}
 		}
 		if !foundReasoning || !foundResult {
@@ -72,13 +78,20 @@ func TestStandardOpenCodeChatSavesPublishesAndReplaysThinking(t *testing.T) {
 		t.Fatal(err)
 	}
 	restored := map[string]bool{}
+	savedToolName := false
 	if err := store.WalkConversationCut(context.Background(), cut, func(fact contracts.ExecutionFact) error {
 		if fact.Conversation.EntityKind == "thinking" && fact.ThinkingKind == "reasoning" {
 			restored[fact.Text] = true
 		}
+		if fact.Conversation.EntityKind == "tool" && fact.Name == "read_file" {
+			savedToolName = true
+		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+	if !savedToolName {
+		t.Fatal("tool name missing from restored history")
 	}
 	for _, text := range []string{"Inspect README.", "Summarize the result."} {
 		if !live[text] || !restored[text] {

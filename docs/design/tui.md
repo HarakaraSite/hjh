@@ -122,7 +122,7 @@ Commands are:
 | `/providers` | List provider definitions from the current external config. |
 | `/provider [ID]` | Open the provider picker, or directly select the next provider and clear previous model/effort/auth overrides. |
 | `/models [ID]` | List the selected route's model candidates. |
-| `/effort [VALUE]` | Open the model's effort picker, or select a value directly; auto uses the endpoint default. |
+| `/effort` | Choose auto or a declared effort from the model's picker; auto uses the endpoint default. |
 | `/auth [ID]` | Show ChatGPT login status without token values. |
 | `/login [ID]` | Open authentication profiles, or the selected provider's key/account screen. |
 | Account Enter / a / r | Select a connected account, add an account, or reauthorize the selected slot. |
@@ -189,8 +189,9 @@ Showing a login URL does not change the next-run provider selection.
 
 `/provider`、`/model`、`/effort`は引数なしでpickerを開く。providerは外部定義の
 ID・表示名・API・認証方式・既定modelを表示し、modelはIDと表示名を検索できる。
-effortは選択modelの候補と出所を表示し、情報がなければautoと直接指定の案内を示す。
-候補にないmodel・effortは従来の直接コマンドで選べる。
+effortは選択modelの候補と出所を表示し、情報がなければautoのみを選べる。
+effortの直接指定は受け付けず、保存値が候補外でも選択肢に追加しない。
+候補にないmodelは従来の直接コマンドで選べる。
 
 矢印、PgUp/PgDn、Home/Endで選択し、Enterで確定、Escで閉じる。
 model検索は文字入力・bracketed paste・Backspaceを使い、j/kも検索文字として扱う。
