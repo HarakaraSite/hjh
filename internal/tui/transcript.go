@@ -196,6 +196,7 @@ func (m *model) buildTranscript() *transcriptDocument {
 	}
 
 	entities := m.displayEntities()
+	toolDepths := toolNestingDepths(entities)
 	activeSources := make(map[string]bool, len(entities)+len(m.entries)*2)
 	activeBlocks := make(map[markdownBlockKey]bool)
 	visibleEntityCount := 0
@@ -226,7 +227,7 @@ func (m *model) buildTranscript() *transcriptDocument {
 		}
 		if entity.Kind == "tool" {
 			toolKey := "entity:" + entity.ID + ":tool-line"
-			appendPart(toolKey, toolReceiptSource, 0, len(toolReceiptSource), prefix+toolDisplayLine(entity), false)
+			appendPart(toolKey, toolReceiptSource, 0, len(toolReceiptSource), prefix+nestedToolDisplayLine(entity, toolDepths[entity.ID]), false)
 			previousEntityHasBody = true
 			previousEntityFullyReceipted = m.receiptByPart[toolKey] >= len(toolReceiptSource)
 			previousEntityEndsWithNewline = true

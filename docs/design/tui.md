@@ -45,6 +45,11 @@ Session会話はSession view snapshotで読み、現在runのsnapshot／upsert�
 モデルが宣言したtoolと外側JS実行は同じcallを表示する。実際のJS内toolは親子関係を維持する。
 最終応答は進行中と同じentityを確定し、terminal resultをもう一度追記しない。
 通常tool行は名前・短い引数preview・状態だけを表示する。結果全文は会話へ展開しない。
+内部で呼ばれたtoolは、Coreが渡すParentEntityIDのtool階層に従い、二文字分の字下げと`↳`を付ける。
+例えばrun_jsの下にread_file/commandが並び、並列に呼んだtoolは同じ深さへ複数表示する。
+直接呼んだtoolは字下げしない。表示順は従来の開始順を維持し、既に出力した親も階層計算へ使う。
+`↳`は各callの包含を表し、後続の兄弟が増えても過去の行を書き換えない。
+通常の進捗とSession復元は同じ階層表示を使い、子agentの詳細省略は従来どおり維持する。
 `/tools`で会話内のcall番号を確認し、`/tool NUMBER_OR_ENTITY_ID`でその保存済みcall/resultを読む。
 保存証拠全体は`/inspect`で読める。
 今回の詳細操作は会話末尾への明示出力であり、生成中に取得した詳細はその本文の終了後に表示される。

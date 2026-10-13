@@ -64,6 +64,7 @@ func (m *model) renderTranscript() string {
 func (m *model) renderFullTranscript() string {
 	var styled strings.Builder
 	entities := m.displayEntities()
+	toolDepths := toolNestingDepths(entities)
 	visibleEntityCount := 0
 	previousEntityHasBody := false
 	previousEntityEndsWithNewline := false
@@ -83,7 +84,7 @@ func (m *model) renderFullTranscript() string {
 			continue
 		}
 		if entity.Kind == "tool" {
-			styled.WriteString(prefix + toolDisplayLine(entity))
+			styled.WriteString(prefix + nestedToolDisplayLine(entity, toolDepths[entity.ID]))
 			previousEntityHasBody = true
 			previousEntityEndsWithNewline = true
 			continue
