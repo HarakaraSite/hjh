@@ -59,6 +59,11 @@ run_agentを選んだ場合だけ生成JSへapi.agents.runを公開し、同じr
 
 親の標準指示は、レビューにはreviewer、調査にはexplorer、実装にはimplementerを選び、
 通常は子のtools指定を省略してroleの標準セットを使うよう案内する。
+委譲toolを選択した親向けのrole catalogには、各roleの名前・説明に加えて、設定されたtools一覧を
+`(tools: [run_js, read_file, ...])`として同じ行へ載せる。空一覧は`(tools: [])`。
+これは子のtools指定を省略した場合のセットで、呼出しごとの明示上書きは既存契約に従う。
+独自roleにも同じ設定読取りを使い、子の専用instruction全文は親のcatalogへ追加しない。
+run_agentまたはspawn_agentを選択した場合に表示し、保存する指示とモデルへ送る指示は同じ組立結果を使う。
 model/provider/effortはroleで固定しない。必要な個別上書きは既存の呼出し引数を使う。
 reviewerとexplorerにはcommand・write_file・edit_file・子委譲toolを渡さない。
 生成JSも同じ選択toolだけを通常公開する。外部tool自身の実装では必要なGo基礎操作を使う。

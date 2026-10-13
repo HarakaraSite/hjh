@@ -20,13 +20,27 @@ func TestStandardInspectionAndImplementationRolesDelegateAndSaveResults(t *testi
 	}
 	readTools := []string{"run_js", "read_file", "ls", "find", "grep", "wc", "git_inspect"}
 	writeTools := append(append([]string{}, readTools...), "write_file", "edit_file", "command", "http", "web_fetch", "web_search")
+	var parentInstruction string
+	var parentModel contracts.ModelSelection
 	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
 		task := request.Messages[0].VisibleText()
 		if task == "parent" {
 			if !strings.Contains(request.Instruction, "explorer:") || !strings.Contains(request.Instruction, "implementer:") || !strings.Contains(request.Instruction, "Normally omit tools") {
 				t.Error("parent did not receive the configured role catalog and selection guidance")
 			}
+			for _, line := range strings.Split(request.Instruction, "\n") {
+				if strings.HasPrefix(line, "- explorer:") || strings.HasPrefix(line, "- reviewer:") {
+					if !strings.HasSuffix(line, "(tools: [run_js, read_file, ls, find, grep, wc, git_inspect])") {
+						t.Errorf("parent received the wrong read-only role tool list: %s", line)
+					}
+				}
+				if strings.HasPrefix(line, "- implementer:") && !strings.HasSuffix(line, "(tools: [run_js, read_file, ls, find, grep, wc, git_inspect, write_file, edit_file, command, http, web_fetch, web_search])") {
+					t.Errorf("parent received the wrong implementation role tool list: %s", line)
+				}
+			}
 			if len(request.Messages) == 1 {
+				parentInstruction = request.Instruction
+				parentModel = request.Model
 				return contracts.ModelResult{Calls: []contracts.ToolCall{
 					{CallID: "explore", Name: "run_agent", Arguments: contracts.JSON(map[string]string{"role": "explorer", "task": "explorer"})},
 					{CallID: "review", Name: "run_agent", Arguments: contracts.JSON(map[string]string{"role": "reviewer", "task": "reviewer"})},
@@ -79,6 +93,8 @@ func TestStandardInspectionAndImplementationRolesDelegateAndSaveResults(t *testi
 	if err != nil || !result.Result.OK {
 		t.Fatalf("run: %+v (%v)", result, err)
 	}
+	root := mustExecution(t, store, result.ExecutionID)
+	requireSavedExecutionContext(t, store, root.ConfigurationID, parentInstruction, parentModel, "default", workspace)
 	children, err := store.Children(context.Background(), result.ExecutionID)
 	if err != nil || len(children) != 3 {
 		t.Fatalf("children: %+v (%v)", children, err)

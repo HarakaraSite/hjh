@@ -58,3 +58,16 @@ wcの複数file合計とUnicode空白も、実file入力の確認を追加した
 これらの追加確認はownerが実施し、独立review全体は繰り返していない。
 
 実モデルによるrole選択と、更新Coreでの人間の操作確認は未実施のままである。
+
+## 後続改善：親向けrole catalogのツール一覧
+
+実利用の複数モデルでrole選択は成立したが、親が読取りroleへコマンド実行を依頼する例があった。
+利用者の指定により、名前・説明だけだった親向け一覧にrole catalogの既存tools一覧を追加した。
+各roleの行に`(tools: [...])`を表示し、空一覧は`(tools: [])`。独自roleも設定から取得する。
+子の専用指示全文は追加せず、標準4roleの追加テキストは合計450 UTF-8 bytes。
+委譲の利用指示、tool選択・上書き、roleの設定自体はこの変更では拡張していない。
+
+run_agentとspawn_agentだけの親、独自role・toolなしrole、保存指示との一致をcapture経路で確認した。
+共通appの親子実行ではモデルrequestに各roleの実tools一覧が入り、保存構成の指示と一致することを
+確認した。既存role選択・予算管理のfocused test、extensions test、vet、diff checkが通過した。
+バイナリを更新した。Coreの自動再起動と、変更後の実モデルでの効果確認は行っていない。

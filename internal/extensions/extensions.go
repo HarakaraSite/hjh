@@ -581,7 +581,7 @@ func assembleInstruction(configInstruction string, role Role, roleName string, t
 	if containsToolFromTools(tools, "run_agent") || containsToolFromTools(tools, "spawn_agent") {
 		var lines []string
 		for _, info := range catalog {
-			lines = append(lines, "- "+info.Name+": "+info.Description)
+			lines = append(lines, "- "+info.Name+": "+info.Description+" (tools: ["+strings.Join(info.Tools, ", ")+"])")
 		}
 		catalogName := "run_agent"
 		if !containsToolFromTools(tools, "run_agent") {

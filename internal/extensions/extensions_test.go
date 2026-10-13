@@ -294,6 +294,61 @@ func TestSpawnOnlyRoleCapturesRoleCatalogAndSelectedJSOperations(t *testing.T) {
 	}
 }
 
+func TestDelegationCatalogShowsConfiguredToolsForRunAndSpawn(t *testing.T) {
+	dir := t.TempDir()
+	if err := InstallDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(dir, "config.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config Config
+	if err = json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	config.Roles["reader"] = Role{Description: "Inspect assigned files.", Instruction: "READER_PRIVATE_INSTRUCTION", Tools: []string{"read_file"}}
+	config.Roles["editor"] = Role{Description: "Edit assigned files.", Instruction: "EDITOR_PRIVATE_INSTRUCTION", Tools: []string{"run_js", "edit_file"}}
+	config.Roles["empty"] = Role{Description: "Answer without tools.", Tools: []string{}}
+	config.Roles["async"] = Role{Tools: []string{"spawn_agent"}}
+	encoded, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(configPath, encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, parent := range []string{"default", "async"} {
+		t.Run(parent, func(t *testing.T) {
+			snapshot, err := Capture(configPath, parent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, line := range []string{
+				"- reader: Inspect assigned files. (tools: [read_file])",
+				"- editor: Edit assigned files. (tools: [run_js, edit_file])",
+				"- empty: Answer without tools. (tools: [])",
+			} {
+				if !strings.Contains(snapshot.SystemInstruction, line) {
+					t.Errorf("parent instruction omits configured role capability %q", line)
+				}
+			}
+			if strings.Contains(snapshot.SystemInstruction, "READER_PRIVATE_INSTRUCTION") || strings.Contains(snapshot.SystemInstruction, "EDITOR_PRIVATE_INSTRUCTION") {
+				t.Error("parent catalog contains another role's full instruction")
+			}
+			data, err := snapshot.JSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var saved struct{ SystemInstruction string }
+			if err = json.Unmarshal(data, &saved); err != nil || saved.SystemInstruction != snapshot.SystemInstruction {
+				t.Fatalf("saved catalog instruction differs from the captured model instruction: %v", err)
+			}
+		})
+	}
+}
+
 func TestCaptureResolvesRoleToolsDefinitionsAndCatalog(t *testing.T) {
 	dir := t.TempDir()
 	if err := InstallDefaults(dir); err != nil {
