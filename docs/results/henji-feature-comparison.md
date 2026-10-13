@@ -1,8 +1,10 @@
 # hjhと旧Henjiの機能比較
 
-> 2026-10-12後続更新：子agentをI-19完了後、ライフサイクルhookをI-20完了後の状態へ更新した。その他は調査時点の比較である。確認範囲は[子agentの結果](i19-child-agent-control.md)と[hookの結果](i20-lifecycle-hooks.md)を参照する。
-2026-10-12時点。通常の対話、Core、履歴、認証、コンテキスト予算管理はhjhにも揃っている。
-旧Henjiとの差が大きいのは、コマンド途中出力・分割取得、要約checkpoint、設定管理CLIである。
+2026-10-13更新。初回の比較に、子agent、hook、読取りtool、標準role、認証保存先、
+workspaceのモデル選択保存、CLIセッション削除、履歴保存とprovider互換性の後続改善を反映した。
+通常の対話、Core、履歴、認証、コンテキスト予算管理はhjhにも揃っている。
+残る差は、コマンド途中出力・分割取得、要約checkpoint、基本指示全体の差替え、
+設定管理CLI、TUI・Core経由のセッション削除などである。未実装の項目すべてを採用する方針ではない。
 
 この比較は未実装機能を検討するための調査結果であり、全機能の移植を要求する要件や実装計画ではない。
 採否は利用者の指定とhjhの採用済み設計に従う。
@@ -11,8 +13,8 @@
 
 | 対象 | 比較時点 |
 | --- | --- |
-| hjh | `/home/agent/projects/hjh`。HEAD `1a8e899a1ec963f86df6ca245dc261b55173baeb`と、その上の作業ツリー |
-| hjhの未コミット変更 | フッター、Glamour、Solarized Dark、履歴の色表示、Markdown空行の背景、run_jsの英文目的コメントなどを含む |
+| hjh | `/home/agent/projects/hjh`。HEAD `36748e04f9aebca6dc044a22897fecfebe448e0b`までの実装と結果文書 |
+| 更新時の未コミット変更 | この比較文書のみ。初回調査時のフッター・Glamour・配色等はコミット済み |
 | 旧Henji | `/home/agent/projects/henji-harness`。HEAD `2eb586316f80ec8297873a96122568d0088971eb`の現行実装 |
 
 旧Henjiの実行ファイルもCLI上では`hjh`と表示するが、本書の「旧Henji」はDeno版の
@@ -32,7 +34,8 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 「専用機能なし」は、その作業がhjhでは不可能という意味ではない。
 以下はソースと採用文書に基づく比較であり、各項目の外部サービス接続を今回再検証した結果ではない。
 
-2026-10-13後続更新：比較表3〜10と標準roleを[読取り系toolの整備結果](read-only-tools.md)に合わせて更新した。
+後続更新の確認範囲は、各項目の結果文書に従う。providerの最新修正はローカルHTTP・実binaryで確認し、
+外部APIの再呼出しは行っていない。
 
 機能一覧の`No.`は、以下の表をまたぐ通し番号である。
 
@@ -44,7 +47,7 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 | 2 | tool用の認証付きHTTP | 外部toolが認証profileを指定してサービスへrequest | **完了（I-22）**。実装API requestProviderでmethod、headers、JSON body、API-key profileを扱い、GoでBearerを付ける。現行の認証方式はBearer固定。一般http toolはURL指定GET。[確認結果](i22-exa-web-search.md)・[契約](../design/web-search.md) |
 | 3 | ディレクトリ一覧 | `ls`。tree表示、entry情報 | **実装済み**。lsのentry情報・tree・depthと結果範囲指定。[確認結果](read-only-tools.md) |
 | 4 | ファイル検索 | `find`。glob、種類、ページ指定 | **実装済み**。findのglob・file/directory・exclude・結果範囲指定。隠し・ignored entryを含むGo探索。[確認結果](read-only-tools.md) |
-| 5 | 本文検索 | `grep`。正規表現、固定文字列、周辺行、一致ファイル一覧 | **実装済み**。grepのregex/literal・大小文字・周辺行・file一覧・結果範囲指定。ripgrepが必要。[確認結果](read-only-tools.md) |
+| 5 | 本文検索 | `grep`。正規表現、固定文字列、周辺行、一致ファイル一覧 | **実装済み**。grepのregex/literal・大小文字・周辺行・file一覧・結果範囲指定。rg優先、なければGNU grepを使用。backendとignoreAppliedを結果に含める。[確認結果](grep-native-backends.md) |
 | 6 | ファイル集計 | `wc`。行数、単語数、byte数 | **実装済み**。wcで複数fileの改行数・単語数・byte数と合計。[確認結果](read-only-tools.md) |
 | 7 | Git確認 | `git_inspect`。status、diff、log、showと範囲指定 | **実装済み**。git_inspectのstatus/diff/log/show、paths・rev・staged・stat・結果範囲指定。Gitが必要。[確認結果](read-only-tools.md) |
 | 8 | ファイルの部分読取り | `read`に行単位の`offset`と`limit` | **実装済み**。read_fileの1始まりoffset/limit、改行保持、行数とnextOffset。省略時は全文。[確認結果](read-only-tools.md) |
@@ -56,6 +59,7 @@ henji-harnessリポジトリを指す。旧roadmapには古いキー割当やsch
 | 14 | JSONの最終回答 | `submit_json_result`でJSONを検証し、最終回答として終了 | **専用機構なし**。JSON形式の文章を回答すること自体は可能 |
 
 ファイル探索・本文検索・Git確認は専用toolを追加し、commandなしで子へ渡せるようにした。
+findはGoのfilepath.WalkDirを使い、fdやrgの導入を必要としない。
 一方、Web検索には検索サービスとの接続が必要で、HTML読取りの改善だけでは補えない。
 I-22で外部toolから非モデルサービスを呼ぶ認証付きHTTP共通経路を追加した。
 既存のモデルprovider認証とは別の利用経路で、同じcredential ownerを使う。
@@ -87,6 +91,11 @@ I-22で外部toolから非モデルサービスを呼ぶ認証付きHTTP共通�
 I-19で、子を開始してIDを受け取り、親が別の判断を進め、その後で状態確認・報告の差分取得・
 結果回収・取消を行う操作が完了した。呼出しごとのmodel/provider/effort/tools指定と、
 親から実行中の子への追加指示も完了している。
+
+標準roleはdefault・reviewer・explorer・implementerを定義済み。
+reviewer/explorerは読取りtoolとrun_js、implementerは編集・command・Web操作も使う。
+run_js内部にも選択されたtoolだけを公開する。親向けrole catalogには各roleのtools一覧も載せ、
+委譲先の選択とtool上書きの判断に使える。[標準roleとcatalogの確認結果](read-only-tools.md)を参照する。
 
 非同期の子の寿命は親executionに属する。外側のJS callが終了しても子は続行し、
 親execution終了時には残った子を取消・joinして終了保存を待つ。
@@ -127,7 +136,7 @@ I-19で、子を開始してIDを受け取り、親が別の判断を進め、�
 | 31 | TUI内の会話browser | 項目選択、前後ページ、本文chunk表示 | **未実装**。現在は端末やtmuxのscrollbackと`/history`を使う |
 | 32 | tool本文の詳細閲覧 | browserから選択して分割閲覧 | **一部対応**。`/tools`と`/tool`はあるが、専用browserや本文の分割閲覧はない |
 | 33 | slash command候補 | `/`入力から絞り込みpickerを表示 | **一部対応**。現在はTab補完 |
-| 34 | modelとeffort選択の即時保存 | idle時の選択をSessionと新規Session用の既定へ保存 | **一部対応**。現在は次run用の選択で、正常runの採用時にSessionへ保存。実行せず終了した場合の保存や、新規Session用既定の記憶はない |
+| 34 | modelとeffort選択の即時保存 | idle時の選択をSessionと新規Session用の既定へ保存 | **実装済み（workspace単位）**。provider/model/effort/authProfile参照を選択時に`.hjh/selection.json`へ保存し、実行せず終了・TUI/Core再起動後も同じworkspaceの新規Sessionで使う。既存Sessionの保存選択は正常run採用時に更新し、再開時はその保存値を使う。[確認結果](remembered-model-selection.md) |
 | 35 | Core IDでTUI接続 | TUIに`--core ID` | **入口なし**。現在は`--endpoint URL`。CLIの`core --core ID`はある |
 
 `/view`は実装漏れではなく、[TUIの採用方針](../design/tui.md)に不要という判断が記録されている。
@@ -136,6 +145,13 @@ I-19で、子を開始してIDを受け取り、親が別の判断を進め、�
 
 また、hjhでは会話全文のviewやturn範囲の読取りはできるが、旧会話browser用の前後ページと
 本文chunkの読取りに対応する操作はない。この比較だけでは、実際の長大Sessionでの性能差までは判断しない。
+
+TUIのeffortは`/effort`のpickerからautoとモデルの確認済み候補だけを選ぶ。
+直接`/effort VALUE`指定と、候補外の保存値を選択肢へ加える方式は利用者指定で廃止した。
+モデルを変更したときはeffortをautoへ戻し、同じモデルの再選択では維持する。
+OpenCode Goの登録済み25モデルの候補を公式定義から設定した。GLM-5.3はlow/high/max、
+MiMo V2.6 Proはautoのみ。Goのmodel一覧APIの応答にeffort情報はないため、現状はconfigで宣言する。
+[effortの確認結果](i08-connection-selection.md#2026-10-13effortはpickerから選択する)を参照する。
 
 参照先：
 
@@ -146,7 +162,7 @@ I-19で、子を開始してIDを受け取り、親が別の判断を進め、�
 
 | No. | 機能 | 旧Henji | 現在のhjhと不足している点 |
 | ---: | --- | --- | --- |
-| 36 | runの機械向けイベント出力 | `run --json`でNDJSON | **未実装**。現在は最終回答か`--stream`。`--json`はsessions用 |
+| 36 | runの機械向けイベント出力 | `run --json`でNDJSON | **未実装**。現在は最終回答か`--stream`。sessions/history等の`--json`は実行イベントstreamではない |
 | 37 | agent設定の登録と解除 | `agent activate/deactivate`、個別inspect | **未実装**。`roles`の一覧と`--role`選択はあるが、登録と解除のCLIはない |
 | 38 | toolの登録と解除とinspect | `tool activate/deactivate/list/inspect` | **未実装**。現在はconfigとJSを編集する |
 | 39 | workspace全体の実行一覧CLI | `diagnostics executions list` | **未実装**。TUIの`/executions`やSessionのhistoryから参照する |
@@ -169,7 +185,7 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 
 | No. | 分野 | 現在のhjh | 参照先 |
 | ---: | --- | --- | --- |
-| 45 | 通常実行 | CLIとTUI、stream、thinking、tool進捗、最終回答 | [runとstream](run-stream.md)、[TUI](../design/tui.md) |
+| 45 | 通常実行 | CLIとTUI、stream、公開thinkingとsummary、tool進捗、最終回答。標準接続のthinking抽出・reasoning再送設定を整備 | [runとstream](run-stream.md)、[TUI](../design/tui.md)、[providerの後続修正](i04-provider-model-switching.md) |
 | 46 | Core | 未起動時の自動起動、既存Core利用、複数Session、detach、再接続、停止 | [Core起動](i13-core-startup.md)、[Session管理](i07-session-management.md) |
 | 47 | CLI管理 | `core list/status/stop`、`--version` | [CLI管理とhistory](i15-cli-management-history.md) |
 | 48 | CLIからCoreへ依頼 | `run --connect URL`、後からTUIで接続 | [Core接続run](i16-cli-core-run.md) |
@@ -177,18 +193,34 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 50 | 履歴 | session、canonical、detail、ローカルとCore経由、保存構成と送信contextの確認 | [CLI管理とhistory](i15-cli-management-history.md)、[context](i10-context-recall.md) |
 | 51 | 実行中の入力 | F1取消、F2予約、F3追加指示、受付結果確認 | [実行中の入力](i09-runtime-input.md) |
 | 52 | 停止した作業の引継ぎ | `/recall` | [contextとrecall](i10-context-recall.md) |
-| 53 | 接続選択 | provider、model、effort選択、お気に入り | [接続選択](i08-connection-selection.md)、[お気に入り](i11-model-favorites.md) |
-| 54 | 認証 | APIキー、ChatGPTの追加と再認証と複数accountの選択機構 | [認証UI](i12-authentication-ui.md) |
-| 55 | 指示とskills | AGENTS.md、role指示、起動時のskill一覧、利用時の本文読取り | [workspace指示とskills](../design/workspace-instructions-skills.md) |
+| 53 | 接続選択 | provider、model、effort picker、お気に入り、workspaceごとの即時保存と新規Sessionへの引継ぎ、モデル変更時のeffortリセット | [接続選択](i08-connection-selection.md)、[選択保存](remembered-model-selection.md)、[お気に入り](i11-model-favorites.md) |
+| 54 | 認証 | APIキー、ChatGPTの追加と再認証と複数accountの選択機構。既定保存先は`~/.config/hjh/credentials/`（XDG_CONFIG_HOME対応）、モデルとtoolの認証は同じManagerを使用 | [認証UI](i12-authentication-ui.md)、[保存先集約](credential-config-directory.md) |
+| 55 | 指示とskills | ユーザー共通・祖先・workspaceのAGENTS.md、role指示、起動・各親子開始時のskill一覧、利用時の本文読取り。`~/.config/hjh/skills/`と`workspace/.hjh/skills/`を探索 | [workspace指示とskills](../design/workspace-instructions-skills.md) |
 | 56 | Web読取り | HTML可読化、1MiB上限、`save_to` | [Webと予算管理](i14-web-context.md) |
 | 57 | Web検索 | Exa auto/highlights、各option、直接/生成JS/子の利用、認証付きHTTPと保存 | [I-22の完了結果](i22-exa-web-search.md) |
 | 58 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
 | 59 | 子agent | 非同期開始・並列実行・状態確認・回収・取消、model/provider/effort/tools指定、報告差分、親からの追加指示 | [I-19の完了結果](i19-child-agent-control.md) |
-| 60 | 外部拡張 | role、tool、六種類のhook、開始文脈、開始時のsource捕捉、次実行への編集反映 | [外部拡張](../design/extensions.md)、[hookの完了結果](i20-lifecycle-hooks.md) |
-| 61 | 表示 | ヘッダー、三行フッター、Markdown、途中のassistant本文、配色、run_js目的コメント | [ヘッダー](../design/tui-header.md)、[フッター](../design/tui-footer.md)、[Markdownと色](../design/tui-rendering.md)、[run_js目的表示](run-js-purpose.md) |
+| 60 | 外部拡張 | role、tool、六種類のhook、開始文脈、実行開始時のメモリ上のsource固定、次実行への編集反映。実装ソース一式のDB自動保存は停止 | [外部拡張](../design/extensions.md)、[hookの完了結果](i20-lifecycle-hooks.md)、[ソース保存停止](initial-run.md#2026-10-13追補実装ソースの自動保存を停止) |
+| 61 | 表示 | ヘッダー、三行フッター、Markdown、途中のassistant本文、配色、run_js目的コメントと内側のtoolの階層表示。子の詳細は通常の親画面から省き、保存履歴は保持 | [ヘッダー](../design/tui-header.md)、[フッター](../design/tui-footer.md)、[Markdownと色](../design/tui-rendering.md)、[run_js目的表示](run-js-purpose.md) |
 
 認証の複数account機構は実装済みであるが、今回の比較で追加accountのブラウザ認証を
 実施したという意味ではない。過去の実確認範囲は認証UIの結果文書に従う。
+
+標準provider定義では、OpenCode Go Chatのreasoning_content抽出と再送、
+OpenAI API・OpenCode Go Responsesのreasoning再送の設定漏れを修正した。
+OpenAI Responsesのsummaryは従来からautoで要求・受信・表示・保存する。
+公開thinkingと、次requestへ戻すreasoning stateは別に扱う。
+
+ツール結果は旧Henji同様、Chat・Responsesとも余分なnameを一律省き、call IDで対応付ける。
+GLM-5.3-FlashのGo経路で観測したHTTP 400への修正であり、モデル別の例外設定は設けない。
+ツール宣言・呼出し・DB履歴の名前は保持する。[providerの確認結果](i04-provider-model-switching.md)を参照する。
+
+DBは引き続き実行・メッセージ・詳細記録・使用構成とcontentsを持つ。
+セッション削除では関連履歴に加え、他の記録から参照されなくなった本文・構成も回収する。
+実行中の追加指示は受付本文と適用後のメッセージを独立に保存する。
+ツール・hook・依存ファイル・元configのソース一式は自動保存しないが、AGENTS.md原文、
+使用指示・ツール定義、モデル送信内容、ツール呼出し・結果は保存する。
+共有本文構造全体の廃止と、DBファイルの縮小は未対応。[保存契約](../design/history-schema.md)を参照する。
 
 ## 方式差と旧側も未完成の機能
 
@@ -216,11 +248,10 @@ hjhの方式は[初期製品の採用方針](../design/initial-product.md)、[wo
 
 作業の完了方法や日常操作への影響が大きい候補は、次のとおりである。実装順序は未決定。
 
-- 部分読取り、複数編集、ファイル検索など、ファイル操作toolの充実。
 - コマンドの途中出力と、大量出力の分割取得。
 - 会話の要約checkpoint保存・再利用（利用者指定により、まだ実装しない）。
-- 設定管理CLIと、runの機械向けイベント出力。
-- Session削除や最新Session再開などの人間向け操作。
+- 基本指示全体の差替え、設定管理CLI、runの機械向けイベント出力。
+- TUI・Core経由のSession削除、最新Session再開などの人間向け操作。
 
 専用toolの不足、一般操作では代替できない機構、意図的に採用していない操作を区別し、
 実際の利用で必要なものから採否を決める。
