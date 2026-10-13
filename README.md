@@ -8,7 +8,12 @@ A terminal AI agent for working with files, commands, and web sources.
 Use it interactively or from the command line, keep your session history, and
 delegate work to child agents.
 
-This project is still under development. The supported target is Linux/amd64.
+Built in Go, hjh embeds [go-quickjs](https://github.com/go-quickjs/go-quickjs),
+a pure Go implementation of QuickJS-NG, to run JavaScript tools, hooks, and
+`run_js` scripts. No Node.js or Deno installation is needed for JavaScript execution.
+
+This project is still under development. Six binary variants are available;
+runtime testing has been performed on Linux/amd64.
 
 ## Features
 
@@ -86,3 +91,7 @@ their full instructions are read when needed. Exa search can use `EXA_API_KEY`.
 - [Developer notes and implementation history](docs/development.md) (Japanese)
 
 The English README is the source of truth; [README.ja.md](README.ja.md) is its Japanese translation.
+
+## License
+
+[MIT](LICENSE). Third-party dependencies retain their own licenses.

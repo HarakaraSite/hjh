@@ -8,7 +8,13 @@
 対話画面でもコマンドラインでも利用でき、会話履歴を保存して再開したり、
 子agentへ作業を委譲したりできます。
 
-このプロジェクトは現在開発途中です。対応環境はLinux/amd64です。
+hjhはGoで実装し、QuickJS-NGをPure Goで実装した
+[go-quickjs](https://github.com/go-quickjs/go-quickjs)を組み込んでいます。
+JavaScriptのツール・hook・`run_js`スクリプトを実行でき、
+JavaScriptの実行にNode.jsやDenoのインストールは必要ありません。
+
+このプロジェクトは現在開発途中です。バイナリは6種類を提供しており、
+テストでの動作確認はLinux/amd64で行っています。
 
 ## 主な機能
 
@@ -85,3 +91,7 @@ Exa検索には`EXA_API_KEY`を利用できます。
 - [開発者向けメモと実装経緯](docs/development.md)
 
 [英語README](README.md)を正本とし、このファイルはその日本語版として更新します。
+
+## ライセンス
+
+[MIT](LICENSE)。依存ライブラリにはそれぞれのライセンスが適用されます。

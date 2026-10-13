@@ -94,7 +94,8 @@ def package(out):
     (app / "extensions/modules").mkdir()
     shutil.copyfile(ROOT / "spikes/s01/s03-tools/modules/catalog.js", app / "extensions/modules/catalog.js")
     shutil.copyfile(ROOT / "docs/distribution-linux.md", app / "README.md")
-    (app / "NOTICE").write_text("hjh Linux/amd64 development build: hjh core and optional hjh-tui client.\nGo module and runtime licenses: licenses/.\nOptional YAML and semver ESM licenses: extensions/vendor/.\nPer-binary dependencies and file hashes: manifest.json.\n")
+    shutil.copyfile(ROOT / "LICENSE", app / "LICENSE")
+    (app / "NOTICE").write_text("hjh Linux/amd64 development build: hjh core and optional hjh-tui client.\nProject license: LICENSE (MIT).\nGo module and runtime licenses: licenses/.\nOptional YAML and semver ESM licenses: extensions/vendor/.\nPer-binary dependencies and file hashes: manifest.json.\n")
     manifest = {"target": "linux/amd64", "source": {"revision": source_revision, "dirty": source_dirty},
                 "binaries": binaries, "goDependencies": dependencies,
                 "jsDependencies": json.loads((app / "extensions/vendor/manifest.json").read_text())["dependencies"],
