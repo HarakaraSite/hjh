@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"hjh/internal/api"
+	"hjh/internal/contracts"
 	"hjh/internal/conversation"
 )
 
@@ -180,10 +181,12 @@ func cloneRunState(state api.RunState) api.RunState {
 		copy.Result = &result
 		if result.AgentResult != nil {
 			agentResult := *result.AgentResult
+			agentResult.Diagnostic = contracts.CloneFailure(agentResult.Diagnostic)
 			copy.Result.AgentResult = &agentResult
 		}
 		if result.Error != nil {
 			apiError := *result.Error
+			apiError.Diagnostic = contracts.CloneFailure(apiError.Diagnostic)
 			copy.Result.Error = &apiError
 		}
 	}

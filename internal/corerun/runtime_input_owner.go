@@ -305,6 +305,8 @@ func (c *inputChain) updateReceipt(receipt contracts.InputReceipt) (contracts.In
 	c.mu.Unlock()
 	if err == nil {
 		c.noteRevision(updated)
+	} else {
+		err = &contracts.ExecutionError{Err: err}
 	}
 	return updated, err
 }

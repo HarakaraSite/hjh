@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"hjh/internal/api"
+	"hjh/internal/contracts"
 	"hjh/internal/sessionid"
 )
 
@@ -19,7 +20,7 @@ func (m *model) displayEntities() []api.ConversationEntity {
 			if entity.Kind != "execution" {
 				continue
 			}
-		} else if entity.Kind == "execution" {
+		} else if entity.Kind == "execution" && !visibleRootFailure(entity) {
 			continue
 		}
 		if entity.Kind == "assistant" && strings.TrimSpace(entity.Text) == "" {
@@ -35,6 +36,10 @@ type childSummary struct {
 }
 
 func (m *model) childSummaryLines(entity api.ConversationEntity) []childSummary {
+	if entity.ParentExecutionID == "" {
+		return []childSummary{{"terminal", failureNotice(entity.Diagnostic, entity.Outcome, entity.Error,
+			m.sessionID != "" && entity.ExecutionID != ""), redSGR}}
+	}
 	label := "child " + m.shortChildID(entity.ExecutionID)
 	lines := []childSummary{{"start", label + " · started", magentaDimSGR}}
 	if entity.Status != "completed" && entity.Status != "incomplete" {
@@ -48,11 +53,30 @@ func (m *model) childSummaryLines(entity api.ConversationEntity) []childSummary 
 		state = entity.Outcome
 	}
 	text := label + " · " + state
-	if entity.Error != "" {
+	if reason := failureReason(entity.Diagnostic); reason != "" {
+		text += " · " + reason
+	} else if entity.Error != "" {
 		text += " · " + strings.Join(strings.Fields(entity.Error), " ")
 	}
 	lines = append(lines, childSummary{"terminal", text, style})
 	return lines
+}
+
+func visibleRootFailure(entity api.ConversationEntity) bool {
+	return entity.Diagnostic != nil && entity.Status == "incomplete"
+}
+
+// A terminal entity already supplies the durable notice in the transcript.
+func (m *model) appendRunFailure(executionID, outcome, detail string, diagnostic *contracts.FailureDiagnostic) {
+	if diagnostic != nil {
+		for _, entity := range m.sessionEntities {
+			if entity.Kind == "execution" && entity.ParentExecutionID == "" && entity.ExecutionID == executionID &&
+				visibleRootFailure(entity) && *entity.Diagnostic == *diagnostic {
+				return
+			}
+		}
+	}
+	m.appendEntry("run ended", failureNotice(diagnostic, outcome, detail, m.sessionID != "" && executionID != ""))
 }
 
 func (m *model) shortChildID(id string) string {

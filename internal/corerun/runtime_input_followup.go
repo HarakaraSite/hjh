@@ -191,7 +191,7 @@ func (m *Manager) saveInputControl(run *managedRun, chain *inputChain) error {
 		return fmt.Errorf("encode root input control: %w", err)
 	}
 	if err := m.service.SaveInputControl(context.Background(), run.state.ExecutionID, encoded); err != nil {
-		return fmt.Errorf("save root input control: %w", err)
+		return &contracts.ExecutionError{Err: fmt.Errorf("save root input control: %w", err)}
 	}
 	return nil
 }

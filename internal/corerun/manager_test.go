@@ -144,6 +144,10 @@ func TestIndependentSubscriptionCancelAndSessionReservation(t *testing.T) {
 	if terminal.Result == nil || terminal.Result.OK || terminal.Result.AgentResult.Outcome != "cancelled" {
 		t.Fatalf("terminal: %+v", terminal.Result)
 	}
+	if terminal.Result.Error.Diagnostic == nil || terminal.Result.Error.Diagnostic.Code != contracts.FailureCancelled ||
+		terminal.Result.AgentResult.Diagnostic == nil || terminal.Result.AgentResult.Diagnostic.Code != contracts.FailureCancelled {
+		t.Fatalf("Core lost cancellation diagnostic: %+v", terminal.Result)
+	}
 	inspection, err := service.Inspect(context.Background(), terminal.ExecutionID, 0, -1)
 	if err != nil || inspection.Execution.Lifecycle == "active" || inspection.Execution.Outcome != "cancelled" {
 		t.Fatalf("terminal before saved completion: %+v %v", inspection.Execution, err)

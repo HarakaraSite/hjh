@@ -28,6 +28,7 @@ type runTerminal struct {
 	resultOutcome  string
 	stopReason     string
 	resultError    string
+	diagnostic     *contracts.FailureDiagnostic
 	fallback       *api.AgentResult
 }
 
@@ -264,20 +265,20 @@ func (m *Manager) execute(ctx context.Context, r *managedRun, input runInput) {
 	}
 
 	terminal := &runTerminal{ok: runErr == nil && result.Result.OK, executionID: result.ExecutionID,
-		resultOK: result.Result.OK, resultOutcome: result.Result.Outcome, stopReason: result.Result.StopReason, resultError: result.Result.Error}
+		resultOK: result.Result.OK, resultOutcome: result.Result.Outcome, stopReason: result.Result.StopReason, resultError: result.Result.Error, diagnostic: contracts.FailureFor(runErr)}
 	if runErr != nil {
 		code := "run_failed"
 		if errors.Is(runErr, context.Canceled) || ctx.Err() != nil {
 			code = "run_cancelled"
 		}
-		terminal.apiError = &api.Error{Code: code, Message: runErr.Error()}
+		terminal.apiError = &api.Error{Code: code, Message: runErr.Error(), Diagnostic: contracts.CloneFailure(terminal.diagnostic)}
 	}
 	if result.ExecutionID != "" {
-		_, loadErr := m.service.TerminalResult(context.Background(), result.ExecutionID)
-		terminal.executionSaved = loadErr == nil
+		saved, loadErr := m.service.TerminalResult(context.Background(), result.ExecutionID)
+		terminal.executionSaved = loadErr == nil && len(saved.RuntimeOutcome) != 0
 		if !terminal.executionSaved {
 			terminal.fallback = &api.AgentResult{OK: result.Result.OK, Task: result.Result.Task, Outcome: result.Result.Outcome,
-				StopReason: result.Result.StopReason, FinalText: result.Result.FinalText, Error: result.Result.Error}
+				StopReason: result.Result.StopReason, FinalText: result.Result.FinalText, Error: result.Result.Error, Diagnostic: contracts.CloneFailure(terminal.diagnostic)}
 		}
 	}
 
@@ -421,10 +422,12 @@ func (m *Manager) resolveTerminal(ctx context.Context, r *managedRun, state api.
 		copy := *terminal
 		if terminal.apiError != nil {
 			apiError := *terminal.apiError
+			apiError.Diagnostic = contracts.CloneFailure(apiError.Diagnostic)
 			copy.apiError = &apiError
 		}
 		if terminal.fallback != nil {
 			fallback := *terminal.fallback
+			fallback.Diagnostic = contracts.CloneFailure(fallback.Diagnostic)
 			copy.fallback = &fallback
 		}
 		terminal = &copy
@@ -455,6 +458,7 @@ func (m *Manager) resolveTerminal(ctx context.Context, r *managedRun, state api.
 		// Core finalization can fail after EndExecution committed. Preserve the
 		// final run values while retrieving the body from its durable locator.
 		agentResult.OK = terminal.resultOK
+		agentResult.Diagnostic = contracts.CloneFailure(terminal.diagnostic)
 		if terminal.resultOutcome != "" {
 			agentResult.Outcome = terminal.resultOutcome
 		}
@@ -467,10 +471,12 @@ func (m *Manager) resolveTerminal(ctx context.Context, r *managedRun, state api.
 		result.AgentResult = &agentResult
 	} else if terminal.fallback != nil {
 		fallback := *terminal.fallback
+		fallback.Diagnostic = contracts.CloneFailure(fallback.Diagnostic)
 		result.AgentResult = &fallback
 	}
 	if terminal.apiError != nil {
 		apiError := *terminal.apiError
+		apiError.Diagnostic = contracts.CloneFailure(apiError.Diagnostic)
 		result.Error = &apiError
 	}
 	state.Result = result
@@ -488,10 +494,12 @@ func (m *Manager) stateLocked(r *managedRun) api.RunState {
 		s.Result = &v
 		if v.AgentResult != nil {
 			a := *v.AgentResult
+			a.Diagnostic = contracts.CloneFailure(a.Diagnostic)
 			s.Result.AgentResult = &a
 		}
 		if v.Error != nil {
 			e := *v.Error
+			e.Diagnostic = contracts.CloneFailure(e.Diagnostic)
 			s.Result.Error = &e
 		}
 	}

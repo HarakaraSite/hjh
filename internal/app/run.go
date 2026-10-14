@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
 
@@ -105,7 +106,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if options.SessionID == "" {
 		session, err = store.CreateSession(ctx, history.SessionInput{ID: options.NewSessionID, WorkspaceRoot: workspace, AgentChoice: contracts.JSON(map[string]any{"name": snapshot.Agent.Name}), ActiveModel: contracts.JSON(model)})
 		if err != nil {
-			return output, err
+			return output, runStorageFailure(err)
 		}
 	}
 	output.SessionID = session.ID
@@ -129,7 +130,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 		return output, err
 	}
 	if err = store.SaveConfiguration(ctx, snapshot.ConfigurationID, snapshotJSON); err != nil {
-		return output, err
+		return output, runStorageFailure(err)
 	}
 	manifest, err := buildinfo.Current()
 	if err != nil {
@@ -140,7 +141,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 		Model: contracts.JSON(model), Build: contracts.JSON(manifest), ConfigurationID: snapshot.ConfigurationID,
 		MaxSteps: int64(options.MaxSteps), TaskContentDigest: options.TaskContentDigest, Recall: options.Recall})
 	if err != nil {
-		return output, err
+		return output, runStorageFailure(err)
 	}
 	output.ExecutionID = execution.ID
 	if options.OnAdmission != nil {
@@ -170,4 +171,12 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	output.SnapshotSave = options.SnapshotOwner.status(execution.ID)
 	output.FailedChildSnapshotExecutionIDs = options.SnapshotOwner.failedExecutionIDs(execution.ID)
 	return output, err
+}
+
+// Preparation writes happen before the shared execution control exists.
+func runStorageFailure(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	return &contracts.ExecutionError{Err: err}
 }

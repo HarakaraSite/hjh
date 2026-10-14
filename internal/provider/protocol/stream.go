@@ -141,12 +141,12 @@ func (assembly *streamAssembly) addEvent(provider *Provider, raw []byte, onProgr
 func (assembly *streamAssembly) addChatEvent(raw []byte, reasoningField string, onProgress func(string, []contracts.ThinkingItem) error) error {
 	var event map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &event); err != nil {
-		return fmt.Errorf("invalid Chat Completions stream JSON: %w", err)
+		return responseFailure(fmt.Errorf("invalid Chat Completions stream JSON: %w", err), "", "")
 	}
 	if value := event["error"]; presentJSON(value) {
 		assembly.terminal = "failed"
 		assembly.failure = errorDescription(value)
-		return errors.New(assembly.failure)
+		return responseFailure(errors.New(assembly.failure), "", "")
 	}
 	if value, ok := decodeJSONString(event["model"]); ok && value != "" {
 		assembly.responseModel = value
@@ -174,7 +174,7 @@ func (assembly *streamAssembly) addChatEvent(raw []byte, reasoningField string, 
 			if finish == "error" {
 				assembly.terminal = "failed"
 				assembly.failure = "Chat Completions stream ended with finish_reason=error"
-				return errors.New(assembly.failure)
+				return responseFailure(errors.New(assembly.failure), "", "")
 			}
 		}
 		var delta map[string]json.RawMessage
@@ -256,7 +256,7 @@ func (assembly *streamAssembly) addChatToolCallFragments(raw json.RawMessage) {
 func (assembly *streamAssembly) addResponsesEvent(raw []byte, onProgress func(string, []contracts.ThinkingItem) error) error {
 	var event map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &event); err != nil {
-		return fmt.Errorf("invalid Responses stream JSON: %w", err)
+		return responseFailure(fmt.Errorf("invalid Responses stream JSON: %w", err), "", "")
 	}
 	typeName, _ := decodeJSONString(event["type"])
 	switch typeName {
@@ -292,7 +292,7 @@ func (assembly *streamAssembly) addResponsesEvent(raw []byte, onProgress func(st
 		assembly.responseDone = true
 		var envelope map[string]json.RawMessage
 		if err := json.Unmarshal(event["response"], &envelope); err != nil {
-			return fmt.Errorf("decode completed Responses event: %w", err)
+			return responseFailure(fmt.Errorf("decode completed Responses event: %w", err), "", "")
 		}
 		assembly.responseID, _ = decodeJSONString(envelope["id"])
 		assembly.responseModel, _ = decodeJSONString(envelope["model"])
@@ -506,7 +506,7 @@ func (assembly *streamAssembly) addResponsesItem(index int, raw json.RawMessage)
 func (assembly *streamAssembly) captureResponsesOutput(raw json.RawMessage) error {
 	var output []json.RawMessage
 	if err := json.Unmarshal(raw, &output); err != nil {
-		return fmt.Errorf("decode Responses output: %w", err)
+		return responseFailure(fmt.Errorf("decode Responses output: %w", err), "", "")
 	}
 	assembly.replayItems = make([]json.RawMessage, 0, len(output))
 	for index, item := range output {
@@ -569,21 +569,21 @@ func (assembly *streamAssembly) result(provider *Provider, request contracts.Mod
 		if message == "" {
 			message = "provider stream failed"
 		}
-		return contracts.ModelResult{}, errors.New(message)
+		return contracts.ModelResult{}, responseFailure(errors.New(message), "", "")
 	}
 	if assembly.terminal == "incomplete" {
 		message := "provider response incomplete"
 		if assembly.incompleteReason != "" {
 			message += ": " + assembly.incompleteReason
 		}
-		return contracts.ModelResult{}, errors.New(message)
+		return contracts.ModelResult{}, responseFailure(errors.New(message), "", "")
 	}
 	if assembly.api == "responses" {
 		if !assembly.responseDone || assembly.terminal != "completed" {
-			return contracts.ModelResult{}, errors.New("provider Responses stream ended before response.completed")
+			return contracts.ModelResult{}, responseFailure(errors.New("provider Responses stream ended before response.completed"), "", "")
 		}
 	} else if !assembly.chatDone {
-		return contracts.ModelResult{}, errors.New("provider Chat Completions stream ended before [DONE]")
+		return contracts.ModelResult{}, responseFailure(errors.New("provider Chat Completions stream ended before [DONE]"), "", "")
 	}
 	calls, err := assembly.toolCallResults()
 	if err != nil {
@@ -684,8 +684,17 @@ func (assembly *streamAssembly) toolCallResults() ([]contracts.ToolCall, error) 
 		if arguments == "" {
 			arguments = call.arguments.String()
 		}
-		if call.callID == "" || call.name == "" || !json.Valid([]byte(arguments)) {
-			return nil, fmt.Errorf("provider returned an incomplete tool call at index %d", index)
+		if call.callID == "" {
+			field := toolCallField(assembly.api, index, "id")
+			return nil, responseFailure(fmt.Errorf("provider returned an incomplete tool call at index %d: missing %s", index, field), "incomplete_tool_call", field)
+		}
+		if call.name == "" {
+			field := toolCallField(assembly.api, index, "name")
+			return nil, responseFailure(fmt.Errorf("provider returned an incomplete tool call at index %d: missing %s", index, field), "incomplete_tool_call", field)
+		}
+		if !json.Valid([]byte(arguments)) {
+			field := toolCallField(assembly.api, index, "arguments")
+			return nil, responseFailure(fmt.Errorf("provider returned an incomplete tool call at index %d: invalid arguments JSON in %s", index, field), "invalid_tool_arguments", field)
 		}
 		calls = append(calls, contracts.ToolCall{
 			Kind:      "tool_call",
@@ -695,6 +704,35 @@ func (assembly *streamAssembly) toolCallResults() ([]contracts.ToolCall, error) 
 		})
 	}
 	return calls, nil
+}
+
+func responseFailure(err error, parseReason, field string) error {
+	return contracts.WithFailure(err, contracts.FailureDiagnostic{
+		Code:        contracts.FailureResponse,
+		ParseReason: parseReason,
+		Field:       field,
+	})
+}
+
+func toolCallField(api string, index int, field string) string {
+	if api == "responses" {
+		switch field {
+		case "id":
+			return fmt.Sprintf("response.output[%d].call_id", index)
+		case "name":
+			return fmt.Sprintf("response.output[%d].name", index)
+		default:
+			return fmt.Sprintf("response.output[%d].arguments", index)
+		}
+	}
+	switch field {
+	case "id":
+		return fmt.Sprintf("choices[0].delta.tool_calls[%d].id", index)
+	case "name":
+		return fmt.Sprintf("choices[0].delta.tool_calls[%d].function.name", index)
+	default:
+		return fmt.Sprintf("choices[0].delta.tool_calls[%d].function.arguments", index)
+	}
 }
 
 func (assembly *streamAssembly) providerState(provider *Provider, model string) *contracts.ProviderState {

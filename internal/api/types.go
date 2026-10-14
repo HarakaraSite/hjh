@@ -113,20 +113,21 @@ type ConversationPosition struct {
 }
 
 type ConversationEntity struct {
-	ID                string                     `json:"id"`
-	Kind              string                     `json:"kind"`
-	ExecutionID       string                     `json:"executionId"`
-	ParentExecutionID string                     `json:"parentExecutionId,omitempty"`
-	ParentEntityID    string                     `json:"parentEntityId,omitempty"`
-	Position          ConversationPosition       `json:"position"`
-	Text              string                     `json:"text,omitempty"`
-	Status            string                     `json:"status"`
-	Name              string                     `json:"name,omitempty"`
-	Outcome           string                     `json:"outcome,omitempty"`
-	Error             string                     `json:"error,omitempty"`
-	ThinkingKind      string                     `json:"thinkingKind,omitempty"`
-	Detail            *ConversationDetailLocator `json:"detail,omitempty"`
-	Preview           string                     `json:"preview,omitempty"`
+	ID                string                       `json:"id"`
+	Kind              string                       `json:"kind"`
+	ExecutionID       string                       `json:"executionId"`
+	ParentExecutionID string                       `json:"parentExecutionId,omitempty"`
+	ParentEntityID    string                       `json:"parentEntityId,omitempty"`
+	Position          ConversationPosition         `json:"position"`
+	Text              string                       `json:"text,omitempty"`
+	Status            string                       `json:"status"`
+	Name              string                       `json:"name,omitempty"`
+	Outcome           string                       `json:"outcome,omitempty"`
+	Error             string                       `json:"error,omitempty"`
+	ThinkingKind      string                       `json:"thinkingKind,omitempty"`
+	Detail            *ConversationDetailLocator   `json:"detail,omitempty"`
+	Preview           string                       `json:"preview,omitempty"`
+	Diagnostic        *contracts.FailureDiagnostic `json:"diagnostic,omitempty"`
 }
 
 type ConversationDetailLocator struct {
@@ -187,18 +188,20 @@ type SnapshotSaveRequest struct {
 }
 
 type AgentResult struct {
-	OK         bool   `json:"ok"`
-	Task       string `json:"task"`
-	Outcome    string `json:"outcome"`
-	StopReason string `json:"stopReason"`
-	FinalText  string `json:"finalText,omitempty"`
-	Error      string `json:"error,omitempty"`
+	OK         bool                         `json:"ok"`
+	Task       string                       `json:"task"`
+	Outcome    string                       `json:"outcome"`
+	StopReason string                       `json:"stopReason"`
+	FinalText  string                       `json:"finalText,omitempty"`
+	Error      string                       `json:"error,omitempty"`
+	Diagnostic *contracts.FailureDiagnostic `json:"diagnostic,omitempty"`
 }
 
 type Error struct {
-	Code        string `json:"code"`
-	Message     string `json:"message"`
-	ActiveRunID string `json:"activeRunId,omitempty"`
+	Code        string                       `json:"code"`
+	Message     string                       `json:"message"`
+	ActiveRunID string                       `json:"activeRunId,omitempty"`
+	Diagnostic  *contracts.FailureDiagnostic `json:"diagnostic,omitempty"`
 }
 
 func (e *Error) Error() string { return e.Message }

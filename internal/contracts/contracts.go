@@ -131,19 +131,20 @@ type ModelResult struct {
 
 // Observation is a neutral execution fact. Its sink decides storage and display.
 type Observation struct {
-	ExecutionID       string          `json:"executionId,omitempty"`
-	ParentExecutionID string          `json:"parentExecutionId,omitempty"`
-	ID                string          `json:"id"`
-	Parent            string          `json:"parent,omitempty"`
-	Kind              string          `json:"kind"`
-	Name              string          `json:"name"`
-	Phase             string          `json:"phase"`
-	Preview           string          `json:"preview,omitempty"`
-	Time              time.Time       `json:"time"`
-	Input             json.RawMessage `json:"input,omitempty"`
-	Result            json.RawMessage `json:"result,omitempty"`
-	Error             string          `json:"error,omitempty"`
-	ModelStep         int             `json:"modelStep,omitempty"`
+	ExecutionID       string             `json:"executionId,omitempty"`
+	ParentExecutionID string             `json:"parentExecutionId,omitempty"`
+	ID                string             `json:"id"`
+	Parent            string             `json:"parent,omitempty"`
+	Kind              string             `json:"kind"`
+	Name              string             `json:"name"`
+	Phase             string             `json:"phase"`
+	Preview           string             `json:"preview,omitempty"`
+	Time              time.Time          `json:"time"`
+	Input             json.RawMessage    `json:"input,omitempty"`
+	Result            json.RawMessage    `json:"result,omitempty"`
+	Error             string             `json:"error,omitempty"`
+	ModelStep         int                `json:"modelStep,omitempty"`
+	Diagnostic        *FailureDiagnostic `json:"diagnostic,omitempty"`
 	// Text and Thinking are typed Go-side values. The provider must not wrap
 	// cumulative body text in Result JSON and make the history path parse it.
 	Text              string         `json:"-"`
@@ -215,6 +216,7 @@ type ExecutionFact struct {
 	Conversation         ConversationMetadata `json:"conversation"`
 	Locator              ExecutionLocator     `json:"locator"`
 	Recall               *RecallMarker        `json:"recall,omitempty"`
+	Diagnostic           *FailureDiagnostic   `json:"diagnostic,omitempty"`
 }
 
 // ExecutionCommit contains facts published only after the corresponding

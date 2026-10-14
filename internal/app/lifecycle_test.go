@@ -350,6 +350,9 @@ func TestLifecycleContextIsIncludedInInputBudget(t *testing.T) {
 	if !errors.As(err, &exceeded) || called {
 		t.Fatalf("hook context bypassed budget: %+v called=%v err=%v", result, called, err)
 	}
+	if result.Result.Diagnostic == nil || result.Result.Diagnostic.Code != contracts.FailureContextBudget {
+		t.Fatalf("protected context overflow lost diagnostic: %+v", result.Result)
+	}
 	records, err := store.Records(context.Background(), result.ExecutionID, 0, -1)
 	if err != nil {
 		t.Fatal(err)

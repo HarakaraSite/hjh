@@ -1092,10 +1092,10 @@ func (m *model) finishRun(msg runDoneMsg) tea.Cmd {
 	} else if msg.value.Result != nil && msg.value.Result.OK {
 		m.status = "run completed"
 	} else if msg.value.Result != nil && msg.value.Result.Error != nil {
-		m.appendEntry("run ended", msg.value.Result.Error.Message)
+		m.appendRunFailure(msg.value.ExecutionID, "failed", msg.value.Result.Error.Message, msg.value.Result.Error.Diagnostic)
 		m.status = "run failed · draft remains available"
 	} else if msg.value.Result != nil && msg.value.Result.AgentResult != nil && msg.value.Result.AgentResult.Error != "" {
-		m.appendEntry("run ended", msg.value.Result.AgentResult.Error)
+		m.appendRunFailure(msg.value.ExecutionID, msg.value.Result.AgentResult.Outcome, msg.value.Result.AgentResult.Error, msg.value.Result.AgentResult.Diagnostic)
 		m.status = "run failed · draft remains available"
 	} else if msg.value.Result != nil && msg.value.Result.AgentResult != nil {
 		m.status = "run ended · " + msg.value.Result.AgentResult.Outcome

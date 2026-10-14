@@ -154,6 +154,7 @@ func (v *View) Enqueue(commit contracts.ExecutionCommit) {
 			continue
 		}
 		fact.Thinking = append([]contracts.ThinkingItem(nil), fact.Thinking...)
+		fact.Diagnostic = contracts.CloneFailure(fact.Diagnostic)
 		if previous, exists := v.pending[key]; exists && previous.Conversation.FirstSequence != 0 {
 			// A terminal/update source may carry the latest fact sequence in its
 			// metadata. Keep the first committed position when several versions
@@ -531,7 +532,7 @@ func (v *View) applyFactLocked(fact contracts.ExecutionFact) (api.ConversationEn
 		ParentExecutionID: fact.ParentExecutionID, Position: api.ConversationPosition{RootExecutionOrdinal: fact.RootExecutionOrdinal,
 			FirstSequence: fact.Conversation.FirstSequence, ItemIndex: fact.Conversation.ItemIndex},
 		Text: fact.Text, Preview: fact.Preview, Status: entityStatus(fact), Name: fact.Name, Outcome: fact.Outcome,
-		Error: fact.Error, ThinkingKind: fact.ThinkingKind}
+		Error: fact.Error, ThinkingKind: fact.ThinkingKind, Diagnostic: contracts.CloneFailure(fact.Diagnostic)}
 	if entity.Kind == "tool" {
 		entity.Text = ""
 	}
@@ -647,6 +648,7 @@ func cloneSequence(sequence *uint64) *uint64 {
 func sequencePointer(sequence uint64) *uint64 { return &sequence }
 
 func cloneEntity(entity api.ConversationEntity) api.ConversationEntity {
+	entity.Diagnostic = contracts.CloneFailure(entity.Diagnostic)
 	if entity.Detail != nil {
 		detail := *entity.Detail
 		entity.Detail = &detail

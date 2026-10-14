@@ -560,13 +560,14 @@ func (s *Store) EndExecutionWithConversation(ctx context.Context, executionID st
 	}
 	if terminalConversation != nil {
 		var runtimeResult struct {
-			Error   string `json:"error"`
-			Outcome string `json:"outcome"`
+			Error      string                       `json:"error"`
+			Outcome    string                       `json:"outcome"`
+			Diagnostic *contracts.FailureDiagnostic `json:"diagnostic"`
 		}
 		_ = json.Unmarshal(runtimePayload, &runtimeResult)
 		facts = append(facts, contracts.ExecutionFact{RootExecutionID: rootExecutionID, ExecutionID: executionID, ParentExecutionID: parentID.String, ParentCallID: spawnID.String,
 			RootExecutionOrdinal: rootOrdinal, Kind: "host_decision", Phase: string(outcome), Outcome: runtimeResult.Outcome,
-			Error: runtimeResult.Error, Conversation: *terminalConversation,
+			Error: runtimeResult.Error, Diagnostic: contracts.CloneFailure(runtimeResult.Diagnostic), Conversation: *terminalConversation,
 			Locator: contracts.ExecutionLocator{ExecutionID: executionID, RecordID: terminalRecordID, Ordinal: latest}})
 	}
 	return facts, nil

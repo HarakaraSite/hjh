@@ -103,11 +103,11 @@ func (f *connectionFactory) provider(ctx context.Context, registry *providers.Re
 	}
 	binding, err := f.capture(ctx, target)
 	if err != nil {
-		return nil, err
+		return nil, contracts.WithFailure(err, contracts.FailureDiagnostic{Code: contracts.FailureMissingCredential})
 	}
 	resolved, err := binding.Resolve(ctx)
 	if err != nil {
-		return nil, err
+		return nil, contracts.WithFailure(err, contracts.FailureDiagnostic{Code: contracts.FailureMissingCredential})
 	}
 	// Hidden state belongs to this destination and account, not merely its editable ID.
 	identityBytes, err := json.Marshal([]string{selection.Provider, definition.API, definition.BaseURL,
@@ -125,7 +125,7 @@ func (f *connectionFactory) provider(ctx context.Context, registry *providers.Re
 		config.ResolveToken = func(requestCtx context.Context) (string, error) {
 			current, resolveErr := binding.Resolve(requestCtx)
 			if resolveErr != nil {
-				return "", resolveErr
+				return "", contracts.WithFailure(resolveErr, contracts.FailureDiagnostic{Code: contracts.FailureMissingCredential})
 			}
 			return current.Token, nil
 		}

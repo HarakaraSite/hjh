@@ -188,6 +188,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		if err != nil {
 			result.OK = false
 			result.Error = err.Error()
+			result.Diagnostic = contracts.FailureFor(err)
 		}
 		settledResult := result
 		settleErr := j.end(outcome, settledResult)
@@ -200,6 +201,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		if err != nil {
 			result.OK = false
 			result.Error = err.Error()
+			result.Diagnostic = contracts.FailureFor(err)
 		}
 		// Snapshot-only persistence is diagnostic state. It runs after the
 		// execution result and canonical adoption are settled, but before cleanup

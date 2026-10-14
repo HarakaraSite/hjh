@@ -225,6 +225,7 @@ type storedConversationFact struct {
 	text, entityKind, localKey, thinkingKind, lane, physicalRequestID                                string
 	preview, previewInput                                                                            string
 	recallJSON                                                                                       string
+	diagnosticJSON                                                                                   string
 	contentDigest                                                                                    sql.NullString
 	sequence, firstSequence                                                                          sql.NullInt64
 	itemIndex, modelStep, requestOrdinal                                                             sql.NullInt64
@@ -299,7 +300,8 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 			COALESCE(json_extract(r.payload_json,'$.request.lane'),'parent'),
 				COALESCE(json_extract(r.payload_json,'$.request.physicalRequestId'),''),
 				r.content_digest,
-				COALESCE(json_extract(r.payload_json,'$.recall'),'')
+				COALESCE(json_extract(r.payload_json,'$.recall'),''),
+                COALESCE(json_extract(r.payload_json,'$.diagnostic'),'')
 			FROM semantic_records r
 			WHERE r.execution_id=? AND r.ordinal>? AND r.ordinal<=?
 				AND (r.kind IN ('user_message','assistant_message','model_result','tool_call','tool_result','execution_admission','host_decision')
@@ -316,7 +318,7 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 				&item.name, &item.callID, &item.parentCallID, &item.outcome, &item.failure,
 				&item.text, &item.preview, &item.previewInput, &item.entityKind, &item.localKey, &item.thinkingKind, &item.sequence,
 				&item.firstSequence, &item.itemIndex, &item.modelStep,
-				&item.requestOrdinal, &item.lane, &item.physicalRequestID, &item.contentDigest, &item.recallJSON); err != nil {
+				&item.requestOrdinal, &item.lane, &item.physicalRequestID, &item.contentDigest, &item.recallJSON, &item.diagnosticJSON); err != nil {
 				_ = rows.Close()
 				return fmt.Errorf("history scan conversation record page: %w", err)
 			}
@@ -417,6 +419,10 @@ func normalizeStoredFact(cut ConversationCut, execution ConversationExecutionCut
 	if item.recallJSON != "" && json.Unmarshal([]byte(item.recallJSON), &fact.Recall) != nil {
 		fact.Recall = nil
 	}
+	if item.diagnosticJSON != "" {
+		_ = json.Unmarshal([]byte(item.diagnosticJSON), &fact.Diagnostic)
+	}
+
 	if fact.Conversation.EntityKind == "thinking" {
 		key := item.localKey
 		prefix := fact.Request.Lane + fmt.Sprintf("/%d/", fact.Request.RequestOrdinal)

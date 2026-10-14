@@ -154,7 +154,8 @@ func (p *Projector) Project(
 			Status: HistoryOmitted,
 			Reason: "protected_current_does_not_fit",
 		})
-		return projection, &ExceededError{Projection: projection}
+		return projection, contracts.WithFailure(&ExceededError{Projection: projection},
+			contracts.FailureDiagnostic{Code: contracts.FailureContextBudget})
 	}
 
 	if p.currentTrimmingStarted {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -54,15 +55,19 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	response, err := provider.client.Do(httpRequest)
 	if err != nil {
 		if ctx.Err() != nil {
-			err = fmt.Errorf("provider request canceled: %w", ctx.Err())
+			err = classifyProviderTransport(fmt.Errorf("provider request canceled: %w", ctx.Err()))
 		} else {
-			err = fmt.Errorf("provider request failed: %w", err)
+			err = classifyProviderTransport(fmt.Errorf("provider request failed: %w", err))
 		}
 		return contracts.ModelResult{}, provider.fail(observer, requestID, err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		responseBody, readErr := io.ReadAll(response.Body)
+		if ctx.Err() != nil {
+			return contracts.ModelResult{}, provider.fail(observer, requestID,
+				classifyProviderTransport(fmt.Errorf("provider error response read canceled: %w", ctx.Err())))
+		}
 		message := fmt.Sprintf("provider HTTP %s", response.Status)
 		if detail := strings.TrimSpace(string(responseBody)); detail != "" {
 			message += ": " + detail
@@ -70,7 +75,10 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 		if readErr != nil {
 			message += "; reading error body: " + readErr.Error()
 		}
-		return contracts.ModelResult{}, provider.fail(observer, requestID, errors.New(message))
+		return contracts.ModelResult{}, provider.fail(observer, requestID, contracts.WithFailure(errors.New(message), contracts.FailureDiagnostic{
+			Code:       contracts.FailureHTTP,
+			HTTPStatus: response.StatusCode,
+		}))
 	}
 
 	assembly := newStreamAssembly(provider.config.API)
@@ -96,7 +104,9 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	})
 	if streamErr != nil {
 		if ctx.Err() != nil {
-			streamErr = fmt.Errorf("provider stream canceled: %w", ctx.Err())
+			streamErr = classifyProviderTransport(fmt.Errorf("provider stream canceled: %w", ctx.Err()))
+		} else if contracts.FailureFor(streamErr) == nil && !isObservationError(streamErr) {
+			streamErr = classifyProviderTransport(fmt.Errorf("provider stream failed: %w", streamErr))
 		} else {
 			streamErr = fmt.Errorf("provider stream failed: %w", streamErr)
 		}
@@ -170,18 +180,34 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 
 func (provider *Provider) fail(observer contracts.Observer, requestID string, err error) error {
 	message := provider.redact(err.Error())
-	_ = provider.observe(observer, contracts.Observation{
-		ID:    requestID,
-		Kind:  "model_request",
-		Name:  provider.requestName(),
-		Phase: "error",
-		Time:  time.Now().UTC(),
-		Error: message,
-	})
-	if message == err.Error() {
-		return err
+	var diagnostic *contracts.FailureDiagnostic
+	if !isObservationError(err) {
+		diagnostic = contracts.FailureFor(err)
 	}
-	return errors.New(message)
+	_ = provider.observe(observer, contracts.Observation{
+		ID:         requestID,
+		Kind:       "model_request",
+		Name:       provider.requestName(),
+		Phase:      "error",
+		Time:       time.Now().UTC(),
+		Error:      message,
+		Diagnostic: contracts.CloneFailure(diagnostic),
+	})
+	var safeErr error = err
+	if message != err.Error() {
+		var cause error
+		switch {
+		case errors.Is(err, context.Canceled):
+			cause = context.Canceled
+		case errors.Is(err, context.DeadlineExceeded):
+			cause = context.DeadlineExceeded
+		}
+		safeErr = redactedProviderError{message: message, cause: cause, observation: isObservationError(err)}
+	}
+	if diagnostic != nil {
+		return contracts.WithFailure(safeErr, *diagnostic)
+	}
+	return safeErr
 }
 
 func (provider *Provider) observe(observer contracts.Observer, observation contracts.Observation) error {
@@ -189,9 +215,51 @@ func (provider *Provider) observe(observer contracts.Observer, observation contr
 		return nil
 	}
 	if err := observer(observation); err != nil {
-		return fmt.Errorf("record provider observation: %w", err)
+		return observationError{err: fmt.Errorf("record provider observation: %w", err)}
 	}
 	return nil
+}
+
+type observationError struct{ err error }
+
+func (err observationError) Error() string { return err.err.Error() }
+func (err observationError) Unwrap() error { return err.err }
+
+func isObservationError(err error) bool {
+	var observationErr observationError
+	if errors.As(err, &observationErr) {
+		return true
+	}
+	var redactedErr redactedProviderError
+	return errors.As(err, &redactedErr) && redactedErr.observation
+}
+
+type redactedProviderError struct {
+	message     string
+	cause       error
+	observation bool
+}
+
+func (err redactedProviderError) Error() string { return err.message }
+func (err redactedProviderError) Unwrap() error { return err.cause }
+
+func classifyProviderTransport(err error) error {
+	if contracts.FailureFor(err) != nil {
+		return err
+	}
+	code := contracts.FailureTransport
+	switch {
+	case errors.Is(err, context.Canceled):
+		code = contracts.FailureCancelled
+	case errors.Is(err, context.DeadlineExceeded):
+		code = contracts.FailureProviderTimeout
+	default:
+		var timeout net.Error
+		if errors.As(err, &timeout) && timeout.Timeout() {
+			code = contracts.FailureProviderTimeout
+		}
+	}
+	return contracts.WithFailure(err, contracts.FailureDiagnostic{Code: code})
 }
 
 func (provider *Provider) redact(message string) string {

@@ -22,12 +22,13 @@ type Input struct {
 	ProjectRequest func(context.Context, int, contracts.ModelRequest) (contracts.ModelRequest, error)
 }
 type Result struct {
-	OK         bool   `json:"ok"`
-	Task       string `json:"task"`
-	Outcome    string `json:"outcome"`
-	StopReason string `json:"stopReason"`
-	FinalText  string `json:"finalText,omitempty"`
-	Error      string `json:"error,omitempty"`
+	OK         bool                         `json:"ok"`
+	Task       string                       `json:"task"`
+	Outcome    string                       `json:"outcome"`
+	StopReason string                       `json:"stopReason"`
+	FinalText  string                       `json:"finalText,omitempty"`
+	Error      string                       `json:"error,omitempty"`
+	Diagnostic *contracts.FailureDiagnostic `json:"diagnostic,omitempty"`
 }
 type AppendMessage func(contracts.Message) error
 type BeforeRequest func(int, contracts.ModelRequest) error
@@ -62,6 +63,7 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 		}
 		if err != nil {
 			result.Error = err.Error()
+			result.Diagnostic = contracts.FailureFor(err)
 			if errors.Is(err, context.Canceled) {
 				result.Outcome = "cancelled"
 				result.StopReason = "cancelled"
@@ -93,7 +95,8 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 		if input.MaxSteps > 0 && step > input.MaxSteps {
 			result.StopReason = "max_steps"
 			result.Outcome = "max_steps"
-			return result, fmt.Errorf("model step limit reached (%d)", input.MaxSteps)
+			return result, contracts.WithFailure(fmt.Errorf("model step limit reached (%d)", input.MaxSteps),
+				contracts.FailureDiagnostic{Code: contracts.FailureStepLimit})
 		}
 		if err = applyInput(false); err != nil {
 			return result, err
