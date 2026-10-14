@@ -261,6 +261,12 @@ Coreの`--model-favorites-dir PATH`で保存先だけを変更でき、credentia
 画面内の `/help` と[操作・責務](design/tui.md)に詳細を記載する。
 
 既定DBはworkspace内 `.hjh/history.sqlite3`、外部tool・hookは `.hjh/extensions/`。
+
+履歴DBはWAL、同期はFULL。稼働中は`history.sqlite3-wal`と`history.sqlite3-shm`をSQLiteが管理する。
+手作業でDBをバックアップするときはCore/run/history等の全接続を閉じ、
+DB本体と残存する`-wal`を同じbasenameの対応で一緒にコピーする。
+読取り接続が最後に閉じる場合など、正常終了後でもWALに最新記録が残ることがある。
+履歴読取りはDB本体を直接コピーせず、`hjh history`等のSQLite経路を使う。
 `index.js`・`hooks.js`・`config.json` を編集すると次のrunから反映される。
 設定の `model` は `{"provider":"openrouter-responses","modelId":"deepseek/deepseek-v4.1-flash","effort":"auto"}` のように指定する。
 `~/.config/hjh/instructions/base.md`があれば組込み基本指示を置き換える。

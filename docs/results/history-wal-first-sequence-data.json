@@ -1,0 +1,544 @@
+{
+  "baseline_commit": "75fa1cda388f196f9301025b8be5177db21c97ef",
+  "date": "2026-10-14",
+  "workload": "Local HTTP SSE, one request with 300/600 model calls, same ~4KiB file read via run_js -> read_file, inputTokens=10000, fresh v4 DB; one run per condition",
+  "measurement": "Temporary driver connector profiling; process wchar sampled after native Store connection close before profile output; includes SQLite, journal and other process writes, not physical device IO; profiler CPU/read overhead included. Runs sequential, no concurrent tests. Hot SQL specifically filters conversation.entityKind/localKey; other MIN queries are excluded.",
+  "artifact_directory": "/tmp/hjh-wal-sequence-mmgoxbya",
+  "runs": [
+    {
+      "variant": "before",
+      "steps": 300,
+      "elapsed_seconds": 5.963207751978189,
+      "db_bytes": 6623232,
+      "settings": {
+        "journal_mode": "delete",
+        "page_size": 4096,
+        "synchronous": 2
+      },
+      "process_io_through_store_close": {
+        "cancelled_write_bytes": 0,
+        "rchar": 1141289017,
+        "read_bytes": 0,
+        "syscr": 296197,
+        "syscw": 196996,
+        "wchar": 391372184,
+        "write_bytes": 0
+      },
+      "hot_first_sequence_sql_count": 598,
+      "hot_first_sequence_sql_seconds": 3.009948793999998,
+      "records": {
+        "assistant_message": {
+          "count": 1198,
+          "payload_bytes": 904551
+        },
+        "context_budget": {
+          "count": 300,
+          "payload_bytes": 183468
+        },
+        "context_update": {
+          "count": 5,
+          "payload_bytes": 6255
+        },
+        "effect_observation": {
+          "count": 598,
+          "payload_bytes": 176645
+        },
+        "execution_admission": {
+          "count": 1,
+          "payload_bytes": 1016
+        },
+        "host_decision": {
+          "count": 1,
+          "payload_bytes": 316
+        },
+        "model_request": {
+          "count": 900,
+          "payload_bytes": 220984
+        },
+        "model_result": {
+          "count": 600,
+          "payload_bytes": 424017
+        },
+        "tool_call": {
+          "count": 598,
+          "payload_bytes": 281137
+        },
+        "tool_result": {
+          "count": 897,
+          "payload_bytes": 544663
+        },
+        "user_message": {
+          "count": 1,
+          "payload_bytes": 674
+        }
+      },
+      "budget_payload_bytes": 183468,
+      "latest_wire_bytes": 27177,
+      "latest_budget_bytes": 63676,
+      "rss_peak_kib": 47476,
+      "integrity": "ok",
+      "foreign_key_violations": 0,
+      "snapshot_rows_before_final_reply": {
+        "request_rows": 0,
+        "budget_rows": 0
+      },
+      "message_count": 600,
+      "adopted_message_count": 600
+    },
+    {
+      "variant": "after",
+      "steps": 300,
+      "elapsed_seconds": 2.6549981240241323,
+      "db_bytes": 6623232,
+      "settings": {
+        "journal_mode": "wal",
+        "page_size": 4096,
+        "synchronous": 2
+      },
+      "process_io_through_store_close": {
+        "cancelled_write_bytes": 0,
+        "rchar": 70412177,
+        "read_bytes": 0,
+        "syscr": 25711,
+        "syscw": 95198,
+        "wchar": 203313672,
+        "write_bytes": 0
+      },
+      "hot_first_sequence_sql_count": 0,
+      "hot_first_sequence_sql_seconds": 0,
+      "records": {
+        "assistant_message": {
+          "count": 1198,
+          "payload_bytes": 904524
+        },
+        "context_budget": {
+          "count": 300,
+          "payload_bytes": 183468
+        },
+        "context_update": {
+          "count": 5,
+          "payload_bytes": 6253
+        },
+        "effect_observation": {
+          "count": 598,
+          "payload_bytes": 176643
+        },
+        "execution_admission": {
+          "count": 1,
+          "payload_bytes": 1015
+        },
+        "host_decision": {
+          "count": 1,
+          "payload_bytes": 316
+        },
+        "model_request": {
+          "count": 900,
+          "payload_bytes": 220969
+        },
+        "model_result": {
+          "count": 600,
+          "payload_bytes": 424009
+        },
+        "tool_call": {
+          "count": 598,
+          "payload_bytes": 281114
+        },
+        "tool_result": {
+          "count": 897,
+          "payload_bytes": 544676
+        },
+        "user_message": {
+          "count": 1,
+          "payload_bytes": 674
+        }
+      },
+      "budget_payload_bytes": 183468,
+      "latest_wire_bytes": 27176,
+      "latest_budget_bytes": 63676,
+      "rss_peak_kib": 46056,
+      "integrity": "ok",
+      "foreign_key_violations": 0,
+      "snapshot_rows_before_final_reply": {
+        "request_rows": 0,
+        "budget_rows": 0
+      },
+      "message_count": 600,
+      "adopted_message_count": 600
+    },
+    {
+      "variant": "before",
+      "steps": 600,
+      "elapsed_seconds": 19.24393779897946,
+      "db_bytes": 12992512,
+      "settings": {
+        "journal_mode": "delete",
+        "page_size": 4096,
+        "synchronous": 2
+      },
+      "process_io_through_store_close": {
+        "cancelled_write_bytes": 0,
+        "rchar": 5130284820,
+        "read_bytes": 0,
+        "syscr": 1298138,
+        "syscw": 395712,
+        "wchar": 786209316,
+        "write_bytes": 0
+      },
+      "hot_first_sequence_sql_count": 1198,
+      "hot_first_sequence_sql_seconds": 12.055452801000026,
+      "records": {
+        "assistant_message": {
+          "count": 2398,
+          "payload_bytes": 1813915
+        },
+        "context_budget": {
+          "count": 600,
+          "payload_bytes": 367463
+        },
+        "context_update": {
+          "count": 5,
+          "payload_bytes": 6255
+        },
+        "effect_observation": {
+          "count": 1198,
+          "payload_bytes": 353869
+        },
+        "execution_admission": {
+          "count": 1,
+          "payload_bytes": 1016
+        },
+        "host_decision": {
+          "count": 1,
+          "payload_bytes": 316
+        },
+        "model_request": {
+          "count": 1800,
+          "payload_bytes": 442599
+        },
+        "model_result": {
+          "count": 1200,
+          "payload_bytes": 849661
+        },
+        "tool_call": {
+          "count": 1198,
+          "payload_bytes": 563959
+        },
+        "tool_result": {
+          "count": 1797,
+          "payload_bytes": 1092750
+        },
+        "user_message": {
+          "count": 1,
+          "payload_bytes": 674
+        }
+      },
+      "budget_payload_bytes": 367463,
+      "latest_wire_bytes": 27177,
+      "latest_budget_bytes": 127664,
+      "rss_peak_kib": 52768,
+      "integrity": "ok",
+      "foreign_key_violations": 0,
+      "snapshot_rows_before_final_reply": {
+        "request_rows": 0,
+        "budget_rows": 0
+      },
+      "message_count": 1200,
+      "adopted_message_count": 1200
+    },
+    {
+      "variant": "after",
+      "steps": 600,
+      "elapsed_seconds": 6.56211992399767,
+      "db_bytes": 12988416,
+      "settings": {
+        "journal_mode": "wal",
+        "page_size": 4096,
+        "synchronous": 2
+      },
+      "process_io_through_store_close": {
+        "cancelled_write_bytes": 0,
+        "rchar": 92448665,
+        "read_bytes": 0,
+        "syscr": 50152,
+        "syscw": 191689,
+        "wchar": 409911920,
+        "write_bytes": 0
+      },
+      "hot_first_sequence_sql_count": 0,
+      "hot_first_sequence_sql_seconds": 0,
+      "records": {
+        "assistant_message": {
+          "count": 2398,
+          "payload_bytes": 1813929
+        },
+        "context_budget": {
+          "count": 600,
+          "payload_bytes": 367463
+        },
+        "context_update": {
+          "count": 5,
+          "payload_bytes": 6256
+        },
+        "effect_observation": {
+          "count": 1198,
+          "payload_bytes": 353899
+        },
+        "execution_admission": {
+          "count": 1,
+          "payload_bytes": 1015
+        },
+        "host_decision": {
+          "count": 1,
+          "payload_bytes": 316
+        },
+        "model_request": {
+          "count": 1800,
+          "payload_bytes": 442594
+        },
+        "model_result": {
+          "count": 1200,
+          "payload_bytes": 849660
+        },
+        "tool_call": {
+          "count": 1198,
+          "payload_bytes": 563955
+        },
+        "tool_result": {
+          "count": 1797,
+          "payload_bytes": 1092707
+        },
+        "user_message": {
+          "count": 1,
+          "payload_bytes": 674
+        }
+      },
+      "budget_payload_bytes": 367463,
+      "latest_wire_bytes": 27177,
+      "latest_budget_bytes": 127664,
+      "rss_peak_kib": 50508,
+      "integrity": "ok",
+      "foreign_key_violations": 0,
+      "snapshot_rows_before_final_reply": {
+        "request_rows": 0,
+        "budget_rows": 0
+      },
+      "message_count": 1200,
+      "adopted_message_count": 1200
+    }
+  ],
+  "comparisons": [
+    {
+      "steps": 300,
+      "wchar_reduction_percent": 48.051067420775105,
+      "elapsed_reduction_percent": 55.477014478602,
+      "db_bytes_delta": 0
+    },
+    {
+      "steps": 600,
+      "wchar_reduction_percent": 47.862240797970905,
+      "elapsed_reduction_percent": 65.90032667666557,
+      "db_bytes_delta": -4096
+    }
+  ],
+  "core_cli_tui": {
+    "core_cli_tui": "pass",
+    "parallel_children_status_steer_collect": "pass",
+    "reopen_resume": "pass",
+    "failure_recall_cancel_latest_wire": "pass",
+    "budget_exceeded_keeps_prior_wire_and_latest_details": "pass",
+    "schema_v4_scalar_budgets": "pass",
+    "initial_budget_only_snapshot_no_http": "pass",
+    "deletion_reclaims_all_owned_bodies": "pass",
+    "model_calls": 15,
+    "live_checks": [
+      {
+        "root_and_parallel_children": "memory",
+        "snapshot_rows": 0,
+        "wire_exact": true,
+        "fact_available": true
+      }
+    ],
+    "external_api_calls": 0
+  },
+  "CLI_separate_process": {
+    "Core_active_separate_CLI_history": "pass",
+    "Core_active_sessions_list": "pass",
+    "Core_stop_then_CLI_short_ID_delete": "pass",
+    "owned_body_reclaimed": "pass",
+    "integrity": "ok",
+    "external_API_calls": 0
+  },
+  "unverified": [
+    "External provider latency",
+    "Physical device IO",
+    "Long-running workloads with diverse tool output"
+  ],
+  "prior_analysis": {
+    "repository_commit": "75fa1cda388f196f9301025b8be5177db21c97ef",
+    "scope": "Temporary source and DB, local HTTP. Repository and live DB unchanged.",
+    "method": "Process wchar after Store close before profiler output. Single-connection transaction interval attribution; overlaps can include other process writes. Instrumentation adds reads/CPU overhead. One run per variant, not device IO.",
+    "variants": {
+      "current": {
+        "process_wchar": 786386788,
+        "operation_wchar": 769836676,
+        "transactions": 9007,
+        "elapsed_seconds": 19.13926615199307,
+        "lookup": {
+          "count": 1198,
+          "rows": 1198,
+          "seconds": 11.91855881200004
+        },
+        "db_bytes": 12996608,
+        "records": 10199,
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "settings": null,
+        "message_count": 1200,
+        "adopted_messages": 1200
+      },
+      "wal": {
+        "process_wchar": 410173180,
+        "operation_wchar": 393618440,
+        "transactions": 9007,
+        "elapsed_seconds": 18.994554439996136,
+        "lookup": {
+          "count": 1198,
+          "rows": 1198,
+          "seconds": 12.24183668400003
+        },
+        "db_bytes": 12996608,
+        "records": 10199,
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "settings": {
+          "journal_mode": "wal",
+          "page_size": 4096,
+          "synchronous": 2
+        },
+        "message_count": 1200,
+        "adopted_messages": 1200
+      },
+      "wal_with_lookup_index": {
+        "process_wchar": 459268772,
+        "operation_wchar": 442714624,
+        "transactions": 9007,
+        "elapsed_seconds": 6.862768910010345,
+        "lookup": {
+          "count": 1198,
+          "rows": 1198,
+          "seconds": 0.03404038700000005
+        },
+        "db_bytes": 13512704,
+        "records": 10199,
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "settings": {
+          "journal_mode": "wal",
+          "page_size": 4096,
+          "synchronous": 2
+        },
+        "message_count": 1200,
+        "adopted_messages": 1200
+      }
+    },
+    "queries": {
+      "current": [
+        [
+          4,
+          0,
+          0,
+          "SEARCH semantic_records USING INDEX semantic_records_execution_ordinal (execution_id=?)"
+        ]
+      ],
+      "wal": [
+        [
+          4,
+          0,
+          0,
+          "SEARCH semantic_records USING INDEX semantic_records_execution_ordinal (execution_id=?)"
+        ]
+      ],
+      "wal_with_lookup_index": [
+        [
+          4,
+          0,
+          0,
+          "SEARCH semantic_records USING INDEX profile_first_sequence_idx (execution_id=? AND <expr>=? AND <expr>=?)"
+        ]
+      ]
+    },
+    "write_groups": {
+      "other_database": {
+        "transactions": 13,
+        "wchar": 1355204
+      },
+      "request_budget_metadata": {
+        "transactions": 1200,
+        "wchar": 70130976
+      },
+      "assistant_progress_result_and_message": {
+        "transactions": 1800,
+        "wchar": 181096088
+      },
+      "tool_start_inner_host_end_and_tool_message": {
+        "transactions": 4193,
+        "wchar": 373984028
+      },
+      "physical_request_start_end_and_usage": {
+        "transactions": 1800,
+        "wchar": 143077304
+      },
+      "latest_snapshot": {
+        "transactions": 1,
+        "wchar": 193076
+      }
+    },
+    "comparisons": {
+      "current": {
+        "wchar_reduction_percent": 0.0,
+        "elapsed_reduction_percent": 0.0,
+        "db_growth_bytes": 0
+      },
+      "wal": {
+        "wchar_reduction_percent": 47.84078442579328,
+        "elapsed_reduction_percent": 0.7560985402873643,
+        "db_growth_bytes": 0
+      },
+      "wal_with_lookup_index": {
+        "wchar_reduction_percent": 41.597598152933365,
+        "elapsed_reduction_percent": 64.14298826553654,
+        "db_growth_bytes": 516096
+      }
+    },
+    "current_settings_probe": {
+      "journal_mode": "delete",
+      "page_size": 4096,
+      "synchronous": 2
+    },
+    "observed_additional_index_overlap": {
+      "table": "semantic_records",
+      "unique_constraint": [
+        "execution_id",
+        "ordinal"
+      ],
+      "explicit_index": "semantic_records_execution_ordinal",
+      "explicit_columns": [
+        "execution_id",
+        "ordinal"
+      ],
+      "measured_removal": false
+    },
+    "scaling": {
+      "first_sequence_query_calls_300": 598,
+      "first_sequence_query_calls_600": 1198,
+      "first_sequence_query_seconds_300": 3.047998414,
+      "first_sequence_query_seconds_600": 11.91855881200004,
+      "interpretation": "Query count roughly doubles while execution time grows about 3.91x in this single repeated-result fixture; query plan only filters execution_id and evaluates JSON keys within that execution."
+    }
+  },
+  "review": {
+    "required_code_findings": 0,
+    "documentation_finding": "P2: main-file-only backup may omit uncheckpointed WAL when read-only connection closes last",
+    "resolution": "Stop all connections and preserve main DB plus any residual -wal with matching basename; no new checkpoint machinery"
+  }
+}

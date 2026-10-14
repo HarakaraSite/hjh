@@ -411,7 +411,8 @@ func (j *journal) appendMessageContent(message contracts.Message, encoded []byte
 		}
 		ordinal, savedFacts, err := j.store.AppendConversationMessage(j.ctx, history.ConversationMessageInput{
 			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
-			Message: encoded, Facts: facts, SteeringReceipt: steeringReceipt, FinalizeRequest: finalize,
+			Message: encoded, Facts: facts, FirstSequences: j.firstSequences,
+			SteeringReceipt: steeringReceipt, FinalizeRequest: finalize,
 		})
 		if err != nil {
 			return contracts.ExecutionCommit{}, err

@@ -260,6 +260,97 @@ func TestModelResultIsReadableWhenGenerateStopsBeforeAppendingMessage(t *testing
 	}
 }
 
+func TestJournalKeepsAssistantAndThinkingPositionsThroughMessageFinalization(t *testing.T) {
+	for _, streamed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("streamed=%t", streamed), func(t *testing.T) {
+			store, workspace := delegationStore(t)
+			owner := executiondata.NewOwner()
+			var live []contracts.ExecutionFact
+			_, subscription, err := executiondata.CaptureAndSubscribe(owner,
+				func(string, uint64) (struct{}, error) { return struct{}{}, nil },
+				func(commit contracts.ExecutionCommit) { live = append(live, commit.Facts...) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer subscription.Close()
+			thoughts := []contracts.ThinkingItem{
+				{Key: "rs_1/reasoning/0", Text: "reasoning", Kind: "reasoning"},
+				{Text: "summary", Kind: "summary"},
+			}
+			finalThoughts := append(append([]contracts.ThinkingItem(nil), thoughts...),
+				contracts.ThinkingItem{Key: "final-only", Text: "last thought", Kind: "reasoning"})
+			provider := delegationProvider(func(_ context.Context, _ contracts.ModelRequest, observe contracts.Observer) (contracts.ModelResult, error) {
+				if streamed {
+					for _, text := range []string{"draft", "latest draft"} {
+						if err := observe(contracts.Observation{Kind: "assistant_text", Phase: "progress", Text: text, Thinking: thoughts}); err != nil {
+							return contracts.ModelResult{}, err
+						}
+					}
+				}
+				response := contracts.ModelResult{Text: "final answer", Thinking: finalThoughts, FinishReason: "stop"}
+				if err := observe(contracts.Observation{Kind: "model_result", Phase: "end", Text: response.Text,
+					Thinking: response.Thinking, Result: contracts.JSON(map[string]any{"text": response.Text, "finishReason": "stop", "calls": []any{}})}); err != nil {
+					return contracts.ModelResult{}, err
+				}
+				return response, nil
+			})
+			result, err := Run(context.Background(), store, provider, RunOptions{Task: "answer", Workspace: workspace,
+				ModelID: "test/model", ExecutionDataOwner: owner})
+			if err != nil {
+				t.Fatal(err)
+			}
+			first := map[string]uint64{}
+			latest := map[string]contracts.ExecutionFact{}
+			for _, fact := range live {
+				metadata := fact.Conversation
+				if metadata.EntityKind != "assistant" && metadata.EntityKind != "thinking" {
+					continue
+				}
+				key := metadata.EntityKind + "/" + metadata.LocalKey
+				if previous := first[key]; previous != 0 && previous != metadata.FirstSequence {
+					t.Fatalf("%s moved from %d to %d at sequence %d", key, previous, metadata.FirstSequence, metadata.Sequence)
+				}
+				first[key] = metadata.FirstSequence
+				latest[key] = fact
+			}
+			if len(first) != 4 {
+				t.Fatalf("got %d entities, want answer and three thoughts: %v", len(first), first)
+			}
+			reader, err := history.OpenReadOnly(filepath.Join(workspace, "history.sqlite3"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reader.Close()
+			cut, err := reader.CaptureConversationCut(context.Background(), result.ExecutionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			replayed := map[string]contracts.ExecutionFact{}
+			if err := reader.WalkConversationCut(context.Background(), cut, func(fact contracts.ExecutionFact) error {
+				key := fact.Conversation.EntityKind + "/" + fact.Conversation.LocalKey
+				if _, ok := latest[key]; ok {
+					if fact.Conversation.FirstSequence != first[key] {
+						return fmt.Errorf("replay moved %s to %d, want %d", key, fact.Conversation.FirstSequence, first[key])
+					}
+					replayed[key] = fact
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if len(replayed) != 4 {
+				t.Fatalf("replayed %d entities, want 4", len(replayed))
+			}
+			for key, want := range latest {
+				fact := replayed[key]
+				if fact.Conversation != want.Conversation || fact.Text != want.Text || fact.ThinkingKind != want.ThinkingKind {
+					t.Fatalf("replay changed %s: got %#v want %#v", key, fact, want)
+				}
+			}
+		})
+	}
+}
+
 func TestLatestRequestBodyMatchesHTTPAndPhysicalRequestKeepsMetadataOnly(t *testing.T) {
 	workspace := t.TempDir()
 	var wire []byte

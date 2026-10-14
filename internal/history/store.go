@@ -42,7 +42,8 @@ type Store struct {
 }
 
 // Open opens a history database. The schema is installed only when the path
-// did not exist before this call; existing databases are opened as-is.
+// did not exist before this call. Existing databases are schema-checked before
+// writable settings and redundant index removal are applied.
 func Open(path string) (*Store, error) {
 	isNew := path == ":memory:"
 	if path != ":memory:" {
@@ -64,6 +65,19 @@ func Open(path string) (*Store, error) {
 	} else if err := store.checkSchema(context.Background()); err != nil {
 		_ = store.Close()
 		return nil, err
+	}
+	if path != ":memory:" {
+		if _, err := store.db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+			_ = store.Close()
+			return nil, fmt.Errorf("history enable WAL: %w", err)
+		}
+	}
+	if !isNew {
+		if _, err := store.db.Exec(`DROP INDEX IF EXISTS semantic_records_execution_ordinal;
+			DROP INDEX IF EXISTS execution_display_positions_execution;`); err != nil {
+			_ = store.Close()
+			return nil, fmt.Errorf("history remove redundant indexes: %w", err)
+		}
 	}
 	return store, nil
 }
@@ -102,6 +116,7 @@ func open(path string, readOnly bool) (*Store, error) {
 		query.Add("_pragma", "busy_timeout(5000)")
 		if !readOnly {
 			query.Set("_txlock", "immediate")
+			query.Add("_pragma", "synchronous(FULL)")
 		}
 		absolutePath, err := filepath.Abs(path)
 		if err != nil {

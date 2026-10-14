@@ -41,8 +41,8 @@ func TestEmbeddedSchemaV4AddsLatestSnapshotTables(t *testing.T) {
 	if err := store.db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='index' AND sql IS NOT NULL").Scan(&indexes); err != nil {
 		t.Fatal(err)
 	}
-	if tables != 23 || indexes != 11 {
-		t.Fatalf("catalog has %d tables and %d explicit indexes, want 23 and 11", tables, indexes)
+	if tables != 23 || indexes != 9 {
+		t.Fatalf("catalog has %d tables and %d explicit indexes, want 23 and 9", tables, indexes)
 	}
 	for table, columns := range map[string][]string{
 		"execution_latest_requests": {"execution_id", "record_id", "wire_body"},

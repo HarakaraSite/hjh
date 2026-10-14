@@ -85,8 +85,6 @@ CREATE TABLE execution_display_positions (
   execution_id TEXT NOT NULL UNIQUE REFERENCES executions(execution_id) ON DELETE CASCADE,
   PRIMARY KEY(session_correlation, execution_ordinal)
 );
-CREATE INDEX execution_display_positions_execution
-  ON execution_display_positions(execution_id);
 
 CREATE TABLE messages (
   execution_id TEXT NOT NULL REFERENCES executions(execution_id) ON DELETE CASCADE,
@@ -138,8 +136,6 @@ CREATE TABLE semantic_records (
   content_digest TEXT REFERENCES contents(content_digest),
   UNIQUE(execution_id, ordinal)
 );
-CREATE INDEX semantic_records_execution_ordinal
-  ON semantic_records(execution_id, ordinal);
 
 CREATE TABLE execution_latest_requests (
   execution_id TEXT PRIMARY KEY REFERENCES executions(execution_id) ON DELETE CASCADE,

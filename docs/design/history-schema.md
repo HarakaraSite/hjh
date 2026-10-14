@@ -4,7 +4,8 @@
 
 利用者が[最新状態の上書き計画](../plans/history-snapshot-overwrite.md)に沿った実装を指示した。
 Go製品の新規DBはschema v4とし、`PRAGMA user_version`と`store_metadata.schema_version`を4へ揃える。
-元の21 tables・11 explicit indexesを維持し、executionが所有する最新状態の2 tablesを追加する。
+元の21 tablesにexecutionが所有する最新状態の2 tablesを追加する。
+重複索引2本の削除後は23 tables・9 explicit indexesとし、PRIMARY KEY/UNIQUE制約索引は維持する。
 
 | 追加表 | 保存するもの |
 | --- | --- |
@@ -18,6 +19,23 @@ Go製品の新規DBはschema v4とし、`PRAGMA user_version`と`store_metadata.
 具体的な所有・読戻し契約は[通常履歴の保存契約](normal-history-storage.md)を参照する。
 v3 DBのmigration・converter・互換読取りは追加しない。既存の常用DB・backupは操作しない。
 新v4 binaryでv3 DBを開くことはできないため、常用環境の切替は別途利用者が決める。
+
+[WAL・初出位置改善](../plans/history-wal-first-sequence.md)により、file-backed writable Openは
+schema作成/検証後にWALへ切り替える。synchronousはFULL。schema version・table/indexは変更しない。
+read-only Openはjournal modeを変更せず、書込み中のWALもSQLite経由で読む。
+自動checkpointと最後の接続closeを使い、独自checkpoint処理は追加しない。
+稼働中は本体だけのコピーでは最新履歴を含まない。手作業backupは全接続を閉じた後、
+DB本体と残存する-walを同じbasenameの対応で一緒に保存する。
+readerが最後に閉じる場合など、正常終了後にも未checkpointのWALが残り得る。
+
+初出位置の表示契約も維持する。journalが保存成功後に持つexecution別firstSequencesを
+message確定へ渡し、thinking Fact展開後のJSON履歴再検索を省く。
+Storeを直接使いこの情報を渡さない場合のDB検索は残す。永続cache・追加索引は作らない。
+
+[重複索引削除](../plans/history-redundant-indexes.md)では、
+`semantic_records_execution_ordinal`と`execution_display_positions_execution`だけを削除する。
+同じ列のUNIQUE制約由来の索引を検索に使う。新規DDLから削除し、既存v4もwritable Open時に削除する。
+read-only Openでは削除しない。schema version・table・保存データ・UNIQUE制約は変更しない。
 
 以下の固定DDL・source・schema照合資料は、初期採用したv3の履歴資料として保持する。
 現在のGo DDLは`internal/history/schema.sql`であり、保管したHenji DDLを書き換えない。

@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-14",
+  "comparison": "Prior temporary-source experiment; fresh DB with only the two duplicate indexes removed from the WAL/first-sequence candidate. Existing-v4 writable-open removal separately verified by history test.",
+  "measurement_scope": "600 local HTTP model calls with same ~4KiB read_file result, single run per variant; process wchar includes network/journal/DB IO through Store close, not device IO",
+  "indexes": {
+    "removed_in_temporary_new_schema": [
+      "semantic_records_execution_ordinal",
+      "execution_display_positions_execution"
+    ],
+    "baseline_wchar": 409911920,
+    "without_indexes_wchar": 359032400,
+    "baseline_db_bytes": 12988416,
+    "without_indexes_db_bytes": 12427264,
+    "baseline_elapsed_seconds": 6.56211992399767,
+    "without_indexes_elapsed_seconds": 6.6729559790110216,
+    "integrity": "ok",
+    "foreign_key_violations": 0,
+    "record_counts_match": true
+  }
+}

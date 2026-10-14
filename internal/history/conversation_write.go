@@ -35,12 +35,17 @@ type AssistantResultInput struct {
 }
 
 type ConversationMessageInput struct {
-	RootExecutionID         string
-	ExecutionID             string
-	Sequence                uint64
-	Message                 json.RawMessage
-	ContentDigest           string
-	Facts                   []contracts.ExecutionFact
+	RootExecutionID string
+	ExecutionID     string
+	Sequence        uint64
+	Message         json.RawMessage
+	ContentDigest   string
+	Facts           []contracts.ExecutionFact
+	// FirstSequences, when non-nil, is the execution journal's complete set of
+	// committed entity positions, keyed by entityKind + "/" + localKey. It is
+	// read only during this call; absent entities first appear at Sequence.
+	// Direct Store callers can leave it nil to resolve positions from the DB.
+	FirstSequences          map[string]uint64
 	SteeringReceipt         *contracts.InputReceipt
 	ChildInstructionReceipt *contracts.ChildInstructionReceipt
 	FinalizeRequest         *contracts.RequestIdentity
@@ -185,10 +190,14 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 				fact.Conversation.FirstSequence = previous.Conversation.FirstSequence
 				delete(stateByLocalKey, fact.Conversation.LocalKey)
 			} else if fact.Conversation.FirstSequence == 0 {
-				first, err := firstConversationSequenceTx(ctx, tx, input.ExecutionID,
-					fact.Conversation.EntityKind, fact.Conversation.LocalKey)
-				if err != nil {
-					return 0, nil, err
+				first := input.FirstSequences[fact.Conversation.EntityKind+"/"+fact.Conversation.LocalKey]
+				if input.FirstSequences == nil {
+					var err error
+					first, err = firstConversationSequenceTx(ctx, tx, input.ExecutionID,
+						fact.Conversation.EntityKind, fact.Conversation.LocalKey)
+					if err != nil {
+						return 0, nil, err
+					}
 				}
 				if first == 0 {
 					first = input.Sequence
