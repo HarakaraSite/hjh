@@ -188,14 +188,16 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 		"modelSelection": contracts.ModelSelection{Provider: "fixture", API: "fixture-api", ModelID: "model/used"},
 		"itemCount":      4, "messageCount": 1, "toolContractCount": 1, "instructionCount": 1, "wireBytes": 512,
 	})
-	request, err := store.AppendLatestRequest(ctx, requested.ID, OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("x", 512))}, nil)
+	request, err := appendRequestSnapshotForTest(ctx, store, requested.ID,
+		OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("x", 512))}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	budgetPayload := contracts.JSON(map[string]any{"modelStep": 7, "modelSelection": contracts.ModelSelection{
 		Provider: "fixture", API: "fixture-api", ModelID: "model/used"}, "summary": map[string]any{
 		"estimatedTokens": 90, "selectedMessageCount": 2, "omittedCurrentMessageCount": 0, "historyStatus": "none"}, "detailAvailable": false})
-	budgetRecord, err := store.AppendLatestBudget(ctx, requested.ID, budgetPayload, json.RawMessage(`{"step":7,"sources":[{"kind":"current","messageOrdinal":0}]}`))
+	budgetRecord, err := appendBudgetSnapshotForTest(ctx, store, requested.ID, budgetPayload,
+		json.RawMessage(`{"step":7,"sources":[{"kind":"current","messageOrdinal":0}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,13 +208,15 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.AppendLatestRequest(ctx, child.ID, OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("child", 100))}, nil); err != nil {
+	if _, err := appendRequestSnapshotForTest(ctx, store, child.ID,
+		OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("child", 100))}, nil); err != nil {
 		t.Fatal(err)
 	}
 	childBudget := contracts.JSON(map[string]any{"modelStep": 8, "modelSelection": contracts.ModelSelection{
 		Provider: "fixture", API: "fixture-api", ModelID: "model/child"}, "summary": map[string]any{
 		"estimatedTokens": 180, "selectedMessageCount": 1, "omittedCurrentMessageCount": 3, "historyStatus": "omitted"}, "detailAvailable": false})
-	if _, err := store.AppendLatestBudget(ctx, child.ID, childBudget, json.RawMessage(`{"step":8,"sources":[{"kind":"current","messageOrdinal":1}]}`)); err != nil {
+	if _, err := appendBudgetSnapshotForTest(ctx, store, child.ID, childBudget,
+		json.RawMessage(`{"step":8,"sources":[{"kind":"current","messageOrdinal":1}]}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -274,7 +278,7 @@ func TestRecallEvidenceKeepsPublicMessagesAndSemanticFactsWithoutBlobExpansion(t
 		`{"callId":"host-1","kind":"host","name":"command","phase":"completed","result":{"stdout":"command output"}}`)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.AppendLatestRequest(ctx, source.ID, OccurrenceInput{Kind: "model_request", Payload: contracts.JSON(map[string]any{
+	if _, err := appendRequestSnapshotForTest(ctx, store, source.ID, OccurrenceInput{Kind: "model_request", Payload: contracts.JSON(map[string]any{
 		"schemaVersion": 1, "requestOrdinal": 1, "modelStep": 1,
 		"modelSelection": contracts.ModelSelection{Provider: "fixture", ModelID: "fixture/model"},
 		"itemCount":      2, "messageCount": 1, "toolContractCount": 0, "instructionCount": 0, "wireBytes": len("private wire"),
@@ -386,9 +390,10 @@ func TestRecallSemanticMirrorAndConversationWalkUseShortMarker(t *testing.T) {
 		"itemCount":      2, "messageCount": 1, "toolContractCount": 0, "instructionCount": 0,
 		"wireBytes": len("wire"), "recallRelationRecordId": target.RecallRecordID,
 	})
-	request, err := store.AppendLatestRequest(ctx, target.ID, OccurrenceInput{Kind: "model_request", Payload: requestPayload, Content: []byte("wire")}, contracts.JSON([]map[string]any{{
-		"kind": "recall", "sourceExecutionId": source.ID, "targetExecutionId": target.ID, "recordId": target.RecallRecordID,
-	}}))
+	request, err := appendRequestSnapshotForTest(ctx, store, target.ID,
+		OccurrenceInput{Kind: "model_request", Payload: requestPayload, Content: []byte("wire")}, contracts.JSON([]map[string]any{{
+			"kind": "recall", "sourceExecutionId": source.ID, "targetExecutionId": target.ID, "recordId": target.RecallRecordID,
+		}}))
 	if err != nil {
 		t.Fatal(err)
 	}

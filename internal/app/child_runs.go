@@ -122,6 +122,7 @@ func (s *childRuns) StatusAgent(ctx context.Context, q contracts.AgentQuery) (co
 		status.Progress.LastTool = &tool
 	}
 	r.mu.Unlock()
+	status.SnapshotSave = s.delegation.input.snapshotOwner.status(q.ExecutionID)
 	after := int64(-1)
 	if q.After != nil {
 		after = *q.After
@@ -164,6 +165,7 @@ func (s *childRuns) CollectAgent(ctx context.Context, q contracts.AgentQuery) (c
 	if result.ExecutionID == "" {
 		return result, runErr
 	}
+	result.SnapshotSave = s.delegation.input.snapshotOwner.status(q.ExecutionID)
 	// The child has already settled durably. Caller cancellation must not
 	// turn this evidence read into a root-wide storage failure.
 	settled, err := s.delegation.store.Execution(context.WithoutCancel(ctx), q.ExecutionID)

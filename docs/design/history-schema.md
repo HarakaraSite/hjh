@@ -12,7 +12,9 @@ Go製品の新規DBはschema v4とし、`PRAGMA user_version`と`store_metadata.
 | execution_latest_budgets | execution IDをPKとする最新の完全な予算Fact JSONと、そのsummaryを持つrecord ID |
 
 両表のexecution IDとrecord IDは外部キーで、参照先削除時にcascadeする。
-metadata追加と最新行のUPSERTは同じtransactionで行い、各状態の保存・読戻しを分ける。
+[終了時保存計画](../plans/history-terminal-snapshots.md)の採用後はmetadata/summaryだけを逐次追加し、
+最新wire/完全FactをService ownerへ保持する。終了確定後にsnapshot-only transactionで両専用行を保存する。
+既存record IDを使い、新record・ordinal・モデル結果・会話採用を変更しない。
 具体的な所有・読戻し契約は[通常履歴の保存契約](normal-history-storage.md)を参照する。
 v3 DBのmigration・converter・互換読取りは追加しない。既存の常用DB・backupは操作しない。
 新v4 binaryでv3 DBを開くことはできないため、常用環境の切替は別途利用者が決める。

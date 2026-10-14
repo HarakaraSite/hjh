@@ -12,10 +12,13 @@ import (
 )
 
 type contextAttribution struct {
-	store       *history.Store
-	ctx         context.Context
-	executionID string
-	recall      *recallAttribution
+	store           *history.Store
+	ctx             context.Context
+	sessionID       string
+	rootExecutionID string
+	executionID     string
+	snapshotOwner   *SnapshotOwner
+	recall          *recallAttribution
 }
 
 func digest(b []byte) string {
@@ -52,11 +55,14 @@ func (a *contextAttribution) request(step int, request contracts.ModelRequest) e
 	if a.recall != nil {
 		externalRelations = contracts.JSON([]map[string]any{a.recall.externalRelation()})
 	}
-	_, err := a.store.AppendLatestRequest(a.ctx, a.executionID, history.OccurrenceInput{
-		Kind: "model_request", Payload: contracts.JSON(metadata), Content: request.WireBody,
+	record, err := a.store.AppendLatestRequestMetadata(a.ctx, a.executionID, history.OccurrenceInput{
+		Kind: "model_request", Payload: contracts.JSON(metadata),
 	}, externalRelations)
 	if err != nil {
 		return fmt.Errorf("app save latest model request: %w", err)
+	}
+	if err := a.snapshotOwner.recordRequest(a.sessionID, a.rootExecutionID, a.executionID, record.ID, request.WireBody); err != nil {
+		return fmt.Errorf("app retain latest model request: %w", err)
 	}
 	return nil
 }

@@ -13,7 +13,7 @@ import (
 	"hjh/internal/contracts"
 )
 
-func TestAppendLatestRequestDirectlyOverwritesExecutionOwnedBody(t *testing.T) {
+func TestMetadataAndSnapshotSaveReplaceExecutionOwnedBody(t *testing.T) {
 	ctx := context.Background()
 	store, sessionID := recallTestStore(t)
 	execution := beginRecallTestExecution(t, store, sessionID, "latest-body-owner", "task")
@@ -27,7 +27,8 @@ func TestAppendLatestRequestDirectlyOverwritesExecutionOwnedBody(t *testing.T) {
 			"modelSelection": contracts.ModelSelection{Provider: "fixture", ModelID: "fixture/model"},
 			"itemCount":      2, "messageCount": 1, "toolContractCount": 0, "instructionCount": 0, "wireBytes": len(body),
 		})
-		record, err := store.AppendLatestRequest(ctx, execution.ID, OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(body)}, nil)
+		record, err := appendRequestSnapshotForTest(ctx, store, execution.ID,
+			OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(body)}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +148,7 @@ func TestLatestRequestBodiesAreSeparateForParentAndChildAndCascadeOnDelete(t *te
 		payload := contracts.JSON(map[string]any{
 			"schemaVersion": 1, "requestOrdinal": 1, "modelStep": 1, "wireBytes": len(body),
 		})
-		record, err := store.AppendLatestRequest(ctx, executionID, OccurrenceInput{
+		record, err := appendRequestSnapshotForTest(ctx, store, executionID, OccurrenceInput{
 			Kind: "model_request", Payload: payload, Content: []byte(body),
 		}, nil)
 		if err != nil {
@@ -225,7 +226,7 @@ func TestRecordsConcurrentLatestRequestReplacementKeepsCapturedBody(t *testing.T
 			"itemCount":      2, "messageCount": 1, "toolContractCount": 0,
 			"instructionCount": 0, "wireBytes": len(body),
 		})
-		_, err := store.AppendLatestRequest(ctx, execution.ID, OccurrenceInput{
+		_, err := appendRequestSnapshotForTest(ctx, store, execution.ID, OccurrenceInput{
 			Kind: "model_request", Payload: payload, Content: body,
 		}, nil)
 		return err

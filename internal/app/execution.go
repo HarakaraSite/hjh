@@ -81,6 +81,7 @@ type executionInput struct {
 	connections                          *connectionFactory
 	injectedProvider                     bool
 	executionDataOwner                   *executiondata.Owner
+	snapshotOwner                        *SnapshotOwner
 	steering                             contracts.SteeringSource
 	childInstructions                    *childInstructionOwner
 	childObserve                         contracts.Observer
@@ -200,6 +201,10 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			result.OK = false
 			result.Error = err.Error()
 		}
+		// Snapshot-only persistence is diagnostic state. It runs after the
+		// execution result and canonical adoption are settled, but before cleanup
+		// hooks. Its error never changes the model outcome or history failure.
+		_, _ = input.snapshotOwner.save(persist, store, execution.ID)
 		if lifecycle != nil {
 			adoptionMessage := ""
 			if adoptionErr != nil {
@@ -294,7 +299,8 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	if err = lifecycle.start(ctx); err != nil {
 		return result, err
 	}
-	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource}
+	attribution := contextAttribution{store: store, ctx: persist, sessionID: input.rootSessionID,
+		rootExecutionID: input.rootExecutionID, executionID: execution.ID, snapshotOwner: input.snapshotOwner, recall: recallSource}
 	budget, metadataError := input.connections.budget(ctx, registry, input.model, input.injectedProvider, input.configPath)
 	var prefix []contextbudget.Entry
 	for i, message := range messages {
@@ -323,8 +329,12 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			if projectErr != nil && !errors.As(projectErr, &exceeded) {
 				return request, projectErr
 			}
-			payload, factJSON := contextBudgetRecord(step, input.model, metadataError, exceeded != nil, projection.Fact)
-			if _, e := store.AppendLatestBudget(persist, execution.ID, payload, factJSON); e != nil {
+			payload := contextBudgetRecord(step, input.model, metadataError, exceeded != nil, projection.Fact)
+			record, e := store.AppendBudgetSummary(persist, execution.ID, payload)
+			if e != nil {
+				return request, control.storage(e)
+			}
+			if e := input.snapshotOwner.recordBudget(input.rootSessionID, input.rootExecutionID, execution.ID, record.ID, projection.Fact); e != nil {
 				return request, control.storage(e)
 			}
 			if e := contextBudgetNotice(j, step, projection.Fact, notices); e != nil {

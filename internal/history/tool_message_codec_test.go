@@ -196,7 +196,7 @@ func TestLatestRequestReplacementPreservesToolMessageBodies(t *testing.T) {
 			appendRequest := func(ordinal int, body []byte) Record {
 				t.Helper()
 				payload := contracts.JSON(map[string]any{"schemaVersion": 1, "requestOrdinal": ordinal, "modelStep": ordinal})
-				record, err := store.AppendLatestRequest(ctx, execution.ID, OccurrenceInput{
+				record, err := appendRequestSnapshotForTest(ctx, store, execution.ID, OccurrenceInput{
 					Kind: "model_request", Payload: payload, Content: body,
 				}, nil)
 				if err != nil {

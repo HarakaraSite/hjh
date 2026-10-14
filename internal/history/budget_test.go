@@ -28,22 +28,23 @@ func budgetTestFact(step int) json.RawMessage {
 	return contracts.JSON(map[string]any{"step": step, "sources": []any{map[string]any{"kind": "current", "messageOrdinal": step}}})
 }
 
-func TestLatestBudgetDetailOverwritesIndependentlyFromWireAndMarksPastSummary(t *testing.T) {
+func TestBudgetSummaryAndSnapshotSaveOverwriteIndependentlyFromWireAndMarkPastSummary(t *testing.T) {
 	ctx := context.Background()
 	store, sessionID := recallTestStore(t)
 	execution := beginRecallTestExecution(t, store, sessionID, "budget-wire-independent", "task")
 	requestPayload := contracts.JSON(map[string]any{"schemaVersion": 1, "requestOrdinal": 1, "modelStep": 1,
 		"modelSelection": contracts.ModelSelection{Provider: "fixture", API: "fixture-api", ModelID: "fixture/model"},
 		"itemCount":      1, "messageCount": 1, "toolContractCount": 0, "instructionCount": 0, "wireBytes": 12})
-	request, err := store.AppendLatestRequest(ctx, execution.ID, OccurrenceInput{Kind: "model_request", Payload: requestPayload, Content: []byte("first wire")}, nil)
+	request, err := appendRequestSnapshotForTest(ctx, store, execution.ID,
+		OccurrenceInput{Kind: "model_request", Payload: requestPayload, Content: []byte("first wire")}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstBudget, err := store.AppendLatestBudget(ctx, execution.ID, budgetTestPayload(1, false), budgetTestFact(1))
+	firstBudget, err := appendBudgetSnapshotForTest(ctx, store, execution.ID, budgetTestPayload(1, false), budgetTestFact(1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	latestBudget, err := store.AppendLatestBudget(ctx, execution.ID, budgetTestPayload(2, true), budgetTestFact(2))
+	latestBudget, err := appendBudgetSnapshotForTest(ctx, store, execution.ID, budgetTestPayload(2, true), budgetTestFact(2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +128,7 @@ func TestBudgetReadDuringOverwriteKeepsSummaryAndFactFromSameStep(t *testing.T) 
 		for step := 1; step <= 80; step++ {
 			payload := budgetTestPayload(step, step%2 == 0)
 			fact := budgetTestFact(step)
-			if _, saveErr := writer.AppendLatestBudget(ctx, execution.ID, payload, fact); saveErr != nil {
+			if _, saveErr := appendBudgetSnapshotForTest(ctx, writer, execution.ID, payload, fact); saveErr != nil {
 				writerErr = saveErr
 				break
 			}
@@ -151,18 +152,24 @@ func TestBudgetReadDuringOverwriteKeepsSummaryAndFactFromSameStep(t *testing.T) 
 			}
 			if latest != nil {
 				var payload struct {
-					ModelStep       int  `json:"modelStep"`
-					DetailAvailable bool `json:"detailAvailable"`
-					Fact            struct {
-						Step int `json:"step"`
-					} `json:"fact"`
+					ModelStep       int             `json:"modelStep"`
+					DetailAvailable bool            `json:"detailAvailable"`
+					Fact            json.RawMessage `json:"fact"`
 				}
 				if err := json.Unmarshal(latest.Payload, &payload); err != nil {
 					readerErr = err
 					return
 				}
-				if !payload.DetailAvailable || payload.ModelStep != payload.Fact.Step {
-					readerErr = fmt.Errorf("mixed budget snapshot: step=%d fact=%d payload=%s", payload.ModelStep, payload.Fact.Step, latest.Payload)
+				if payload.DetailAvailable {
+					var fact struct {
+						Step int `json:"step"`
+					}
+					if err := json.Unmarshal(payload.Fact, &fact); err != nil || payload.ModelStep != fact.Step {
+						readerErr = fmt.Errorf("mixed budget snapshot: step=%d fact=%d payload=%s err=%v", payload.ModelStep, fact.Step, latest.Payload, err)
+						return
+					}
+				} else if len(payload.Fact) != 0 {
+					readerErr = fmt.Errorf("unavailable latest budget retained Fact: %s", latest.Payload)
 					return
 				}
 				reads.Add(1)

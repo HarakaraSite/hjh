@@ -55,7 +55,8 @@ func TestContextShowsSavedInputSeparatelyFromNextSelection(t *testing.T) {
 
 func TestContextRendersCoreComputedBudgetAndUnsentFailure(t *testing.T) {
 	text := formatSessionContext(api.SessionContext{SessionID: "session", LatestBudget: &contracts.ContextBudgetStatus{
-		ExecutionID: "execution", ModelStep: 3, Exceeded: true,
+		ExecutionID: "execution", ModelStep: 3, Exceeded: true, DetailAvailable: true,
+		SnapshotSave: contracts.SnapshotStatus{ExecutionID: "execution", State: contracts.SnapshotSaveSaved, DetailAvailable: true, Frozen: true},
 		Fact: contracts.JSON(map[string]any{"budget": map[string]any{"limit": 1000, "contextTokens": 1250, "inputRatio": 0.8, "sources": map[string]string{"contextTokens": "catalog/provider", "inputRatio": "default"}}, "estimatedTokens": 1200, "wireBytes": 3500, "omittedCurrent": []int{1, 2}, "historyStatus": "omitted",
 			"history": map[string]any{"turns": []any{map[string]any{"number": 2, "status": "partial", "selectedSources": []any{map[string]any{"executionId": "saved", "messageOrdinal": 0}}, "omittedSources": []any{map[string]any{"executionId": "saved", "messageOrdinal": 1}, map[string]any{"executionId": "saved", "messageOrdinal": 2}}}}}}),
 	}})

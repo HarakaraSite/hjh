@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -57,7 +56,7 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "the TUI is a separate hjh-tui executable")
 		return 2
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := cliSignalContext(context.Background())
 	defer cancel()
 	if args[0] == "core" {
 		return runCore(ctx, args[1:], stdout, stderr)
@@ -240,11 +239,9 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		return 1
 	}
 	defer store.Close()
-	service := app.NewService(store, nil, app.RunOptions{})
-	defer func() { _ = service.Close() }()
+	service := app.NewService(store, nil, options)
 	switch args[0] {
 	case "run":
-		service = app.NewService(store, nil, options)
 		var task string
 		task, err = runTask(ctx, f.Args(), stdin)
 		if err != nil {
@@ -266,6 +263,9 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		var result app.RunResult
 		result, err = service.Run(ctx, app.RunRequest{Task: task, SessionID: *sessionID, ModelID: *modelID,
 			ProviderID: *providerID, Effort: *effort, AuthProfile: *authProfile, Workspace: *workspace, Role: *role, Progress: output.observe})
+		if noticeErr := writeSnapshotNotice(stderr, result.SnapshotSave, result.FailedChildSnapshotExecutionIDs); noticeErr != nil {
+			err = errors.Join(err, noticeErr)
+		}
 		if err == nil {
 			err = output.finish(result.Result.FinalText)
 		} else if *stream {
@@ -283,6 +283,9 @@ func run(args []string, stdin io.ReadCloser, stdout, stderr io.Writer) int {
 		}
 	default:
 		err = fmt.Errorf("unknown operation %q", args[0])
+	}
+	if closeErr := service.Close(); closeErr != nil {
+		fmt.Fprintf(stderr, "close service: %v\n", closeErr)
 	}
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -323,7 +326,19 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile, m
 		CredentialFile: credentialFile, ModelFavoritesDir: modelFavoritesDir, CredentialStateDir: credentialStateDir, MaxSteps: maxSteps, FromTurn: fromTurn})
 	manager := corerun.New(service, workspace)
 	apiServer := httpapi.New(service, manager)
-	defer apiServer.Close()
+	apiServerClosed := false
+	closeAPIServer := func() error {
+		if apiServerClosed {
+			return nil
+		}
+		apiServerClosed = true
+		return apiServer.Close()
+	}
+	defer func() {
+		if closeErr := closeAPIServer(); closeErr != nil {
+			fmt.Fprintf(stderr, "close Core: %v\n", closeErr)
+		}
+	}()
 	endpoint := coreEndpoint(listener.Addr())
 	unregister, err := corecatalog.Register(corecatalog.Entry{CoreID: manager.Core().CoreID,
 		Endpoint: endpoint, Workspace: workspace, PID: os.Getpid(),
@@ -345,13 +360,21 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile, m
 
 	select {
 	case err = <-serveDone:
+		closeErr := closeAPIServer()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 			fmt.Fprintln(stderr, err)
+			if closeErr != nil {
+				fmt.Fprintf(stderr, "close Core: %v\n", closeErr)
+			}
+			return 1
+		}
+		if closeErr != nil {
+			fmt.Fprintf(stderr, "close Core: %v\n", closeErr)
 			return 1
 		}
 		return 0
 	case <-apiServer.ShutdownRequested():
-		closeErr := apiServer.Close()
+		closeErr := closeAPIServer()
 		_ = server.Close()
 		<-serveDone
 		if closeErr != nil {
@@ -361,7 +384,7 @@ func serve(ctx context.Context, workspace, dbPath, configPath, credentialFile, m
 		return 0
 	case <-ctx.Done():
 		_ = manager.BeginShutdown(manager.Core().CoreID)
-		closeErr := apiServer.Close()
+		closeErr := closeAPIServer()
 		_ = server.Close()
 		<-serveDone
 		if closeErr != nil {

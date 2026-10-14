@@ -17,6 +17,14 @@ type contextSourceDisplay struct {
 }
 
 func formatCoreBudget(status contracts.ContextBudgetStatus) string {
+	if !status.DetailAvailable {
+		state := status.SnapshotSave.State
+		if state == "" {
+			state = contracts.SnapshotSaveUnavailable
+		}
+		return fmt.Sprintf("\nCore context budget · execution %s · step %d · %d estimated tokens · %d wire bytes · snapshot %s · detailed Fact unavailable",
+			status.ExecutionID, status.ModelStep, status.Summary.EstimatedTokens, status.Summary.WireBytes, state)
+	}
 	var fact struct {
 		Budget struct {
 			Limit         *int64            `json:"limit"`
@@ -92,6 +100,11 @@ func formatCoreBudget(status contracts.ContextBudgetStatus) string {
 		b.WriteString("\nCapacity metadata · " + status.MetadataError)
 	}
 	fmt.Fprintf(&b, "\nSaved budget · execution %s · record %d · /inspect %s", status.ExecutionID, status.RecordOrdinal, status.ExecutionID)
+	if status.SnapshotSave.State == contracts.SnapshotSaveFailed {
+		fmt.Fprintf(&b, "\nSnapshot save failed · %s", status.SnapshotSave.Error)
+	} else {
+		fmt.Fprintf(&b, "\nSnapshot · %s", status.SnapshotSave.State)
+	}
 	return b.String()
 }
 

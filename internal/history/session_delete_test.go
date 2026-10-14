@@ -50,11 +50,11 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 		t.Fatal(err)
 	}
 	for _, execution := range []Execution{root, child, kept} {
-		if _, err := store.AppendLatestRequest(ctx, execution.ID, OccurrenceInput{Kind: "model_request",
+		if _, err := appendRequestSnapshotForTest(ctx, store, execution.ID, OccurrenceInput{Kind: "model_request",
 			Payload: json.RawMessage(`{"schemaVersion":1}`), Content: []byte("latest wire " + execution.ID)}, nil); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := store.AppendLatestBudget(ctx, execution.ID, json.RawMessage(`{"modelStep":1,"summary":{},"detailAvailable":false}`),
+		if _, err := appendBudgetSnapshotForTest(ctx, store, execution.ID, json.RawMessage(`{"modelStep":1,"summary":{},"detailAvailable":false}`),
 			json.RawMessage(`{"step":1,"sources":[]}`)); err != nil {
 			t.Fatal(err)
 		}

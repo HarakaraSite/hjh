@@ -61,7 +61,8 @@ func childScopeTest(t *testing.T, provider contracts.Provider) (*childRuns, *his
 		t.Fatal(err)
 	}
 	factory := newConnectionFactory(RunOptions{})
-	d := &delegation{store: store, provider: provider, input: executionInput{execution: parent, snapshot: snapshot, workspace: workspace, configPath: configPath, rootSessionID: session.ID, rootExecutionID: parent.ID, model: model, connections: factory, injectedProvider: true, executionDataOwner: owner}, journal: j, control: control, progress: progress}
+	snapshotOwner := NewSnapshotOwner()
+	d := &delegation{store: store, provider: provider, input: executionInput{execution: parent, snapshot: snapshot, workspace: workspace, configPath: configPath, rootSessionID: session.ID, rootExecutionID: parent.ID, model: model, connections: factory, injectedProvider: true, executionDataOwner: owner, snapshotOwner: snapshotOwner}, journal: j, control: control, progress: progress}
 	scope := newChildRuns(ctx, d)
 	t.Cleanup(func() { scope.Close(); cancel(); _ = factory.close() })
 	return scope, store, parent.ID

@@ -74,6 +74,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.startRun(w, r)
 		return
 	}
+	if len(parts) >= 4 && parts[0] == "executions" && parts[2] == "snapshots" {
+		s.executionRoute(w, r, parts[1:])
+		return
+	}
 	if len(parts) >= 2 && parts[0] == "runs" {
 		s.runRoute(w, r, parts[1:])
 		return
@@ -648,8 +652,7 @@ func (s *Server) Close() error {
 	s.closeOnce.Do(func() {
 		s.service.BeginModelFavoritesClose()
 		s.service.BeginAuthClose()
-		_ = s.runs.Close()
-		s.closeErr = s.service.Close()
+		s.closeErr = errors.Join(s.runs.Close(), s.service.Close())
 	})
 	return s.closeErr
 }

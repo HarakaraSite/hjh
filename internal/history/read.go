@@ -119,7 +119,21 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 			semantic_records.kind, semantic_records.observed_at, semantic_records.payload_json,
 			semantic_records.content_digest, contents.content_digest, contents.content_bytes,
 			latest_requests.record_id, latest_requests.wire_body,
-			latest_budgets.record_id, latest_budgets.fact_json
+			latest_budgets.record_id, latest_budgets.fact_json,
+			EXISTS(SELECT 1 FROM semantic_records latest_request
+				WHERE latest_request.record_id=semantic_records.record_id
+				AND latest_request.execution_id=semantic_records.execution_id
+				AND latest_request.kind='model_request'
+				AND json_extract(latest_request.payload_json,'$.schemaVersion')=1
+				AND latest_request.ordinal=(SELECT MAX(r.ordinal) FROM semantic_records r
+					WHERE r.execution_id=semantic_records.execution_id AND r.kind='model_request'
+					AND json_extract(r.payload_json,'$.schemaVersion')=1)),
+			EXISTS(SELECT 1 FROM semantic_records latest_budget
+				WHERE latest_budget.record_id=semantic_records.record_id
+				AND latest_budget.execution_id=semantic_records.execution_id
+				AND latest_budget.kind='context_budget'
+				AND latest_budget.ordinal=(SELECT MAX(r.ordinal) FROM semantic_records r
+					WHERE r.execution_id=semantic_records.execution_id AND r.kind='context_budget'))
 		FROM semantic_records
 		LEFT JOIN contents ON contents.content_digest=semantic_records.content_digest
 		LEFT JOIN execution_latest_requests latest_requests
@@ -150,6 +164,8 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		latestBody       []byte
 		latestBudgetID   sql.NullString
 		latestBudgetFact []byte
+		latestRequest    bool
+		latestBudget     bool
 	}
 	var stored []storedRecord
 	for rows.Next() {
@@ -159,7 +175,7 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 			&item.record.ID, &item.record.ExecutionID, &item.record.Ordinal,
 			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest,
 			&item.storedDigest, &item.content, &item.latestID, &item.latestBody,
-			&item.latestBudgetID, &item.latestBudgetFact,
+			&item.latestBudgetID, &item.latestBudgetFact, &item.latestRequest, &item.latestBudget,
 		); err != nil {
 			_ = rows.Close()
 			return nil, fmt.Errorf("history scan semantic record: %w", err)
@@ -202,6 +218,32 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 				return nil, err
 			}
 		}
+		if item.latestRequest {
+			state := contracts.SnapshotSaveUnavailable
+			available := false
+			if item.latestID.Valid {
+				state, available = contracts.SnapshotSaveSaved, true
+			}
+			status := &contracts.SnapshotStatus{ExecutionID: executionID, State: state, DetailAvailable: available}
+			item.record.SnapshotSave = status
+			item.record.Payload, err = withSnapshotStatus(item.record.Payload, *status)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if item.latestBudget {
+			state := contracts.SnapshotSaveUnavailable
+			available := false
+			if item.latestBudgetID.Valid {
+				state, available = contracts.SnapshotSaveSaved, true
+			}
+			status := &contracts.SnapshotStatus{ExecutionID: executionID, State: state, DetailAvailable: available}
+			item.record.SnapshotSave = status
+			item.record.Payload, err = withSnapshotStatus(item.record.Payload, *status)
+			if err != nil {
+				return nil, err
+			}
+		}
 		item.record.Payload, _, err = s.expandStoredToolMessage(ctx, executionID, item.record.Payload)
 		if err != nil {
 			return nil, err
@@ -214,6 +256,20 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		result = append(result, item.record)
 	}
 	return result, nil
+}
+
+func withSnapshotStatus(payload json.RawMessage, status contracts.SnapshotStatus) (json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return nil, fmt.Errorf("history decode snapshot metadata: %w", err)
+	}
+	fields["detailAvailable"] = contracts.JSON(status.DetailAvailable)
+	fields["snapshotSave"] = contracts.JSON(status)
+	encoded, err := json.Marshal(fields)
+	if err != nil {
+		return nil, fmt.Errorf("history encode snapshot metadata: %w", err)
+	}
+	return encoded, nil
 }
 
 func expandLatestBudgetPayload(summary json.RawMessage, fact []byte) (json.RawMessage, error) {
@@ -402,14 +458,16 @@ func (s *Store) Context(ctx context.Context, executionID string) (json.RawMessag
 	var value sql.NullString
 	var requestID sql.NullString
 	var requestOrdinal, requestRecordOrdinal sql.NullInt64
-	err := s.db.QueryRowContext(ctx, `SELECT ec.manifest_json,lr.record_id,
+	err := s.db.QueryRowContext(ctx, `SELECT ec.manifest_json,r.record_id,
 		COALESCE(CAST(json_extract(r.payload_json,'$.requestOrdinal') AS INTEGER),0),
 		COALESCE(r.ordinal,0)
 		FROM executions e
 		LEFT JOIN execution_contexts ec ON ec.execution_id=e.execution_id
-		LEFT JOIN execution_latest_requests lr ON lr.execution_id=e.execution_id
-		LEFT JOIN semantic_records r ON r.record_id=lr.record_id
-			AND r.execution_id=e.execution_id AND r.kind='model_request'
+		LEFT JOIN semantic_records r ON r.execution_id=e.execution_id
+			AND r.kind='model_request' AND json_extract(r.payload_json,'$.schemaVersion')=1
+			AND r.ordinal=(SELECT MAX(latest.ordinal) FROM semantic_records latest
+				WHERE latest.execution_id=e.execution_id AND latest.kind='model_request'
+				AND json_extract(latest.payload_json,'$.schemaVersion')=1)
 		WHERE e.execution_id=?`, executionID).Scan(&value, &requestID, &requestOrdinal, &requestRecordOrdinal)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -5,8 +5,44 @@ import (
 	"errors"
 
 	"hjh/internal/api"
+	"hjh/internal/contracts"
 	"hjh/internal/history"
 )
+
+// SaveSnapshot retries only a frozen failed snapshot. The Session write
+// reservation keeps deletion and Core shutdown ordered around the DB update.
+func (m *Manager) SaveSnapshot(ctx context.Context, coreID, executionID string) (contracts.SnapshotStatus, error) {
+	m.mu.Lock()
+	if err := m.coreError(coreID); err != nil {
+		m.mu.Unlock()
+		return contracts.SnapshotStatus{}, err
+	}
+	if m.closing {
+		m.mu.Unlock()
+		return contracts.SnapshotStatus{}, &api.Error{Code: "core_closing", Message: "Core is shutting down"}
+	}
+	m.wg.Add(1)
+	m.mu.Unlock()
+	defer m.wg.Done()
+
+	sessionID, err := m.service.SnapshotSessionID(ctx, executionID)
+	if err != nil {
+		return contracts.SnapshotStatus{}, err
+	}
+	m.mu.Lock()
+	if m.deletingSessions[sessionID] {
+		m.mu.Unlock()
+		return contracts.SnapshotStatus{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
+	}
+	if sessionID != "" {
+		m.sessionWrites[sessionID]++
+	}
+	m.mu.Unlock()
+	if sessionID != "" {
+		defer m.finishSessionWrite(sessionID)
+	}
+	return m.service.SaveSnapshot(ctx, executionID)
+}
 
 // ActiveSessionRun returns the lightweight nonterminal run state reserved for
 // a persisted Session. It never resolves terminal output or reads history.

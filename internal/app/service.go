@@ -14,21 +14,26 @@ import (
 )
 
 // Service supplies the same execution and query operations to product surfaces.
-// The caller owns the store's lifetime; Service owns connection credentials and pending browser login lifetimes, not VM state.
+// The caller owns the store's lifetime; Service owns credentials, pending
+// browser login lifetimes, and in-process request/budget snapshots.
 type Service struct {
-	store       *history.Store
-	provider    contracts.Provider
-	options     RunOptions
-	connections *connectionFactory
-	favorites   *modelfavorites.Store
-	selectionMu sync.Mutex
-	closeOnce   sync.Once
-	closeErr    error
+	store         *history.Store
+	provider      contracts.Provider
+	options       RunOptions
+	connections   *connectionFactory
+	favorites     *modelfavorites.Store
+	snapshotOwner *SnapshotOwner
+	selectionMu   sync.Mutex
+	closeOnce     sync.Once
+	closeErr      error
 }
 
 func NewService(store *history.Store, provider contracts.Provider, options RunOptions) *Service {
+	if options.SnapshotOwner == nil {
+		options.SnapshotOwner = NewSnapshotOwner()
+	}
 	return &Service{store: store, provider: provider, options: options, connections: newConnectionFactory(options),
-		favorites: modelfavorites.New(options.ModelFavoritesDir)}
+		favorites: modelfavorites.New(options.ModelFavoritesDir), snapshotOwner: options.SnapshotOwner}
 }
 
 // RunRequest contains selections for one execution, shared by all product surfaces.
@@ -51,6 +56,45 @@ type RunRequest struct {
 func (s *Service) Run(ctx context.Context, request RunRequest) (RunResult, error) {
 	options := s.runOptions(request)
 	return Run(ctx, s.store, s.provider, options)
+}
+
+// SnapshotStatus returns the in-process state, or the persisted state when no
+// entry for that execution remains in this Service.
+func (s *Service) SnapshotStatus(executionID string) SnapshotStatus {
+	if status, exists := s.snapshotOwner.statusWithPresence(executionID); exists {
+		return status
+	}
+	status, err := s.store.LatestSnapshotStatus(context.Background(), executionID)
+	if err != nil {
+		return SnapshotStatus{ExecutionID: executionID, State: contracts.SnapshotSaveUnavailable}
+	}
+	return status
+}
+
+// SaveSnapshot retries a frozen failed snapshot. Active-memory entries and
+// persisted states without an in-process entry are returned without saving.
+func (s *Service) SaveSnapshot(ctx context.Context, executionID string) (SnapshotStatus, error) {
+	if _, exists := s.snapshotOwner.statusWithPresence(executionID); exists {
+		return s.snapshotOwner.retry(ctx, s.store, executionID)
+	}
+	return s.store.LatestSnapshotStatus(ctx, executionID)
+}
+
+// SnapshotSessionID resolves the Session protected by a snapshot save. Live
+// entries keep this identity in memory; older saved executions use history.
+func (s *Service) SnapshotSessionID(ctx context.Context, executionID string) (string, error) {
+	if sessionID, ok := s.snapshotOwner.sessionID(executionID); ok && sessionID != "" {
+		return sessionID, nil
+	}
+	execution, err := s.store.Execution(ctx, executionID)
+	if err != nil {
+		return "", err
+	}
+	return execution.SessionCorrelation, nil
+}
+
+func (s *Service) FailedChildSnapshotExecutionIDs(rootExecutionID string) []string {
+	return s.snapshotOwner.failedExecutionIDs(rootExecutionID)
 }
 
 func (s *Service) runOptions(request RunRequest) RunOptions {
@@ -122,7 +166,18 @@ func (s *Service) SaveInputControl(ctx context.Context, executionID string, cont
 }
 
 func (s *Service) SessionContext(ctx context.Context, sessionID string) (contracts.SessionContext, error) {
-	return s.store.SessionContext(ctx, sessionID)
+	result, err := s.store.SessionContext(ctx, sessionID)
+	if err != nil {
+		return result, err
+	}
+	if s.mergeSessionContextSnapshots(&result) {
+		result, err = s.store.SessionContext(ctx, sessionID)
+		if err != nil {
+			return result, err
+		}
+		_ = s.mergeSessionContextSnapshots(&result)
+	}
+	return result, nil
 }
 
 func (s *Service) SelectRecallSource(ctx context.Context, sessionID, selector string) (contracts.ContextExecution, error) {
@@ -183,7 +238,11 @@ func (s *Service) Session(ctx context.Context, id string) (history.Session, erro
 	return s.store.Session(ctx, id)
 }
 func (s *Service) DeleteSession(ctx context.Context, id string) error {
-	return s.store.DeleteSession(ctx, id)
+	err := s.store.DeleteSession(ctx, id)
+	if err == nil || errors.Is(err, history.ErrNotFound) {
+		s.snapshotOwner.deleteSession(id)
+	}
+	return err
 }
 func (s *Service) RenameSession(ctx context.Context, id, title string) (history.Session, error) {
 	return s.store.RenameSession(ctx, id, title)
@@ -198,12 +257,16 @@ func (s *Service) Executions(ctx context.Context, id string) ([]history.Executio
 // Record reads one detail locator without loading execution messages, captured
 // configuration, context, or any other tool result.
 func (s *Service) Record(ctx context.Context, executionID string, ordinal int64) (history.Record, error) {
+	capture, hasCapture := s.snapshotOwner.capture(executionID)
 	records, err := s.store.Records(ctx, executionID, ordinal, ordinal)
 	if err != nil {
 		return history.Record{}, err
 	}
 	if len(records) == 0 {
 		return history.Record{}, history.ErrNotFound
+	}
+	if err := s.mergeSnapshotRecord(&records[0], capture, hasCapture); err != nil {
+		return history.Record{}, err
 	}
 	return records[0], nil
 }
@@ -222,6 +285,7 @@ type Inspection struct {
 }
 
 func (s *Service) Inspect(ctx context.Context, id string, from, to int64) (output Inspection, err error) {
+	capture, hasCapture := s.snapshotOwner.capture(id)
 	output.Execution, err = s.store.Execution(ctx, id)
 	if err != nil {
 		return output, err
@@ -237,6 +301,11 @@ func (s *Service) Inspect(ctx context.Context, id string, from, to int64) (outpu
 	output.Records, err = s.store.Records(ctx, id, from, to)
 	if err != nil {
 		return output, err
+	}
+	for index := range output.Records {
+		if err = s.mergeSnapshotRecord(&output.Records[index], capture, hasCapture); err != nil {
+			return output, err
+		}
 	}
 	configuration, err := s.store.Configuration(ctx, output.Execution.ConfigurationID)
 	if err != nil {
@@ -257,13 +326,15 @@ func (s *Service) BeginModelFavoritesClose() { s.favorites.BeginClose() }
 
 func (s *Service) BeginAuthClose() { s.connections.credentials.BeginClose() }
 
-// Close joins accepted preference operations and browser login listeners.
-// The caller joins runs before closing Service and its history store.
+// Close retries frozen failed snapshots once, then joins preference operations
+// and browser login listeners. The caller joins runs before closing Service and
+// its history store.
 func (s *Service) Close() error {
 	s.closeOnce.Do(func() {
 		s.BeginModelFavoritesClose()
 		s.BeginAuthClose()
-		s.closeErr = errors.Join(s.favorites.Close(), s.connections.close())
+		snapshotErrors := s.snapshotOwner.retryFailed(context.Background(), s.store)
+		s.closeErr = errors.Join(errors.Join(snapshotErrors...), s.favorites.Close(), s.connections.close())
 	})
 	return s.closeErr
 }

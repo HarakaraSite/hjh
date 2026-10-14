@@ -6,6 +6,9 @@
 続く[最新状態の上書き計画](../plans/history-snapshot-overwrite.md)の採用により、
 schema v4ではwireの直接上書きと予算の保存粒度を本書の契約へ反映する。
 この追加変更の到達点は[上書き改善の結果](../results/history-snapshot-overwrite.md)を参照する。
+続く[終了時保存計画](../plans/history-terminal-snapshots.md)の採用により、最新wire/完全Factは
+実行中のメモリへ保持し、モデル終了確定後に専用tableへ保存する。schema v4は維持する。
+このincrementの確認状況は[終了時保存の結果](../results/history-terminal-snapshots.md)を参照する。
 
 ## 会話と送信全文の分離
 
@@ -19,8 +22,9 @@ APIへ送ったJSON全文を会話の継続用データとして使わない。
 ## S-1：通常のrequest記録
 
 送信準備は`contextbudget.Projector`と`provider.Prepare`で行う。
-準備できた正確なWireBodyを、API呼出し前にDBへ保存する。
-各executionの最新準備済みwireを、`execution_latest_requests.wire_body`へ直接保存する。
+API呼出し前に小さなrequest metadataを保存し、成功したrecord IDと正確なWireBodyを
+Service共有のsnapshot ownerへ渡す。親・子はexecution ID別に最新wireをメモリ保持する。
+モデル終了確定後に、`execution_latest_requests.wire_body`へsnapshotだけを直接保存する。
 execution IDをPKにして最新1件を上書きし、親・子は独立して保持する。
 対応する論理`model_request`の位置は同表の`record_id`で示す。
 通常の論理requestは`content_digest`を持たず、wireをcontentsへ保存しない。
@@ -47,13 +51,15 @@ recall参考Messageを選択したrequestは、適用した`recallRelationRecord
 論理requestへ予算recordを埋め直さず、予算recordと物理送信開始recordはWireBodyを参照しない。
 live observerへは実際の送信Inputを従来どおり渡すが、物理recordの保存は時刻・ID等のみとする。
 
-新しいrequest metadataの追加と専用wire行のUPSERTを同じtransactionで行う。
-transaction失敗ではAPIへ進まず、それ以前の専用wire行を保持する。
+request metadataとrecall関係は同じtransactionで追加する。失敗ではAPIへ進まず、
+ownerへ新しい本文を公開しない。snapshot-only保存は既存record IDとkindを照合し、
+request/budgetの両専用行を同じtransactionで更新する。active/settled両方で使え、
+ordinal・件数・モデル結果・会話採用を変えない。本文保存失敗時はメモリを保持する。
 古いwireのハッシュ照合・FK解除・全DB参照検索・本文回収は行わない。
 他のrecord・Message・構成等のcontents所有は変えず、Session削除時の共通本文回収は維持する。
 
 `execution_contexts`にはschemaVersionと通常recallの外部関係を保存し、最新request位置を重ねて保存しない。
-公開`Context`は専用request行とmetadataから次のlocatorを組み立てる。
+公開`Context`は専用行の有無に依存せず、最新のlogical metadataから次のlocatorを組み立てる。
 本文の所有者は専用request行であり、この公開JSONではない。
 
 ```json
@@ -66,23 +72,25 @@ transaction失敗ではAPIへ進まず、それ以前の専用wire行を保持�
 
 `context_item`、occurrences、splices、revision digest、全requestのmanifest一覧は生成しない。
 最新の意味は「送信準備済み」であり、HTTP成功済みを条件にしない。
-HTTP失敗や取消の後も最新本文を取得でき、予算超過等で準備できなかったときは前の本文が残る。
+HTTP失敗や取消でも終了時保存を試みる。予算超過等で準備できなかったときは前のwireを保持する。
 
 取得には既存のexecution inspect/Record APIを使う。古い論理requestのContentは空、
-最新のContentだけが正確な送信bytesである。物理recordのpayload.input全文復元は廃止する。
-実行中のinspect/Recordは、record metadataと参照本文を同じSQLで取得する。
-専用行のrecord_idが一致するrequestだけにContentを付ける。
-metadataだけを先に読んでから別SQLで本文を読むと、次の送信による上書きと競合するためである。
+最新metadataに対応する本文が取得できる場合だけ、Contentに正確な送信bytesを付ける。
+物理recordのpayload.input全文復元は廃止する。Storeは同じSQLでmetadataとrecord IDが一致する専用行を読む。
+Serviceのinspect/Recordは先にimmutableなowner captureを確保し、同じrecord IDに限りmemory/failedの詳細を合成する。
+capture後に保存が成功してcacheが解放されても、確保済み本文と状態を一緒に返す。
+metadata追加からowner公開までの短い間はunavailableを返し、別stepの本文で補完しない。
 `SessionContext`は小さなpayloadからmodel・step・件数・wire bytesを読み、
 予算recordとrecall relation IDを合わせて`/context`を構成する。
 
 ## 予算の各回summaryと最新詳細（schema v4）
 
 実行時のcontextbudget.Projector、除外済み状態、モデル入力の選択、通知とlive observerは変更しない。
-保存は`AppendLatestBudget`へ集約し、次の2種類を同じtransactionで確定する。
+各回は`AppendBudgetSummary`でsummaryだけを保存する。完全なFactはtyped値としてownerへ渡し、
+毎回JSON化しない。最新詳細のJSON化は読取りまたは終了時保存時に行う。保存の粒度は次のとおり。
 
 - 各回のcontext_budget payload：modelStep・modelSelection・metadataError・exceeded、summary、detailAvailable:false。
-- execution_latest_budgets：execution IDをPKとし、対応record IDと最新の完全なFact JSONを1件だけUPSERT。
+- execution_latest_budgets：終了時にexecution IDをPKとして、対応record IDと最新の完全なFact JSONを1件だけ保存。
 
 summaryはbudgetの上限・入出力reserve・比率・設定出所、estimator、wireBytes・estimatedTokens、
 任意のhistoryWireBytes・historyEstimatedTokens、selectedMessageCount・omittedCurrentMessageCount、
@@ -92,11 +100,14 @@ historyStatus・historyReasonを持つ。Sources・OmittedCurrent・OmittedCurre
 Records/Recordは同じSELECTでexecution IDとrecord IDが一致する専用行のFactを捕捉する。
 その最新recordだけにfactを付け、detailAvailable:trueとして返す。
 過去recordはsummaryとdetailAvailable:falseを返し、存在しない詳細を空配列や0件へ偽装しない。
-CLI detail・inspectはこの粒度を明示する。通常の会話表示や次turnの継続には影響しない。
+Serviceのlive読取りは同じrecord IDのcaptureを合成する。CLI detail・inspectはこの粒度と保存状態を明示する。
+通常の会話表示や次turnの継続には影響しない。
 
 SessionContextはbudget記録を持つ最新rootのmetadata・summary・完全なFactを返す。
 LatestRootExecution、requestを持つ最新root、budgetを持つ最新rootを独立に選び、各記録のexecution・ordinal・stepを示す。
-新rootにまだ記録がなければ、記録を持つ前のrootの情報を返す。
+新rootにまだmetadataがなければ、記録を持つ前のrootの情報を返す。
+metadataがあって詳細が未保存の場合は、その新rootを示し、古いrootの本文を最新扱いしない。
+Serviceはmatching captureを合成し、DB読取後に保存へ移行した場合だけSQLを一度読み直す。
 `/context`の選択/除外番号・historyの理由は最新Factから表示する。
 
 予算判断とwire保存は独立して更新する。最初の判断が予算超過でもbudgetを保存でき、
@@ -104,8 +115,38 @@ LatestRootExecution、requestを持つ最新root、budgetを持つ最新rootを�
 親子は別execution IDで保持し、Session削除では両専用行をexecutionと一緒にcascade削除する。
 会話継続とrecallは保存Messageを使い、過去の予算一覧や送信全文には依存しない。
 
-予算の保持量は各回summaryと最新詳細1件になるが、最新Factの生成・全文上書き、wire全文書込みは残る。
+予算の保持量は各回summaryと最新詳細1件になる。最新Factの生成と最新wire準備は毎回必要だが、
+大きな本文のDB書込みは終了時にまとめる。projectionと増える各回metadataの負担はこの変更で除去しない。
 容量と全体時間・process I/Oを分けて測定し、処理別のCPU/I/Oを測ったとは扱わない。
+
+## 最新snapshotの状態・終了・再保存
+
+snapshotはServiceが所有し、root/childへ同じownerを渡す。entryはexecution ID別で、削除と通知にSession/root IDも保持する。
+最新wireとtyped Factだけを保持し、immutable captureにrecord ID・本文・その時点の状態をまとめる。
+loop終了後に凍結し、モデル結果とcanonical採用の確定後、cleanup hookより先にsnapshot-only保存を試みる。
+通常取消・provider/observer失敗・予算超過・terminal保存失敗でも、既に保存されたmetadataに対応するsnapshotを試みる。
+子のdone/collectとCore最終結果はこの試行後に返す。durable terminal factは従来どおりモデル終了を表す。
+
+公開状態は`memory / saved / failed / unavailable`。`detailAvailable`と保存stateを分け、memory/failedの本文も読める。
+最新metadataに対応する詳細だけに状態を付け、過去record・物理送信観測には最新状態を付けない。
+保存成功時はlarge body/Factを解放し、以後DBで読む。snapshotだけの保存失敗では本文をownerへ残し、
+モデルのOK/outcome・会話採用・子の回答・CLIのモデル結果によるexit statusを変更しない。
+CLI stderr/TUIには別noticeを出し、rootの結果には失敗した子execution IDsも伝える。
+
+明示再保存はCoreの`POST /api/v2/executions/{id}/snapshots/save`、bodyは`coreId`のみとする。
+未凍結のactive/memoryは現在状態を返すだけ、凍結したfailedは同じtupleをsingle-flightで再保存する。
+saved/unavailableを再生成せず、モデル/APIやmetadataを追加しない。DB I/O中にowner/Core全体のmutexを保持しない。
+CoreのSession書込み/削除予約とshutdown joinへ接続する。成功後のCore結果・inspect/context・子status/collectは
+owner/DBの現在状態を返し、値コピーを状態の正本にしない。過去に親へ出したtool結果やnoticeは書き換えない。
+
+Session削除成功で、そのSessionのfailedを含むcacheも除く。通常Core停止はrun join後のService.Closeで
+failed entryを一度ずつ再試行し、その後Storeを閉じる。失敗execution IDs/errorsをclose errorとCLI/Core logへ返す。
+最終停止時までDBが書けない場合、プロセス終了後にメモリを保持することはできない。
+
+Unix CLIのSIGPIPEは通常EPIPEへ戻し、SIGHUPはSIGINT/SIGTERMと同じ取消経路へ接続する。
+接続CLIの出力pipe切断だけではCoreの仕事を取消さない。非Unixの従来signal契約を維持する。
+突然のVM/kill -9/SIGQUIT/fatal消失では未保存snapshotを失い、DBのmetadata/summaryと既に保存した会話・tool結果だけが残る。
+詳細不在を空全文/0件に偽装せずunavailableを返す。定期保存・spool・panic catch・再構築・migrationは追加しない。
 
 ## S-2：ツール定義を保存する範囲
 

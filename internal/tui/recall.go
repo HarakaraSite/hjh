@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/google/uuid"
 	"hjh/internal/api"
+	"hjh/internal/contracts"
 	"hjh/internal/sessionid"
 )
 
@@ -79,6 +80,11 @@ func formatSessionContext(state api.SessionContext, knownIDs ...string) string {
 			request.ExecutionID, request.ModelStep, request.RequestOrdinal, request.Selection.Provider,
 			request.Selection.ModelID, request.Selection.Effort, request.ItemCount, request.MessageCount,
 			request.ToolContractCount, request.InstructionCount, request.WireBytes)
+		if request.SnapshotSave.State == contracts.SnapshotSaveFailed {
+			fmt.Fprintf(&b, "\nLatest wire snapshot save failed · %s", request.SnapshotSave.Error)
+		} else {
+			fmt.Fprintf(&b, "\nLatest wire snapshot · %s", request.SnapshotSave.State)
+		}
 	} else {
 		b.WriteString("\nSaved input preparation · none")
 	}

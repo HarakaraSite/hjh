@@ -68,6 +68,7 @@ type AgentStatus struct {
 	Reports      []AgentReport             `json:"reports"`
 	NextCursor   int64                     `json:"nextCursor"`
 	Instructions []ChildInstructionReceipt `json:"instructions"`
+	SnapshotSave SnapshotStatus            `json:"snapshotSave"`
 }
 
 // AgentController owns children for one parent execution, independently of a VM call.

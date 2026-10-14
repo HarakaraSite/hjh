@@ -117,7 +117,8 @@ func (d *delegation) runChild(ctx context.Context, request contracts.AgentRunReq
 	if fatal := d.control.failure(); fatal != nil {
 		return contracts.AgentRunResult{}, &contracts.ExecutionError{Err: errors.Join(runErr, fatal)}
 	}
-	output := contracts.AgentRunResult{ExecutionID: child.ID, Outcome: settled.Outcome, FinalText: result.FinalText, Error: result.Error}
+	output := contracts.AgentRunResult{ExecutionID: child.ID, Outcome: settled.Outcome, FinalText: result.FinalText, Error: result.Error,
+		SnapshotSave: d.input.snapshotOwner.status(child.ID)}
 	if err := d.progress.observe(contracts.Observation{ExecutionID: child.ID, ParentExecutionID: child.ParentExecutionID,
 		ID: child.ID, Kind: "execution", Name: "run", Phase: settled.Outcome, Result: contracts.JSON(output)}); err != nil {
 		return output, err

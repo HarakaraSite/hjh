@@ -17,7 +17,7 @@ type contextBudgetRecordPayload struct {
 }
 
 func contextBudgetRecord(step int, selection contracts.ModelSelection, metadataError string,
-	exceeded bool, fact contextbudget.Fact) (json.RawMessage, json.RawMessage) {
+	exceeded bool, fact contextbudget.Fact) json.RawMessage {
 	summary := contracts.ContextBudgetSummary{
 		Budget: contracts.ContextBudgetValues{
 			ContextTokens: fact.Budget.ContextTokens,
@@ -48,5 +48,5 @@ func contextBudgetRecord(step int, selection contracts.ModelSelection, metadataE
 		ModelStep: step, ModelSelection: selection, MetadataError: metadataError,
 		Exceeded: exceeded, Summary: summary, DetailAvailable: false,
 	}
-	return contracts.JSON(payload), contracts.JSON(fact)
+	return contracts.JSON(payload)
 }

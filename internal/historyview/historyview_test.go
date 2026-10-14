@@ -50,7 +50,11 @@ func TestWriteDetailRecordPreservesBudgetSummaryAndDetailGranularity(t *testing.
 			"summary":         map[string]any{"estimatedTokens": 100 + step*10, "selectedMessageCount": step},
 			"detailAvailable": false})
 		fact := contracts.JSON(map[string]any{"sources": []any{map[string]any{"kind": "current", "messageOrdinal": step}}})
-		if _, err := store.AppendLatestBudget(ctx, execution.ID, payload, fact); err != nil {
+		record, err := store.AppendBudgetSummary(ctx, execution.ID, payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.SaveLatestSnapshots(ctx, execution.ID, nil, &history.LatestBudgetSnapshot{RecordID: record.ID, Fact: fact}); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -7,6 +7,8 @@
 wireはexecution_latest_requests、最新の完全なbudget Factはexecution_latest_budgetsへ直接保存する。
 各回のcontext_budgetはsummaryとdetailAvailable:falseだけを持ち、最新の公開読取りにだけ
 factを付けてdetailAvailable:trueとする。今回の到達点は[追加改善の結果](../results/history-snapshot-overwrite.md)を参照する。
+同日の[終了時保存計画](../plans/history-terminal-snapshots.md)の採用後、metadata/summaryは逐次保存し、
+最新wire/完全FactはService ownerに保持して終了確定後に保存する。schema v4と専用行形式は維持する。
 以下のv3に関する記述は初期・各increment採用時の契約であり、現在のversionは[schema契約](history-schema.md)に従う。
 
 2026-10-11更新。取得元は[固定したsource](schema-source.json)、DDLは
@@ -105,7 +107,9 @@ assistant_text_statesはまだ完了していないmodel requestの最新textを
 完了後のmessageとは分け、失敗／取消でも観測済みtextを失わないようにする。
 model_requestのrequest bytesは各executionの最新準備済み送信だけを保持する。
 論理requestに小さな件数等を保存し、execution_contextsはrecall関係を保持する。
-公開の最新位置はexecution_latest_requestsとmetadataから生成する。
+公開の最新位置は、専用行の有無に依存せず最新logical metadataから生成する。
+最新metadataの公開payloadにsnapshotSave（memory/saved/failed/unavailable、detailAvailable、任意error）を付ける。
+同じrecord IDのowner captureだけをServiceで合成し、Store直接読取りではDBにある詳細だけを返す。
 context_budgetの各回summaryとexecution_latest_budgetsの最新Factはwire本文を参照しない。
 物理送信開始recordはmetadataのみ、live観測は全文を持つ。credential headerは観測へ渡さない。
 旧ExecutionContextManifestV2とcontext_item archiveは新規生成しない。

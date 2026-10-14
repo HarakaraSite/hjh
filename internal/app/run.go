@@ -40,13 +40,16 @@ type RunOptions struct {
 	OnAdmission          func(contracts.ExecutionAdmission)
 	Progress             contracts.Observer
 	ExecutionDataOwner   *executiondata.Owner
+	SnapshotOwner        *SnapshotOwner
 	Steering             contracts.SteeringSource
 	TaskContentDigest    string
 }
 type RunResult struct {
-	SessionID   string       `json:"sessionId"`
-	ExecutionID string       `json:"executionId"`
-	Result      agent.Result `json:"result"`
+	SessionID                       string         `json:"sessionId"`
+	ExecutionID                     string         `json:"executionId"`
+	Result                          agent.Result   `json:"result"`
+	SnapshotSave                    SnapshotStatus `json:"snapshotSave"`
+	FailedChildSnapshotExecutionIDs []string       `json:"failedChildSnapshotExecutionIds,omitempty"`
 }
 
 func Run(ctx context.Context, store *history.Store, provider contracts.Provider, options RunOptions) (output RunResult, err error) {
@@ -150,6 +153,9 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if options.ExecutionDataOwner == nil {
 		options.ExecutionDataOwner = executiondata.NewOwner()
 	}
+	if options.SnapshotOwner == nil {
+		options.SnapshotOwner = NewSnapshotOwner()
+	}
 	workCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	control := &executionControl{cancel: cancel}
@@ -159,6 +165,9 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 		workspaceContext: workspaceContext, orientation: orientation,
 		rootSessionID: session.ID, rootExecutionID: execution.ID, session: &session, previousModel: active, fromTurn: options.FromTurn,
 		connections: factory, injectedProvider: injected, executionDataOwner: options.ExecutionDataOwner,
-		steering: options.Steering}, control, progress)
+		snapshotOwner: options.SnapshotOwner,
+		steering:      options.Steering}, control, progress)
+	output.SnapshotSave = options.SnapshotOwner.status(execution.ID)
+	output.FailedChildSnapshotExecutionIDs = options.SnapshotOwner.failedExecutionIDs(execution.ID)
 	return output, err
 }

@@ -247,10 +247,11 @@ type AgentRunRequest struct {
 	CallID string              `json:"-"`
 }
 type AgentRunResult struct {
-	ExecutionID string `json:"executionId"`
-	Outcome     string `json:"outcome"`
-	FinalText   string `json:"finalText,omitempty"`
-	Error       string `json:"error,omitempty"`
+	ExecutionID  string         `json:"executionId"`
+	Outcome      string         `json:"outcome"`
+	FinalText    string         `json:"finalText,omitempty"`
+	Error        string         `json:"error,omitempty"`
+	SnapshotSave SnapshotStatus `json:"snapshotSave"`
 }
 type AgentRunner interface {
 	RunAgent(context.Context, AgentRunRequest) (AgentRunResult, error)

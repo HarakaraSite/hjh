@@ -73,6 +73,7 @@ type ContextExecution struct {
 }
 
 type ContextRequest struct {
+	RecordID          string         `json:"recordId"`
 	ExecutionID       string         `json:"executionId"`
 	RecordOrdinal     int64          `json:"recordOrdinal"`
 	RequestOrdinal    int            `json:"requestOrdinal"`
@@ -83,6 +84,7 @@ type ContextRequest struct {
 	ToolContractCount int            `json:"toolContractCount"`
 	InstructionCount  int            `json:"instructionCount"`
 	WireBytes         int64          `json:"wireBytes"`
+	SnapshotSave      SnapshotStatus `json:"snapshotSave"`
 }
 
 type RecallAdmission struct {
@@ -110,6 +112,7 @@ type SessionContext struct {
 // ContextBudgetStatus describes Core's latest input selection, including a
 // selection that exceeded budget before a provider request was sent.
 type ContextBudgetStatus struct {
+	RecordID        string               `json:"recordId"`
 	ExecutionID     string               `json:"executionId"`
 	RecordOrdinal   int64                `json:"recordOrdinal"`
 	ModelStep       int                  `json:"modelStep"`
@@ -117,6 +120,7 @@ type ContextBudgetStatus struct {
 	Summary         ContextBudgetSummary `json:"summary"`
 	DetailAvailable bool                 `json:"detailAvailable"`
 	Fact            json.RawMessage      `json:"fact"`
+	SnapshotSave    SnapshotStatus       `json:"snapshotSave"`
 	MetadataError   string               `json:"metadataError,omitempty"`
 	Exceeded        bool                 `json:"exceeded"`
 }

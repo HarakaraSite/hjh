@@ -440,6 +440,13 @@ func formatInspection(inspection api.Inspection) string {
 		for _, record := range inspection.Records {
 			fmt.Fprintf(&b, "\n\nordinal %d · %s · %s\npayload:\n%s",
 				record.Ordinal, record.Kind, record.ID, messageText(record.Payload))
+			var snapshot struct {
+				DetailAvailable *bool                    `json:"detailAvailable"`
+				SnapshotSave    contracts.SnapshotStatus `json:"snapshotSave"`
+			}
+			if json.Unmarshal(record.Payload, &snapshot) == nil && snapshot.DetailAvailable != nil {
+				fmt.Fprintf(&b, "\nsnapshot · %s · detail available: %t", snapshot.SnapshotSave.State, *snapshot.DetailAvailable)
+			}
 			if len(record.Content) > 0 {
 				b.WriteString("\ncontent:\n")
 				if utf8.Valid(record.Content) {

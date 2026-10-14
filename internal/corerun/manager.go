@@ -433,7 +433,8 @@ func (m *Manager) resolveTerminal(ctx context.Context, r *managedRun, state api.
 	if terminal == nil {
 		return state, nil
 	}
-	result := &api.RunResult{OK: terminal.ok}
+	result := &api.RunResult{OK: terminal.ok, SnapshotSave: m.service.SnapshotStatus(terminal.executionID),
+		FailedChildSnapshotExecutionIDs: m.service.FailedChildSnapshotExecutionIDs(terminal.executionID)}
 	if terminal.executionSaved {
 		savedResult, err := r.readTerminal(ctx, func() (*api.AgentResult, error) {
 			saved, err := m.service.TerminalResult(m.ctx, terminal.executionID)

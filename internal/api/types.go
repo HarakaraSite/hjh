@@ -175,9 +175,15 @@ func (cache *serializedJSON) marshal(build func() ([]byte, error)) ([]byte, erro
 }
 
 type RunResult struct {
-	OK          bool         `json:"ok"`
-	AgentResult *AgentResult `json:"agentResult,omitempty"`
-	Error       *Error       `json:"error,omitempty"`
+	OK                              bool                     `json:"ok"`
+	AgentResult                     *AgentResult             `json:"agentResult,omitempty"`
+	Error                           *Error                   `json:"error,omitempty"`
+	SnapshotSave                    contracts.SnapshotStatus `json:"snapshotSave"`
+	FailedChildSnapshotExecutionIDs []string                 `json:"failedChildSnapshotExecutionIds,omitempty"`
+}
+
+type SnapshotSaveRequest struct {
+	CoreID string `json:"coreId"`
 }
 
 type AgentResult struct {

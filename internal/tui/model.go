@@ -1102,6 +1102,18 @@ func (m *model) finishRun(msg runDoneMsg) tea.Cmd {
 	} else {
 		m.status = "run ended"
 	}
+	if msg.err == nil && msg.value.Result != nil {
+		if status := msg.value.Result.SnapshotSave; status.State == contracts.SnapshotSaveFailed {
+			detail := status.Error
+			if detail == "" {
+				detail = "latest request or budget detail remains available in Core memory"
+			}
+			m.appendEntry("snapshot save failed", detail)
+		}
+		if ids := msg.value.Result.FailedChildSnapshotExecutionIDs; len(ids) != 0 {
+			m.appendEntry("child snapshot save failed", strings.Join(ids, ", "))
+		}
+	}
 	coreID, sessionID, nextRunID := run.coreID, run.session, msg.value.NextRunID
 	if nextRunID == "" {
 		nextRunID = run.nextRunID

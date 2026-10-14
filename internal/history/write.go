@@ -113,6 +113,7 @@ type Record struct {
 	Content      []byte
 	Relations    []Relation
 	Conversation *contracts.ConversationMetadata
+	SnapshotSave *contracts.SnapshotStatus `json:"-"`
 }
 
 func (s *Store) AppendOccurrence(ctx context.Context, executionID string, input OccurrenceInput) (Record, error) {

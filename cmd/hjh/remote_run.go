@@ -115,6 +115,9 @@ func runConnected(ctx context.Context, endpoint string, request api.StartRunRequ
 	if state.Result == nil {
 		return fail(fmt.Errorf("core returned no result for run %s", request.RunID))
 	}
+	if err := writeSnapshotNotice(stderr, state.Result.SnapshotSave, state.Result.FailedChildSnapshotExecutionIDs); err != nil {
+		return fail(err)
+	}
 	if !state.Result.OK {
 		if stream {
 			if err := output.endLine(); err != nil {

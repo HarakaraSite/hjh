@@ -60,8 +60,10 @@ func (s *Store) SessionContext(ctx context.Context, sessionID string) (contracts
 	}
 	var latestRequest contracts.ContextRequest
 	var selectionJSON string
+	var requestSnapshotState string
+	var requestSnapshotAvailable bool
 	var requestOrdinal, modelStep int
-	err = tx.QueryRowContext(ctx, `SELECT r.execution_id,r.ordinal,
+	err = tx.QueryRowContext(ctx, `SELECT r.record_id,r.execution_id,r.ordinal,
 		CAST(json_extract(r.payload_json,'$.requestOrdinal') AS INTEGER),
 		CAST(json_extract(r.payload_json,'$.modelStep') AS INTEGER),
 		json_extract(r.payload_json,'$.modelSelection'),
@@ -69,20 +71,25 @@ func (s *Store) SessionContext(ctx context.Context, sessionID string) (contracts
 		CAST(COALESCE(json_extract(r.payload_json,'$.messageCount'),0) AS INTEGER),
 		CAST(COALESCE(json_extract(r.payload_json,'$.toolContractCount'),0) AS INTEGER),
 		CAST(COALESCE(json_extract(r.payload_json,'$.instructionCount'),0) AS INTEGER),
-		CAST(COALESCE(json_extract(r.payload_json,'$.wireBytes'),0) AS INTEGER)
-		FROM execution_latest_requests latest
-		JOIN semantic_records r ON r.record_id=latest.record_id AND r.execution_id=latest.execution_id
+		CAST(COALESCE(json_extract(r.payload_json,'$.wireBytes'),0) AS INTEGER),
+		CASE WHEN latest.record_id IS NULL THEN 'unavailable' ELSE 'saved' END,
+		(latest.record_id IS NOT NULL)
+		FROM semantic_records r
+		LEFT JOIN execution_latest_requests latest ON latest.execution_id=r.execution_id AND latest.record_id=r.record_id
 		JOIN execution_display_positions p ON p.execution_id=r.execution_id
 		JOIN executions e ON e.execution_id=r.execution_id
 		WHERE p.session_correlation=? AND e.parent_execution_id IS NULL AND r.kind='model_request'
 			AND json_extract(r.payload_json,'$.schemaVersion')=1
 		ORDER BY p.execution_ordinal DESC,r.ordinal DESC LIMIT 1`, sessionID).Scan(
-		&latestRequest.ExecutionID, &latestRequest.RecordOrdinal, &requestOrdinal, &modelStep,
+		&latestRequest.RecordID, &latestRequest.ExecutionID, &latestRequest.RecordOrdinal, &requestOrdinal, &modelStep,
 		&selectionJSON, &latestRequest.ItemCount, &latestRequest.MessageCount,
 		&latestRequest.ToolContractCount, &latestRequest.InstructionCount, &latestRequest.WireBytes,
+		&requestSnapshotState, &requestSnapshotAvailable,
 	)
 	if err == nil {
 		latestRequest.RequestOrdinal, latestRequest.ModelStep = requestOrdinal, modelStep
+		latestRequest.SnapshotSave = contracts.SnapshotStatus{ExecutionID: latestRequest.ExecutionID,
+			State: contracts.SnapshotSaveState(requestSnapshotState), DetailAvailable: requestSnapshotAvailable}
 		if err := json.Unmarshal([]byte(selectionJSON), &latestRequest.Selection); err != nil {
 			return contracts.SessionContext{}, fmt.Errorf("history decode latest model request selection: %w", err)
 		}
@@ -91,26 +98,33 @@ func (s *Store) SessionContext(ctx context.Context, sessionID string) (contracts
 		return contracts.SessionContext{}, fmt.Errorf("history read latest parent model request: %w", err)
 	}
 	var admission contracts.RecallAdmission
-	var budgetExecution, budgetJSON string
+	var budgetRecordID, budgetExecution, budgetJSON, budgetSnapshotState string
 	var budgetFact []byte
 	var budgetOrdinal int64
-	budgetErr := tx.QueryRowContext(ctx, `SELECT r.execution_id,r.ordinal,r.payload_json,b.fact_json
-		FROM execution_latest_budgets b
-		JOIN semantic_records r ON r.execution_id=b.execution_id AND r.record_id=b.record_id
+	var budgetSnapshotAvailable bool
+	budgetErr := tx.QueryRowContext(ctx, `SELECT r.record_id,r.execution_id,r.ordinal,r.payload_json,b.fact_json,
+		CASE WHEN b.record_id IS NULL THEN 'unavailable' ELSE 'saved' END,
+		(b.record_id IS NOT NULL)
+		FROM semantic_records r
+		LEFT JOIN execution_latest_budgets b ON b.execution_id=r.execution_id AND b.record_id=r.record_id
 		JOIN execution_display_positions p ON p.execution_id=r.execution_id
 		JOIN executions e ON e.execution_id=r.execution_id
 		WHERE p.session_correlation=? AND e.parent_execution_id IS NULL AND r.kind='context_budget'
 		ORDER BY p.execution_ordinal DESC,r.ordinal DESC LIMIT 1`, sessionID).Scan(
-		&budgetExecution, &budgetOrdinal, &budgetJSON, &budgetFact)
+		&budgetRecordID, &budgetExecution, &budgetOrdinal, &budgetJSON, &budgetFact, &budgetSnapshotState, &budgetSnapshotAvailable)
 	if budgetErr == nil {
 		var budget contracts.ContextBudgetStatus
 		if err := json.Unmarshal([]byte(budgetJSON), &budget); err != nil {
 			return contracts.SessionContext{}, err
 		}
-		budget.ExecutionID = budgetExecution
+		budget.RecordID, budget.ExecutionID = budgetRecordID, budgetExecution
 		budget.RecordOrdinal = budgetOrdinal
-		budget.DetailAvailable = true
-		budget.Fact = append(json.RawMessage(nil), budgetFact...)
+		budget.DetailAvailable = budgetSnapshotAvailable
+		if budgetSnapshotAvailable {
+			budget.Fact = append(json.RawMessage(nil), budgetFact...)
+		}
+		budget.SnapshotSave = contracts.SnapshotStatus{ExecutionID: budgetExecution,
+			State: contracts.SnapshotSaveState(budgetSnapshotState), DetailAvailable: budgetSnapshotAvailable}
 		result.LatestBudget = &budget
 	} else if !errors.Is(budgetErr, sql.ErrNoRows) {
 		return contracts.SessionContext{}, budgetErr
