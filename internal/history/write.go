@@ -92,12 +92,15 @@ type Relation struct {
 }
 
 type OccurrenceInput struct {
-	Kind         string
-	Payload      json.RawMessage
-	Content      []byte
-	ObservedAt   string
-	Relations    []Relation
-	Conversation *contracts.ConversationMetadata
+	Kind    string
+	Payload json.RawMessage
+	// Content is explicit attached content; when set, result compaction is skipped.
+	Content []byte
+	// ObservedResult preserves the observer's original result JSON before payload encoding.
+	ObservedResult json.RawMessage
+	ObservedAt     string
+	Relations      []Relation
+	Conversation   *contracts.ConversationMetadata
 }
 
 type Record struct {
@@ -122,10 +125,14 @@ func (s *Store) AppendOccurrence(ctx context.Context, executionID string, input 
 	if err != nil {
 		return Record{}, err
 	}
+	publicRecord, err := presentOccurrenceRecord(record)
+	if err != nil {
+		return Record{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return Record{}, fmt.Errorf("history commit occurrence: %w", err)
 	}
-	return record, nil
+	return publicRecord, nil
 }
 
 func appendOccurrenceTx(ctx context.Context, tx *sql.Tx, executionID string, input OccurrenceInput) (Record, error) {
@@ -139,6 +146,16 @@ func appendPostSettlementOccurrenceTx(ctx context.Context, tx *sql.Tx, execution
 func appendOccurrenceTxWithMode(ctx context.Context, tx *sql.Tx, executionID string, input OccurrenceInput, postSettlement bool) (Record, error) {
 	if !validJSON(input.Payload) {
 		return Record{}, ErrInvalidJSON
+	}
+	if input.Content == nil {
+		compactPayload, resultContent, hasToolResult, err := compactToolResult(input.Kind, input.Payload, input.ObservedResult)
+		if err != nil {
+			return Record{}, err
+		}
+		if hasToolResult {
+			input.Payload = compactPayload
+			input.Content = resultContent
+		}
 	}
 	observedAt := input.ObservedAt
 	if observedAt == "" {

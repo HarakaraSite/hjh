@@ -126,7 +126,10 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		}
 		return facts, err
 	}
-	payload := contracts.JSON(o)
+	payload, err := observationPayload(o)
+	if err != nil {
+		return nil, err
+	}
 	if o.Kind == "context" {
 		var notice map[string]any
 		if err := json.Unmarshal(payload, &notice); err != nil {
@@ -143,8 +146,13 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 	if j.postSettlement {
 		appendOccurrence = j.store.AppendPostSettlementObservation
 	}
+	var observedResult json.RawMessage
+	if kind == "tool_result" || kind == "effect_observation" {
+		observedResult = append(json.RawMessage(nil), o.Result...)
+	}
 	record, err := appendOccurrence(j.ctx, j.executionID, history.OccurrenceInput{
-		Kind: kind, Payload: payload, Relations: relations, ObservedAt: o.Time.UTC().Format(time.RFC3339Nano), Conversation: metadataPtr,
+		Kind: kind, Payload: payload, ObservedResult: observedResult,
+		Relations: relations, ObservedAt: o.Time.UTC().Format(time.RFC3339Nano), Conversation: metadataPtr,
 	})
 	if err != nil {
 		return nil, err
@@ -452,9 +460,19 @@ func (j *journal) end(outcome history.Outcome, result any) error {
 	return nil
 }
 
-// executionSnapshot preserves the exact resolved Worker composition.
+// executionSnapshot retains selected tools by name without archiving their
+// descriptions and schemas. Runtime composition remains the original Snapshot.
 func executionSnapshot(snapshot extensions.Snapshot) ([]byte, error) {
-	return snapshot.JSON()
+	data, err := snapshot.JSON()
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, err
+	}
+	delete(fields, "tools")
+	return json.Marshal(fields)
 }
 
 func (j *journal) startReference(id string) string {

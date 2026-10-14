@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -290,63 +291,75 @@ func TestFactorySwitchesResponsesRootAndChatChildAndAdoptsOnlySuccessfulRoot(t *
 		t.Fatalf("incomplete root changed adopted selection: Session=%+v model=%+v", session, afterFailure)
 	}
 
-	// Every recorded wire body is the exact byte sequence received by the selected transport.
-	allBodies := map[string]int{}
+	// Each execution retains the exact latest body received by its selected transport.
+	bodiesByModel := map[string][][]byte{}
 	captureMu.Lock()
 	for _, capture := range captures {
-		allBodies[string(capture.body)]++
+		var request struct {
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal(capture.body, &request); err != nil {
+			t.Fatalf("decode captured %s request: %v", capture.api, err)
+		}
+		bodiesByModel[request.Model] = append(bodiesByModel[request.Model], capture.body)
 	}
 	captureCount := len(captures)
 	captureMu.Unlock()
 	if captureCount != 5 || len(chatModels) != 2 {
 		t.Fatalf("captured requests = %d (chat models %v), want root tool/final, child, resumed root, failed root", captureCount, chatModels)
 	}
-	for _, executionID := range []string{first.ExecutionID, child.ID, second.ExecutionID, failed.ExecutionID} {
-		records, err := store.Records(ctx, executionID, 0, -1)
+	expected := []struct {
+		executionID string
+		model       string
+		requests    int
+	}{
+		{executionID: first.ExecutionID, model: "root-responses-v1", requests: 2},
+		{executionID: child.ID, model: "reviewer-chat-v1", requests: 1},
+		{executionID: second.ExecutionID, model: "resume-chat-v2", requests: 1},
+		{executionID: failed.ExecutionID, model: "failed-responses-v3", requests: 1},
+	}
+	for _, want := range expected {
+		records, err := store.Records(ctx, want.executionID, 0, -1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var wireBodies, modelRequests [][]byte
+		var requestCount, bodyCount int
+		var latestBody []byte
 		for _, record := range records {
 			switch record.Kind {
-			case "context_item":
-				var payload struct {
-					Kind string `json:"kind"`
-				}
-				if err := json.Unmarshal(record.Payload, &payload); err != nil {
-					t.Fatal(err)
-				}
-				if payload.Kind == "provider_wire_body" {
-					wireBodies = append(wireBodies, append([]byte(nil), record.Content...))
-				}
 			case "model_request":
 				var payload struct {
-					RequestOrdinal *int `json:"requestOrdinal"`
+					SchemaVersion int             `json:"schemaVersion"`
+					Kind          string          `json:"kind"`
+					Phase         string          `json:"phase"`
+					Input         json.RawMessage `json:"input"`
 				}
 				if err := json.Unmarshal(record.Payload, &payload); err != nil {
 					t.Fatal(err)
 				}
-				if payload.RequestOrdinal != nil {
-					modelRequests = append(modelRequests, append([]byte(nil), record.Content...))
+				if payload.SchemaVersion == 1 {
+					requestCount++
+					if record.Content != nil {
+						bodyCount++
+						latestBody = append([]byte(nil), record.Content...)
+					}
+				} else if payload.Kind == "model_request" && payload.Phase == "start" {
+					if len(payload.Input) != 0 || record.Content != nil {
+						t.Fatalf("physical request in %s retained WireBody", want.executionID)
+					}
+				}
+			case "context_budget":
+				if record.Content != nil {
+					t.Fatalf("context budget in %s retained WireBody", want.executionID)
 				}
 			}
 		}
-		if len(wireBodies) == 0 || len(wireBodies) != len(modelRequests) {
-			t.Fatalf("execution %s saved %d provider_wire_body items and %d model_request bodies", executionID, len(wireBodies), len(modelRequests))
+		if requestCount != want.requests || bodyCount != 1 {
+			t.Fatalf("execution %s saved %d logical requests and %d WireBody owners, want %d/1", want.executionID, requestCount, bodyCount, want.requests)
 		}
-		for i, body := range wireBodies {
-			if string(body) != string(modelRequests[i]) {
-				t.Fatalf("execution %s saved provider_wire_body and model_request differ at request %d", executionID, i)
-			}
-			if allBodies[string(body)] == 0 {
-				t.Fatalf("execution %s saved bytes were not sent by HTTP transport: %s", executionID, body)
-			}
-			allBodies[string(body)]--
-		}
-	}
-	for body, count := range allBodies {
-		if count != 0 {
-			t.Fatalf("HTTP transport body had no saved provider_wire_body (%d remaining): %s", count, body)
+		captured := bodiesByModel[want.model]
+		if len(captured) != want.requests || !bytes.Equal(latestBody, captured[len(captured)-1]) {
+			t.Fatalf("execution %s latest saved body differs from last %s HTTP request", want.executionID, want.model)
 		}
 	}
 }

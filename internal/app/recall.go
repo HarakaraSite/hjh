@@ -59,21 +59,6 @@ func recallMessage(projection recall.Projection, reference contracts.RecallRefer
 		recordID: recordID, sourceLocators: locators}, nil
 }
 
-func (a recallAttribution) sourceRelations() []map[string]any {
-	result := make([]map[string]any, 0, len(a.sourceLocators))
-	for _, source := range a.sourceLocators {
-		result = append(result, map[string]any{
-			"stage": "projected", "resourceKind": "recall",
-			"sourceExecutionId": source.ExecutionID, "recallSourceExecutionId": a.marker.SourceExecutionID, "sourceLocator": source,
-			"targetExecutionId": a.targetExecutionID, "recordId": a.recordID, "relationRecordId": a.recordID,
-			"relationLocator": contracts.ExecutionLocator{
-				ExecutionID: a.targetExecutionID, RecordID: a.recordID,
-			},
-		})
-	}
-	return result
-}
-
 func (a recallAttribution) externalRelation() map[string]any {
 	return map[string]any{"kind": "recall", "sourceExecutionId": a.marker.SourceExecutionID,
 		"targetExecutionId": a.targetExecutionID, "recordId": a.recordID,

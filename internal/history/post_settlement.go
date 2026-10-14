@@ -18,10 +18,14 @@ func (s *Store) AppendPostSettlementObservation(ctx context.Context, executionID
 	if err != nil {
 		return Record{}, err
 	}
+	publicRecord, err := presentOccurrenceRecord(record)
+	if err != nil {
+		return Record{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return Record{}, fmt.Errorf("history commit post-settlement observation: %w", err)
 	}
-	return record, nil
+	return publicRecord, nil
 }
 
 func addPostSettlementFields(payload json.RawMessage, terminalRecordID string) (json.RawMessage, error) {

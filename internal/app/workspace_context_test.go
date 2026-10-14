@@ -146,7 +146,7 @@ func TestWorkspaceContextDirectJSResumeAndChild(t *testing.T) {
 		if r.Kind == "model_request" && strings.Contains(string(r.Content), "BODY_TWO") {
 			foundWire = true
 		}
-		if r.Kind == "model_request" && strings.Contains(string(r.Payload), "contextBudget") {
+		if r.Kind == "context_budget" && strings.Contains(string(r.Payload), "\"estimatedTokens\"") && len(r.Content) == 0 {
 			foundBudget = true
 		}
 	}

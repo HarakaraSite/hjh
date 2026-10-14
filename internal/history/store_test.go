@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"hjh/internal/contracts"
 )
 
 func TestEmbeddedSchemaMatchesAdoptedDDL(t *testing.T) {
@@ -205,10 +207,12 @@ func TestHistoryPersistsFullMessagesEvidenceAndCanonicalAdoption(t *testing.T) {
 		}
 	}
 	firstRecord, err := store.AppendOccurrence(ctx, execution.ID, OccurrenceInput{
-		Kind:      "tool_call",
-		Payload:   json.RawMessage(`{"callId":"call-1","operation":"read","arguments":{"path":"input.txt"}}`),
-		Content:   []byte{0x00, 0xff, 0x10, 0x7f},
-		Relations: []Relation{{Relation: "result", TargetRecordID: semanticRecordID(execution.ID, 2), Mandatory: true}},
+		Kind:    "tool_call",
+		Payload: json.RawMessage(`{"callId":"call-1","operation":"read","arguments":{"path":"input.txt"}}`),
+		Content: []byte{0x00, 0xff, 0x10, 0x7f},
+		// The earlier tool Message has a tool_body owner at ordinal 1, so the
+		// following result occurrence is ordinal 3.
+		Relations: []Relation{{Relation: "result", TargetRecordID: semanticRecordID(execution.ID, 3), Mandatory: true}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +261,15 @@ func TestHistoryPersistsFullMessagesEvidenceAndCanonicalAdoption(t *testing.T) {
 		t.Fatalf("conversation contains %d messages, want %d", len(conversation), len(messageJSON))
 	}
 	for i, message := range conversation {
-		if !bytes.Equal(message.JSON, messageJSON[i]) {
+		got, err := contracts.EncodeCanonicalJSON(message.JSON)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := contracts.EncodeCanonicalJSON(messageJSON[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, want) {
 			t.Fatalf("conversation message %d changed: %s", i, message.JSON)
 		}
 	}
@@ -271,11 +283,11 @@ func TestHistoryPersistsFullMessagesEvidenceAndCanonicalAdoption(t *testing.T) {
 	if len(messages) != 4 {
 		t.Fatalf("execution has %d messages, want 4", len(messages))
 	}
-	records, err := store.Records(ctx, execution.ID, 1, 2)
+	records, err := store.Records(ctx, execution.ID, firstRecord.Ordinal, secondRecord.Ordinal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(records) != 2 || records[0].Ordinal != 1 || records[1].Ordinal != 2 {
+	if len(records) != 2 || records[0].ID != firstRecord.ID || records[1].ID != secondRecord.ID {
 		t.Fatalf("semantic range returned records %#v", records)
 	}
 	if !bytes.Equal(records[0].Content, []byte{0x00, 0xff, 0x10, 0x7f}) {
@@ -284,11 +296,11 @@ func TestHistoryPersistsFullMessagesEvidenceAndCanonicalAdoption(t *testing.T) {
 	if len(records[0].Relations) != 1 || !records[0].Relations[0].Resolved {
 		t.Fatalf("relation was not resolved by its target record: %#v", records[0].Relations)
 	}
-	allRecords, err := store.Records(ctx, execution.ID, 1, -1)
+	allRecords, err := store.Records(ctx, execution.ID, 0, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(allRecords) != 4 || allRecords[2].Kind != "assistant_message" || allRecords[3].Kind != "host_decision" {
+	if len(allRecords) != 5 || allRecords[0].Kind != "tool_body" || allRecords[3].Kind != "assistant_message" || allRecords[4].Kind != "host_decision" {
 		t.Fatalf("assistant text and terminal evidence not persisted: %#v", allRecords)
 	}
 	updatedSession, err := store.Session(ctx, session.ID)

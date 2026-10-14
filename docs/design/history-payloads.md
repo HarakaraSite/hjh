@@ -1,5 +1,9 @@
 # 保存payloadとGo実装の対応
 
+2026-10-14の通常履歴整理は[通常履歴の保存契約](normal-history-storage.md)を参照する。
+毎回の送信全文・context構成archiveとツール定義保存、tool結果本文の重複を整理する。
+新しい契約・実装の到達点は[結果](../results/normal-history-storage.md)に記録する。
+
 2026-10-11更新。取得元は[固定したsource](schema-source.json)、DDLは
 [schema v3](history-schema.md)。初期の対応に、後続incrementで採用した保存契約を末尾の各節で追加する。
 旧Core、queue、permission実装を追加する契約ではない。
@@ -20,7 +24,9 @@ Messageは旧 `core/contracts.ts` のroleとcontentを保持する。
 user／最終assistantのcontentは `{kind:"text",text}`。
 assistantのtool呼出しは `{kind:"tool_call",callId,name,arguments}` の配列で、
 同じ応答の可視textは任意の `text` fieldへ置く。
-toolのcontentは `{kind:"tool_result",callId,name,text,outcome}` の配列。
+公開tool Messageのcontentは `{kind:"tool_result",callId,name,text,outcome}` の配列。
+保存時はtool結果のtextをtextRefへ置き換え、本文を同executionのrecord FKで所有する。
+Messages/Conversationとsemantic詳細の公開読取りでtextへ戻す。結果JSON自体の内部は変更しない。
 任意のfailure、terminal、steeringは旧fieldのまま保持する。
 providerStateはprovider・model、reasoningのfield／text、reasoningDetailsを保持し、
 構造化reasoningとtool argumentsはJSONのまま扱う。
@@ -61,21 +67,23 @@ executionのadoptionを同じtransactionで更新する。
 
 configurationsのsnapshotは旧WorkerConfigurationSnapshotのfieldを使う。
 configurationIdはUUIDであり、内容digestとは別の識別子。
-agent、source、systemInstruction、instructionComponents、toolPaths、tools、hooks、rejectionsを保持する。
+agent、source、systemInstruction、instructionComponents、toolPaths、hooks、rejectionsを保持する。
+実行用Snapshotはtoolsを持つが、configuration保存JSONには定義一覧を含めない。
 fileAccess／paths等のfieldの存在から旧permission機能の実装を必須にしない。
 
-I-21の有効tool利用指示は、各snapshot.toolsのoptional `promptGuidelines`と、
-`instruction:active-tool-guidelines` componentへ保存する。同じ集約本文をsystemInstructionへ組み込み、
-実model requestの通常context attributionから辿れる。providerのtool definitionには追加fieldを入れない。
+I-21の有効tool利用指示は、実行用snapshot.toolsのoptional `promptGuidelines`から、
+`instruction:active-tool-guidelines` componentとsystemInstructionへ組み込む。
+保存configurationはこの集約指示と選択したtool名を保持する。providerのtool definitionには追加fieldを入れない。
 未選択toolの指示は含めない。宣言元configは実行時に捕捉するが、ファイル全体のexact bytesを
-DBへ自動保存しない。使用したツール定義・利用指示は構成snapshotとモデル入力の記録へ残す。
+DBへ自動保存しない。定義本体は各executionの最新API送信全文にだけ残す。
 
 2026-10-13、利用者指定によりツール・hook・依存ファイル・元configの自動source archiveを廃止した。
 各Workerは実行に必要なsource bytesをメモリ上へ捕捉して固定し、そこからESMを評価する。
 `Snapshot.Resources`を`resource_revision`/`contents`へ自動保存しない。
 使用構成snapshot、モデル指示・入力、呼び出し・結果、モデルが生成した`run_js`コードは従来どおり保存する。
 
-I-18のAGENTS.mdは、resource_revision/contents経路へexact bytesと出典・digestを記録する。
+I-18のAGENTS.mdと利用者の基本指示fileは、各executionで原bytesと出典をresource_revision/contentsへ記録する。
+通常履歴ではmodel送信ごとのcontext_itemによる構成要素archiveを生成しない。
 組立済みsystemInstructionにworkspace指示とskill manifestを追加し、生成した指示componentを
 instructionComponentsへ保存する。未利用skill本文は新カタログへ保持しない。
 利用時のread_file本文は通常のtool結果/messageへ保存し、生成JS経由なら外側returnにも含める。
@@ -90,8 +98,11 @@ call IDと親IDをpayloadに残し、未終了callでも開始と実際の副作
 
 assistant_text_statesはまだ完了していないmodel requestの最新textを持つ。
 完了後のmessageとは分け、失敗／取消でも観測済みtextを失わないようにする。
-model_requestのrequest bytesとcontext manifestを保存し、credential headerは観測へ渡さない。
-contextの具体的な生成はprovider／Agent接続時に旧ExecutionContextManifestV2へ対応付ける。
+model_requestのrequest bytesは各executionの最新準備済み送信だけを保持する。
+論理requestに小さな件数等を保存し、execution_contextsは最新位置とrecall関係を持つ。
+context_budgetは予算・選択/除外のfactを保持するが本文を参照しない。
+物理送信開始recordはmetadataのみ、live観測は全文を持つ。credential headerは観測へ渡さない。
+旧ExecutionContextManifestV2とcontext_item archiveは新規生成しない。
 
 ## Build情報：利用者が承認したGo専用差分
 
@@ -129,10 +140,10 @@ Sessionのagent_choice_jsonは{name: 実role名}で、成功rootだけが会話�
 子はcanonical Sessionを持たず、choiceを更新しない。genericのコード版は既存build情報で辿る。
 
 snapshot.agentのrevision／instruction／toolsは選択roleに対応し、agentsはrun_agent選択時のcatalog名、
-それ以外は空配列。snapshot.toolsはmodel definition・JS registryと同じ選択結果を保存する。
-run_jsは選択した場合だけbundledとして保存し、保存時にtool一覧を付け足したり上書きしたりしない。
-source.fileは実config絶対locator。resource_revisionはworkspace指示のbytesを保持するが、
-外部拡張の実装ファイルや元configは自動保存しない。
+それ以外は空配列。実行用snapshot.toolsはmodel definition・JS registryと同じ選択結果を持つ。
+configurationには選択roleのagent.tools名を保存し、定義を付け足さない。
+source.fileは実config絶対locator。resource_revisionは利用者の基本指示とworkspace指示のbytesを保持するが、
+モデル送信ごとのsource archive・外部拡張の実装ファイル・元config全文は自動保存しない。
 未await委譲では、子join後・外側call終了前に残るtool／hook観測をterminalへ閉じ、開始記録だけを残さない。
 
 ## I-04：実接続の保存
@@ -143,7 +154,8 @@ provider定義とrole.modelは実行時に捕捉したconfigから解決する�
 providerState.replayItemsにResponsesのraw output itemを保存する。providerState.providerは、
 送信先・API・credential参照・非秘密account identityを含むdigestによる状態のidentity。
 同じ送信先・account・modelだけで再送し、別接続には可視会話とtool call／結果からinputを組み立てる。
-context_item.provider_wire_bodyとmodel_request contentはadapter.Prepareの実送信bytesを共用する。
+最新の論理model_request contentはadapter.Prepareの実送信bytesを保持する。
+同executionの以前のwire参照は外し、他の所有者がない旧本文を同transactionで回収する。
 Authorizationはtransportのみに渡す。raw応答の保存を削除・書換えず、既存Session selectionを自動変換しない。
 
 ## I-06：途中本文の保存位置と会話identity
@@ -170,9 +182,11 @@ moduleから実際に見つかったlifecycle/tool hook function一覧を保存�
 後からconfiguration snapshotの宣言一覧を書き換えて実export一覧を表すことはしない。
 
 各hook呼出しは通常のhook observationとしてinput、開始/終了、返却値または例外を保存する。
+runtimeStart/beforeTurn/afterTurn/runtimeStopの保存Inputだけはcontext.toolsをtoolNamesへ置き換える。
+実hook入力とlive observationは元のツール定義一覧を持つ。
 `runtimeStart`／`beforeTurn`の`{context: string[]}`はcapture済みのconfiguration snapshotには加えない。
-返した文脈は実executionのinstructionに適用し、hook結果recordのID、hook名、source locator、content digestを
-`instructionComponents`／model requestのcontext attributionから辿れるようにする。
+返した文脈は実executionのinstructionに適用し、hook結果の通常recordと最新の送信全文で確認できる。
+構成要素の専用context archiveは作らない。
 追加文脈を含むmodel requestは既存のcontext budget記録経路を使う。次turnへ動的文脈を累積しない。
 
 terminal保存後の`afterTurn`、`runtimeStop`とその内側host/tool observationは専用の

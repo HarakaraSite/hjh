@@ -110,20 +110,6 @@ func (l *executionLifecycle) notice(name, phase, message string) error {
 		Preview: "Hook " + name + ": " + message, Error: message})
 }
 
-func (l *executionLifecycle) instructionSources() []map[string]any {
-	var sources []map[string]any
-	for _, raw := range l.components {
-		var component map[string]string
-		if json.Unmarshal(raw, &component) != nil || component["recordId"] == "" {
-			continue
-		}
-		sources = append(sources, map[string]any{"stage": "hook", "resourceKind": "instruction_component",
-			"logicalIdentity": component["identity"], "sourceLocator": component["sourceLocator"],
-			"sourceExecutionId": l.input.execution.ID, "recordId": component["recordId"], "contentDigest": digest([]byte(component["text"]))})
-	}
-	return sources
-}
-
 // finish preserves the settled model result. JavaScript cleanup failures are
 // durable notices; a failure to persist those facts remains a storage failure.
 func (l *executionLifecycle) finish(ctx context.Context, store *history.Store, result any, reason, adoptionError string, settled bool) error {

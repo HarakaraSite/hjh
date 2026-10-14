@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -123,18 +122,16 @@ func TestToolGuidelinesFollowParentAndChildSelectionAndPreserveConfigFile(t *tes
 		if err := json.Unmarshal(saved.Snapshot, &snapshot); err != nil {
 			t.Fatal(err)
 		}
-		foundGuide, foundComponent := false, false
-		for _, tool := range snapshot.Tools {
-			if tool.Name == "guide_probe" {
-				foundGuide = reflect.DeepEqual(tool.PromptGuidelines, guides)
-			}
+		foundComponent := false
+		if len(snapshot.Tools) != 0 {
+			t.Fatal("tool definitions remain archived in configuration")
 		}
 		for _, comp := range snapshot.InstructionComponents {
 			if comp.Identity == "instruction:active-tool-guidelines" {
 				foundComponent = strings.Contains(comp.Text, "GUIDELINE_V1") && strings.Contains(req.Instruction, comp.Text)
 			}
 		}
-		if selected != (foundGuide && foundComponent) {
+		if selected != foundComponent {
 			t.Fatalf("saved guidelines/component differ from request for %s", e.Task)
 		}
 		records, err := store.Records(context.Background(), e.ID, 0, -1)

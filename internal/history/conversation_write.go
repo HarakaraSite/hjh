@@ -66,6 +66,10 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		return 0, nil, fmt.Errorf("history begin conversation message: %w", err)
 	}
 	defer tx.Rollback()
+	storedMessage, compactedToolMessage, err := compactToolMessageTx(ctx, tx, input.ExecutionID, input.Message)
+	if err != nil {
+		return 0, nil, err
+	}
 	var lifecycle string
 	if err := tx.QueryRowContext(ctx, "SELECT lifecycle FROM executions WHERE execution_id=?", input.ExecutionID).Scan(&lifecycle); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -85,8 +89,8 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		return 0, nil, fmt.Errorf("history allocate conversation message ordinal: %w", err)
 	}
 	digest := input.ContentDigest
-	if digest == "" {
-		digest, err = putContent(ctx, tx, input.Message)
+	if digest == "" || compactedToolMessage {
+		digest, err = putContent(ctx, tx, storedMessage)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -223,11 +227,31 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		if fact.Kind == "" {
 			fact.Kind = semanticKindForFact(*fact)
 		}
-		payload, err := messageFactPayload(input.Message, *fact, messageOrdinal, observedAt)
+		mirrorFact := *fact
+		factTextRef := ""
+		if compactedToolMessage && fact.Kind == "tool_result" && fact.Text != "" {
+			body := []byte(fact.Text)
+			factTextRef = contentDigest(body)
+			if err := ensureToolBodyOwnerTx(ctx, tx, input.ExecutionID, factTextRef, body); err != nil {
+				return 0, nil, err
+			}
+			mirrorFact.Text = ""
+		}
+		payload, err := messageFactPayload(storedMessage, mirrorFact, messageOrdinal, observedAt)
 		if err != nil {
 			return 0, nil, err
 		}
-		record, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, fact.Kind, payload, observedAt, digest)
+		if factTextRef != "" {
+			payload, err = addSemanticToolFactTextRef(payload, factTextRef)
+			if err != nil {
+				return 0, nil, err
+			}
+		}
+		recordDigest := digest
+		if compactedToolMessage {
+			recordDigest = ""
+		}
+		record, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, fact.Kind, payload, observedAt, recordDigest)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -243,7 +267,11 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		if message.Role == "tool" {
 			kind = "tool_result"
 		}
-		if _, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, kind, input.Message, observedAt, digest); err != nil {
+		recordDigest := digest
+		if compactedToolMessage {
+			recordDigest = ""
+		}
+		if _, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, kind, storedMessage, observedAt, recordDigest); err != nil {
 			return 0, nil, err
 		}
 	}
@@ -725,8 +753,12 @@ func appendSemanticRecordTxWithContent(ctx context.Context, tx *sql.Tx, executio
 	}
 	ordinal := latest + 1
 	recordID := semanticRecordID(executionID, ordinal)
+	var contentReference any
+	if contentDigest != "" {
+		contentReference = contentDigest
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO semantic_records(record_id,execution_id,ordinal,kind,observed_at,payload_json,content_digest)
-		VALUES(?,?,?,?,?,?,?)`, recordID, executionID, ordinal, kind, observedAt, string(encoded), contentDigest); err != nil {
+		VALUES(?,?,?,?,?,?,?)`, recordID, executionID, ordinal, kind, observedAt, string(encoded), contentReference); err != nil {
 		return Record{}, fmt.Errorf("history append conversation message fact: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, "UPDATE executions SET latest_ordinal=?,occurrence_count=occurrence_count+1 WHERE execution_id=?", ordinal, executionID); err != nil {

@@ -47,6 +47,7 @@ git diff --check
 - 同じworkspaceの新規Sessionへのモデル選択の引き継ぎ：[確認結果](results/remembered-model-selection.md)。
 - rg未導入時のGNU grep利用：[確認結果](results/grep-native-backends.md)。
 - Core停止後のCLIセッション削除：[確認結果](results/cli-session-delete.md)。
+- 通常履歴の保存整理：[保存契約](design/normal-history-storage.md)・[容量と総合確認](results/normal-history-storage.md)。
 - 今後の検討： [使い方辞書と遅延読込み](design/extensions.md#将来の改善候補ツールの使い方辞書と遅延読込み)、
   [DB容量](design/history-schema.md#将来の改善候補db容量の最適化)、
   [テーマ差替え](design/tui-rendering.md#将来の改善候補テーマの差し替え)。

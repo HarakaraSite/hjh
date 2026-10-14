@@ -1,33 +1,58 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
 	"hjh/internal/contracts"
 	"hjh/internal/executiondata"
+	"hjh/internal/history"
+	"hjh/internal/provider/protocol"
 )
 
 func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 	store, workspace := delegationStore(t)
-	const output = "alpha\nbeta\nこんにちは\n"
+	const output = "<p>&alpha\nbeta\nこんにちは\n"
 	if err := os.WriteFile(filepath.Join(workspace, "output.txt"), []byte(output), 0644); err != nil {
 		t.Fatal(err)
 	}
+	var persistedRunJSResult []byte
+	var nextModelToolResult string
+	var mu sync.Mutex
 	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
 		if len(request.Messages) == 1 {
 			return scriptedJS("// Read output.txt and return its contents\n" + `return await tools.read_file({path:"output.txt"});`), nil
 		}
+		for _, message := range request.Messages {
+			if message.Role != "tool" {
+				continue
+			}
+			var results []contracts.ToolResult
+			if err := json.Unmarshal(message.Content, &results); err != nil {
+				return contracts.ModelResult{}, err
+			}
+			for _, result := range results {
+				if result.Name == "run_js" {
+					nextModelToolResult = result.Text
+				}
+			}
+		}
 		return contracts.ModelResult{Text: "finished"}, nil
 	})
 	owner := executiondata.NewOwner()
-	var mu sync.Mutex
 	var live []contracts.ExecutionFact
 	_, subscription, err := executiondata.CaptureAndSubscribe(owner,
 		func(string, uint64) (struct{}, error) { return struct{}{}, nil },
@@ -43,9 +68,31 @@ func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 
 	result, err := Run(context.Background(), store, provider, RunOptions{
 		Task: "read output", Workspace: workspace, ModelID: "test/model", ExecutionDataOwner: owner,
+		Progress: func(observation contracts.Observation) error {
+			if observation.Kind == "model_tool" && observation.Name == "run_js" && observation.Phase == "completed" {
+				mu.Lock()
+				persistedRunJSResult = append([]byte(nil), observation.Result...)
+				mu.Unlock()
+			}
+			return nil
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	mu.Lock()
+	persistedRunJSResult = append([]byte(nil), persistedRunJSResult...)
+	mu.Unlock()
+	if len(persistedRunJSResult) == 0 || !bytes.Contains(persistedRunJSResult, []byte("<p>&")) {
+		t.Fatalf("original run_js result did not retain HTML-sensitive text: %s", persistedRunJSResult)
+	}
+	if nextModelToolResult != string(persistedRunJSResult) {
+		t.Fatalf("next model input changed run_js result bytes:\n got: %s\nwant: %s", nextModelToolResult, persistedRunJSResult)
+	}
+	digest := fmt.Sprintf("sha256:%x", sha256.Sum256(persistedRunJSResult))
+	storedRunJSResult, err := store.Content(context.Background(), digest)
+	if err != nil || !bytes.Equal(storedRunJSResult, persistedRunJSResult) {
+		t.Fatalf("stored result body = %s, err=%v; want exact Observation.Result %s", storedRunJSResult, err, persistedRunJSResult)
 	}
 
 	mu.Lock()
@@ -116,6 +163,9 @@ func TestNestedToolResultLiveAndReplayFieldsMatch(t *testing.T) {
 	record, err := NewService(store, nil, RunOptions{Workspace: workspace}).Record(context.Background(), result.ExecutionID, liveTool.Locator.Ordinal)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if record.Content != nil || strings.Contains(string(record.Payload), `"resultRef"`) {
+		t.Fatalf("tool result detail leaked the internal reference or duplicated Content: %+v", record)
 	}
 	var saved struct {
 		Result struct {
@@ -207,5 +257,81 @@ func TestModelResultIsReadableWhenGenerateStopsBeforeAppendingMessage(t *testing
 	}
 	if replayThought == nil || replayThought.Phase != "completed" || replayThought.Conversation.LocalKey != "parent/1/reasoning" {
 		t.Fatalf("replayed result thinking = %#v", replayThought)
+	}
+}
+
+func TestLatestRequestBodyMatchesHTTPAndPhysicalRequestKeepsMetadataOnly(t *testing.T) {
+	workspace := t.TempDir()
+	var wire []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		wire, err = io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		sendChunk(w, map[string]any{"content": "finished"}, "stop")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+	store, err := history.Open(filepath.Join(workspace, "history.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	provider := chatFixtureProvider(server.URL, "local-test-key", "body-reuse-test", protocol.Options{})
+	result, err := Run(t.Context(), store, provider, RunOptions{Task: strings.Repeat("Retain this saved input.\n", 512), Workspace: workspace, ModelID: "test/model"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	records, err := store.Records(t.Context(), result.ExecutionID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logicalRequests, bodyOwners, physicalRequests := 0, 0, 0
+	for _, record := range records {
+		var metadata struct {
+			SchemaVersion int             `json:"schemaVersion"`
+			Kind          string          `json:"kind"`
+			Phase         string          `json:"phase"`
+			Input         json.RawMessage `json:"input"`
+		}
+		if err = json.Unmarshal(record.Payload, &metadata); err != nil {
+			t.Fatal(err)
+		}
+		if record.Kind == "context_item" {
+			t.Fatal("request preparation retained a context_item archive record")
+		}
+		if record.Kind == "context_budget" && record.Content != nil {
+			t.Fatal("context budget retained a duplicate WireBody")
+		}
+		if record.Kind == "model_request" {
+			if metadata.SchemaVersion == 1 {
+				logicalRequests++
+				if record.Content != nil {
+					bodyOwners++
+					if !bytes.Equal(record.Content, wire) {
+						t.Fatal("saved latest request body differs from bytes received by HTTP")
+					}
+				}
+			} else if metadata.Kind == "model_request" && metadata.Phase == "start" {
+				physicalRequests++
+				if len(metadata.Input) != 0 || record.Content != nil {
+					t.Fatal("physical request retained a duplicate WireBody")
+				}
+			}
+		}
+	}
+	if logicalRequests != 1 || bodyOwners != 1 || physicalRequests != 1 {
+		t.Fatalf("request history counts = logical %d/body owners %d/physical %d, want 1/1/1", logicalRequests, bodyOwners, physicalRequests)
+	}
+	contextView, err := store.SessionContext(t.Context(), result.SessionID)
+	if err != nil || contextView.LatestRequest == nil {
+		t.Fatalf("latest /context request = %+v, %v", contextView.LatestRequest, err)
+	}
+	request := contextView.LatestRequest
+	if request.ItemCount != request.MessageCount+request.ToolContractCount+request.InstructionCount+1 || request.WireBytes != int64(len(wire)) {
+		t.Fatalf("/context request counts = %+v", request)
 	}
 }

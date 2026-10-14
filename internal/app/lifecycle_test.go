@@ -172,7 +172,7 @@ func assertInstructionMatchesStoredLifecycle(t *testing.T, store *history.Store,
 	if err != nil {
 		t.Fatal(err)
 	}
-	var contextSources int
+	var requestInstruction string
 	for _, record := range records {
 		var event contracts.Observation
 		_ = json.Unmarshal(record.Payload, &event)
@@ -182,12 +182,29 @@ func assertInstructionMatchesStoredLifecycle(t *testing.T, store *history.Store,
 				want += "\n\n" + strings.Join(result.Context, "\n")
 			}
 		}
-		if record.Kind == "context_item" && strings.Contains(string(record.Payload), `"stage":"hook"`) {
-			contextSources++
+		if record.Kind == "model_request" && record.Content != nil {
+			var internalRequest contracts.ModelRequest
+			if json.Unmarshal(record.Content, &internalRequest) == nil && internalRequest.Instruction != "" {
+				requestInstruction = internalRequest.Instruction
+				continue
+			}
+			var request struct {
+				Messages []struct {
+					Role    string `json:"role"`
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			if json.Unmarshal(record.Content, &request) == nil {
+				for _, message := range request.Messages {
+					if message.Role == "system" {
+						requestInstruction = message.Content
+					}
+				}
+			}
 		}
 	}
-	if want != instruction || contextSources == 0 {
-		t.Fatalf("request differs from saved configuration + hook contributions, sources=%d", contextSources)
+	if want != instruction || requestInstruction != want {
+		t.Fatalf("request differs from saved configuration + hook contributions: archive=%t request=%t", want == instruction, requestInstruction == want)
 	}
 }
 
@@ -337,14 +354,21 @@ func TestLifecycleContextIsIncludedInInputBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	found := false
+	var found bool
 	for _, record := range records {
-		if record.Kind == "context_budget" && strings.Contains(string(record.Content), "HOOK_BUDGET_") {
-			found = true
+		if record.Kind == "context_budget" {
+			var payload struct {
+				Exceeded bool               `json:"exceeded"`
+				Fact     contextbudget.Fact `json:"fact"`
+			}
+			if err := json.Unmarshal(record.Payload, &payload); err != nil {
+				t.Fatal(err)
+			}
+			found = payload.Exceeded && payload.Fact.Budget.Limit != nil && payload.Fact.EstimatedTokens > *payload.Fact.Budget.Limit && record.Content == nil
 		}
 	}
 	if !found {
-		t.Fatal("budget failure lost the full hook contribution in prepared input")
+		t.Fatal("budget failure did not retain calculation metadata without duplicating WireBody")
 	}
 }
 

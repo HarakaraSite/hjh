@@ -1,9 +1,11 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -170,25 +172,42 @@ func TestRunPersistsRealToolPathAndResumes(t *testing.T) {
 	}
 	requireExecutionContextInstruction(t, rootInstruction, rootModel, "default", workspace)
 	requireSavedExecutionContext(t, store, execution.ConfigurationID, rootInstruction, rootModel, "default", workspace)
-	if !strings.Contains(string(configuration.Snapshot), `"name":"run_js"`) {
-		t.Fatal("runtime tool absent from used configuration")
+	var selectedConfiguration struct {
+		Agent struct {
+			Tools []string `json:"tools"`
+		} `json:"agent"`
+	}
+	if err := json.Unmarshal(configuration.Snapshot, &selectedConfiguration); err != nil {
+		t.Fatal(err)
+	}
+	var selectedRunJS bool
+	for _, name := range selectedConfiguration.Agent.Tools {
+		selectedRunJS = selectedRunJS || name == "run_js"
+	}
+	if !selectedRunJS {
+		t.Fatal("runtime tool name absent from used configuration")
 	}
 	manifest, err := store.Context(context.Background(), first.ExecutionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var contextManifest map[string]any
+	var contextManifest struct {
+		SchemaVersion int `json:"schemaVersion"`
+		LatestRequest struct {
+			RecordID      string `json:"recordId"`
+			RecordOrdinal int64  `json:"recordOrdinal"`
+		} `json:"latestRequest"`
+	}
 	if err = json.Unmarshal(manifest, &contextManifest); err != nil {
 		t.Fatal(err)
 	}
-	expected := contextManifest["digest"]
-	delete(contextManifest, "digest")
-	actual, err := canonicalDigest(contextManifest)
-	if err != nil {
-		t.Fatal(err)
+	if contextManifest.SchemaVersion != 1 || contextManifest.LatestRequest.RecordID == "" || contextManifest.LatestRequest.RecordOrdinal == 0 ||
+		strings.Contains(string(manifest), `"requests"`) || strings.Contains(string(manifest), `"occurrences"`) || strings.Contains(string(manifest), `"splices"`) {
+		t.Fatalf("execution context is not the compact latest-request locator: %s", manifest)
 	}
-	if actual != expected {
-		t.Fatal("context manifest digest does not cover its old-schema body")
+	requestRecords, err := store.Records(context.Background(), first.ExecutionID, contextManifest.LatestRequest.RecordOrdinal, contextManifest.LatestRequest.RecordOrdinal)
+	if err != nil || len(requestRecords) != 1 || requestRecords[0].ID != contextManifest.LatestRequest.RecordID || len(requestRecords[0].Content) == 0 {
+		t.Fatalf("latest request locator does not resolve to its saved body: %+v %v", requestRecords, err)
 	}
 }
 
@@ -202,7 +221,14 @@ func mustExecution(t *testing.T, s *history.Store, id string) history.Execution 
 }
 
 func TestStreamFailureRetainsTextWithoutAdopting(t *testing.T) {
+	var wire []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var readErr error
+		wire, readErr = io.ReadAll(r.Body)
+		if readErr != nil {
+			t.Error(readErr)
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		sendChunk(w, map[string]any{"content": "途中の"}, nil)
 		sendChunk(w, map[string]any{"content": "出力"}, nil)
@@ -230,12 +256,13 @@ func TestStreamFailureRetainsTextWithoutAdopting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	startedMarkers, incompleteBodies := 0, 0
+	startedMarkers, incompleteBodies, requestBodies := 0, 0, 0
 	for _, r := range records {
 		var event struct {
-			Kind    string `json:"kind"`
-			Phase   string `json:"phase"`
-			Payload struct {
+			Kind          string `json:"kind"`
+			Phase         string `json:"phase"`
+			SchemaVersion int    `json:"schemaVersion"`
+			Payload       struct {
 				Text string `json:"text"`
 			} `json:"payload"`
 		}
@@ -258,9 +285,15 @@ func TestStreamFailureRetainsTextWithoutAdopting(t *testing.T) {
 				t.Fatalf("unexpected permanent assistant phase %q", event.Phase)
 			}
 		}
+		if r.Kind == "model_request" && event.SchemaVersion == 1 {
+			if !bytes.Equal(r.Content, wire) {
+				t.Fatal("failed HTTP request body was not retained exactly")
+			}
+			requestBodies++
+		}
 	}
-	if startedMarkers != 1 || incompleteBodies != 1 {
-		t.Fatalf("assistant marker/incomplete records = %d/%d, want one each", startedMarkers, incompleteBodies)
+	if startedMarkers != 1 || incompleteBodies != 1 || requestBodies != 1 {
+		t.Fatalf("assistant marker/incomplete/request body records = %d/%d/%d, want one each", startedMarkers, incompleteBodies, requestBodies)
 	}
 }
 

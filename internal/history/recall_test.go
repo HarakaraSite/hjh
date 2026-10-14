@@ -183,18 +183,12 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 	ctx := context.Background()
 	store, sessionID := recallTestStore(t)
 	requested := beginRecallTestExecution(t, store, sessionID, "root-with-request", "first")
-	selection := contracts.JSON(contracts.ModelSelection{Provider: "fixture", API: "fixture-api", ModelID: "model/used"})
 	payload := contracts.JSON(map[string]any{
-		"schemaVersion": 2, "requestOrdinal": 3, "lane": "parent", "purpose": "user_turn", "modelStep": 4,
-		"modelSelection": selection, "resultItemCount": 4,
-		"occurrences": []any{
-			map[string]any{"kind": "system", "content": map[string]any{"byteLength": 12}},
-			map[string]any{"kind": "message", "content": map[string]any{"byteLength": 20}},
-			map[string]any{"kind": "tool_contract", "content": map[string]any{"byteLength": 40}},
-			map[string]any{"kind": "provider_wire_body", "content": map[string]any{"byteLength": 512}},
-		},
+		"schemaVersion": 1, "requestOrdinal": 3, "modelStep": 4,
+		"modelSelection": contracts.ModelSelection{Provider: "fixture", API: "fixture-api", ModelID: "model/used"},
+		"itemCount":      4, "messageCount": 1, "toolContractCount": 1, "instructionCount": 1, "wireBytes": 512,
 	})
-	request, err := store.AppendOccurrence(ctx, requested.ID, OccurrenceInput{Kind: "model_request", Payload: payload})
+	request, err := store.AppendLatestRequest(ctx, requested.ID, OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("x", 512))}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +199,7 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.AppendOccurrence(ctx, child.ID, OccurrenceInput{Kind: "model_request", Payload: payload}); err != nil {
+	if _, err := store.AppendLatestRequest(ctx, child.ID, OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("child", 100))}, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -255,7 +249,15 @@ func TestRecallEvidenceKeepsPublicMessagesAndSemanticFactsWithoutBlobExpansion(t
 		`{"callId":"call-1","name":"read","outcome":"success","result":{"text":"tool output"}}`)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.AppendOccurrence(ctx, source.ID, OccurrenceInput{Kind: "context_item", Payload: json.RawMessage(`{"kind":"provider_wire_body"}`), Content: []byte("private wire")}); err != nil {
+	if _, err := store.AppendOccurrence(ctx, source.ID, OccurrenceInput{Kind: "effect_observation", Payload: json.RawMessage(
+		`{"callId":"host-1","kind":"host","name":"command","phase":"completed","result":{"stdout":"command output"}}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.AppendLatestRequest(ctx, source.ID, OccurrenceInput{Kind: "model_request", Payload: contracts.JSON(map[string]any{
+		"schemaVersion": 1, "requestOrdinal": 1, "modelStep": 1,
+		"modelSelection": contracts.ModelSelection{Provider: "fixture", ModelID: "fixture/model"},
+		"itemCount":      2, "messageCount": 1, "toolContractCount": 0, "instructionCount": 0, "wireBytes": len("private wire"),
+	}), Content: []byte("private wire")}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.AppendOccurrence(ctx, source.ID, OccurrenceInput{Kind: "resource_revision", Payload: json.RawMessage(`{"kind":"resource"}`), Content: []byte("configuration bytes")}); err != nil {
@@ -278,7 +280,7 @@ func TestRecallEvidenceKeepsPublicMessagesAndSemanticFactsWithoutBlobExpansion(t
 		t.Fatalf("public evidence messages = %+v", evidence.Messages)
 	}
 	var modelResult string
-	var hasToolCall, hasToolResult, hasPartial bool
+	var hasToolCall, hasToolResult, hasHostResult, hasPartial bool
 	for _, record := range evidence.Records {
 		if record.Content != nil {
 			t.Fatalf("RecallEvidence expanded content for %s", record.Kind)
@@ -289,18 +291,36 @@ func TestRecallEvidenceKeepsPublicMessagesAndSemanticFactsWithoutBlobExpansion(t
 		case "tool_call":
 			hasToolCall = true
 		case "tool_result":
+			var observation struct {
+				Result struct {
+					Text string `json:"text"`
+				} `json:"result"`
+			}
+			if err := json.Unmarshal(record.Payload, &observation); err != nil || observation.Result.Text != "tool output" {
+				t.Fatalf("RecallEvidence omitted the expanded tool result: %s, %v", record.Payload, err)
+			}
 			hasToolResult = true
+		case "effect_observation":
+			var observation struct {
+				Result struct {
+					Stdout string `json:"stdout"`
+				} `json:"result"`
+			}
+			if err := json.Unmarshal(record.Payload, &observation); err != nil || observation.Result.Stdout != "command output" {
+				t.Fatalf("RecallEvidence omitted the expanded host result: %s, %v", record.Payload, err)
+			}
+			hasHostResult = true
 		case "assistant_message":
 			if strings.Contains(string(record.Payload), "private-state") {
 				t.Fatalf("assistant semantic mirror retained provider state: %s", record.Payload)
 			}
 			hasPartial = hasPartial || strings.Contains(string(record.Payload), "partial answer")
-		case "context_item", "resource_revision", "model_request":
+		case "resource_revision", "model_request":
 			t.Fatalf("recall evidence included private or captured record kind %q", record.Kind)
 		}
 	}
-	if strings.Contains(modelResult, "private-result-state") || !hasToolCall || !hasToolResult || !hasPartial {
-		t.Fatalf("public model/tool/partial evidence missing or private: result=%s call=%t tool=%t partial=%t", modelResult, hasToolCall, hasToolResult, hasPartial)
+	if strings.Contains(modelResult, "private-result-state") || !hasToolCall || !hasToolResult || !hasHostResult || !hasPartial {
+		t.Fatalf("public model/tool/partial evidence missing or private: result=%s call=%t tool=%t host=%t partial=%t", modelResult, hasToolCall, hasToolResult, hasHostResult, hasPartial)
 	}
 }
 
@@ -340,11 +360,14 @@ func TestRecallSemanticMirrorAndConversationWalkUseShortMarker(t *testing.T) {
 		t.Fatalf("recall semantic mirror is not compact/typed: %s", payload)
 	}
 	requestPayload := contracts.JSON(map[string]any{
-		"schemaVersion": 2, "requestOrdinal": 1, "lane": "parent", "purpose": "user_turn", "modelStep": 1,
-		"modelSelection": contracts.ModelSelection{Provider: "fixture", ModelID: "fixture/model"}, "resultItemCount": 1,
-		"occurrences": []any{map[string]any{"kind": "message", "sourceRelations": []any{map[string]any{"recordId": target.RecallRecordID}}}},
+		"schemaVersion": 1, "requestOrdinal": 1, "modelStep": 1,
+		"modelSelection": contracts.ModelSelection{Provider: "fixture", ModelID: "fixture/model"},
+		"itemCount":      2, "messageCount": 1, "toolContractCount": 0, "instructionCount": 0,
+		"wireBytes": len("wire"), "recallRelationRecordId": target.RecallRecordID,
 	})
-	request, err := store.AppendOccurrence(ctx, target.ID, OccurrenceInput{Kind: "model_request", Payload: requestPayload})
+	request, err := store.AppendLatestRequest(ctx, target.ID, OccurrenceInput{Kind: "model_request", Payload: requestPayload, Content: []byte("wire")}, contracts.JSON([]map[string]any{{
+		"kind": "recall", "sourceExecutionId": source.ID, "targetExecutionId": target.ID, "recordId": target.RecallRecordID,
+	}}))
 	if err != nil {
 		t.Fatal(err)
 	}

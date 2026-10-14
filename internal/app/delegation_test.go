@@ -443,14 +443,10 @@ func snapshotToolNames(t *testing.T, store *history.Store, configurationID strin
 	if err := json.Unmarshal(configuration.Snapshot, &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	names := make([]string, len(snapshot.Tools))
-	for i, tool := range snapshot.Tools {
-		names[i] = tool.Name
+	if len(snapshot.Tools) != 0 {
+		t.Fatalf("saved child configuration archived tool definitions: %+v", snapshot.Tools)
 	}
-	if !sameNames(snapshot.Agent.Tools, names) {
-		t.Fatalf("saved child agent tools and tool definitions diverged: agent=%+v tools=%+v", snapshot.Agent.Tools, names)
-	}
-	return names
+	return snapshot.Agent.Tools
 }
 
 func sameNames(left, right []string) bool {

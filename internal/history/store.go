@@ -692,13 +692,17 @@ func (s *Store) AppendMessage(ctx context.Context, executionID string, message j
 	if lifecycle != "active" {
 		return 0, ErrExecutionClosed
 	}
+	storedMessage, _, err := compactToolMessageTx(ctx, tx, executionID, message)
+	if err != nil {
+		return 0, err
+	}
 	var ordinal int64
 	if err := tx.QueryRowContext(ctx,
 		"SELECT COALESCE(MAX(message_ordinal), -1) + 1 FROM messages WHERE execution_id=?", executionID,
 	).Scan(&ordinal); err != nil {
 		return 0, fmt.Errorf("history allocate message ordinal: %w", err)
 	}
-	digest, err := putContent(ctx, tx, message)
+	digest, err := putContent(ctx, tx, storedMessage)
 	if err != nil {
 		return 0, err
 	}

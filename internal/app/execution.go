@@ -294,8 +294,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	if err = lifecycle.start(ctx); err != nil {
 		return result, err
 	}
-	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource,
-		instructionSources: lifecycle.instructionSources()}
+	attribution := contextAttribution{store: store, ctx: persist, executionID: execution.ID, recall: recallSource}
 	budget, metadataError := input.connections.budget(ctx, registry, input.model, input.injectedProvider, input.configPath)
 	var prefix []contextbudget.Entry
 	for i, message := range messages {
@@ -327,10 +326,9 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			payload := contracts.JSON(map[string]any{"modelStep": step, "modelSelection": input.model,
 				"fact": projection.Fact, "metadataError": metadataError, "exceeded": exceeded != nil})
 			if _, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{
-				Kind: "context_budget", Payload: payload, Content: projection.Request.WireBody}); e != nil {
+				Kind: "context_budget", Payload: payload}); e != nil {
 				return request, control.storage(e)
 			}
-			attribution.sources, attribution.budget = projection.Sources, payload
 			if e := contextBudgetNotice(j, step, projection.Fact, notices); e != nil {
 				return request, e
 			}

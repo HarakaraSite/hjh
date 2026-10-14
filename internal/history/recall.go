@@ -65,22 +65,15 @@ func (s *Store) SessionContext(ctx context.Context, sessionID string) (contracts
 		CAST(json_extract(r.payload_json,'$.requestOrdinal') AS INTEGER),
 		CAST(json_extract(r.payload_json,'$.modelStep') AS INTEGER),
 		json_extract(r.payload_json,'$.modelSelection'),
-		CAST(COALESCE(json_extract(r.payload_json,'$.resultItemCount'),0) AS INTEGER),
-		COALESCE((SELECT COUNT(*) FROM json_each(r.payload_json,'$.occurrences') o
-			WHERE json_extract(o.value,'$.kind')='message'),0),
-		COALESCE((SELECT COUNT(*) FROM json_each(r.payload_json,'$.occurrences') o
-			WHERE json_extract(o.value,'$.kind')='tool_contract'),0),
-		COALESCE((SELECT COUNT(*) FROM json_each(r.payload_json,'$.occurrences') o
-			WHERE json_extract(o.value,'$.kind')='system'),0),
-		COALESCE((SELECT CAST(json_extract(o.value,'$.content.byteLength') AS INTEGER)
-			FROM json_each(r.payload_json,'$.occurrences') o
-			WHERE json_extract(o.value,'$.kind')='provider_wire_body' LIMIT 1),0)
+		CAST(COALESCE(json_extract(r.payload_json,'$.itemCount'),0) AS INTEGER),
+		CAST(COALESCE(json_extract(r.payload_json,'$.messageCount'),0) AS INTEGER),
+		CAST(COALESCE(json_extract(r.payload_json,'$.toolContractCount'),0) AS INTEGER),
+		CAST(COALESCE(json_extract(r.payload_json,'$.instructionCount'),0) AS INTEGER),
+		CAST(COALESCE(json_extract(r.payload_json,'$.wireBytes'),0) AS INTEGER)
 		FROM semantic_records r JOIN execution_display_positions p ON p.execution_id=r.execution_id
 		JOIN executions e ON e.execution_id=r.execution_id
 		WHERE p.session_correlation=? AND e.parent_execution_id IS NULL AND r.kind='model_request'
-			AND json_extract(r.payload_json,'$.schemaVersion')=2
-			AND json_extract(r.payload_json,'$.lane')='parent'
-			AND json_extract(r.payload_json,'$.purpose')='user_turn'
+			AND json_extract(r.payload_json,'$.schemaVersion')=1
 		ORDER BY p.execution_ordinal DESC,r.ordinal DESC LIMIT 1`, sessionID).Scan(
 		&latestRequest.ExecutionID, &latestRequest.RecordOrdinal, &requestOrdinal, &modelStep,
 		&selectionJSON, &latestRequest.ItemCount, &latestRequest.MessageCount,
@@ -135,11 +128,8 @@ func (s *Store) SessionContext(ctx context.Context, sessionID string) (contracts
 		var requestOrdinal sql.NullInt64
 		if err := tx.QueryRowContext(ctx, `SELECT MIN(r.ordinal) FROM semantic_records r
 			WHERE r.execution_id=? AND r.kind='model_request'
-			AND json_extract(r.payload_json,'$.schemaVersion')=2
-			AND json_extract(r.payload_json,'$.lane')='parent'
-			AND json_extract(r.payload_json,'$.purpose')='user_turn'
-			AND EXISTS (SELECT 1 FROM json_tree(r.payload_json,'$.occurrences') source
-				WHERE source.type='text' AND source.value=?)`,
+			AND json_extract(r.payload_json,'$.schemaVersion')=1
+			AND json_extract(r.payload_json,'$.recallRelationRecordId')=?`,
 			admission.TargetExecutionID, admission.RecordID).Scan(&requestOrdinal); err != nil {
 			return contracts.SessionContext{}, fmt.Errorf("history read recall request position: %w", err)
 		}
@@ -326,26 +316,35 @@ func (s *Store) RecallEvidence(ctx context.Context, executionID string) (RecallE
 			return RecallEvidence{}, fmt.Errorf("history encode public recall message: %w", err)
 		}
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT record_id,execution_id,ordinal,kind,observed_at,payload_json
-		FROM semantic_records WHERE execution_id=? AND (
+	rows, err := s.db.QueryContext(ctx, `SELECT r.record_id,r.execution_id,r.ordinal,r.kind,r.observed_at,
+		r.payload_json,r.content_digest,body.content_digest,body.content_bytes
+		FROM semantic_records r LEFT JOIN contents body ON body.content_digest=r.content_digest
+		WHERE r.execution_id=? AND (
 			kind IN ('assistant_message','model_result','tool_call','tool_result','execution_admission',
 				'host_decision','effect_observation','context_update','control_decision','recall_relation') OR
-			(kind='user_message' AND json_extract(payload_json,'$.conversation.entityKind') IN ('steering','recall'))
-		) ORDER BY ordinal`, executionID)
+			(r.kind='user_message' AND json_extract(r.payload_json,'$.conversation.entityKind') IN ('steering','recall'))
+		) ORDER BY r.ordinal`, executionID)
 	if err != nil {
 		return RecallEvidence{}, fmt.Errorf("history read recall evidence records: %w", err)
 	}
-	var records []Record
+	type storedRecord struct {
+		record       Record
+		digest       sql.NullString
+		storedDigest sql.NullString
+		content      []byte
+	}
+	var stored []storedRecord
 	for rows.Next() {
-		var item Record
+		var item storedRecord
 		var payload string
-		if err := rows.Scan(&item.ID, &item.ExecutionID, &item.Ordinal, &item.Kind, &item.ObservedAt, &payload); err != nil {
+		if err := rows.Scan(&item.record.ID, &item.record.ExecutionID, &item.record.Ordinal,
+			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest, &item.storedDigest, &item.content); err != nil {
 			_ = rows.Close()
 			return RecallEvidence{}, fmt.Errorf("history scan recall evidence record: %w", err)
 		}
-		item.Payload = json.RawMessage(payload)
-		item.Conversation = conversationMetadata(item.Payload)
-		records = append(records, item)
+		item.record.Payload = json.RawMessage(payload)
+		item.record.Conversation = conversationMetadata(item.record.Payload)
+		stored = append(stored, item)
 	}
 	if err := rows.Err(); err != nil {
 		_ = rows.Close()
@@ -354,17 +353,34 @@ func (s *Store) RecallEvidence(ctx context.Context, executionID string) (RecallE
 	if err := rows.Close(); err != nil {
 		return RecallEvidence{}, fmt.Errorf("history close recall evidence records: %w", err)
 	}
-	for index := range records {
-		if records[index].Kind == "model_result" || records[index].Kind == "assistant_message" {
-			records[index].Payload, err = stripProviderState(records[index].Payload)
+	records := make([]Record, 0, len(stored))
+	for _, item := range stored {
+		record := item.record
+		if item.digest.Valid {
+			if !item.storedDigest.Valid {
+				return RecallEvidence{}, ErrNotFound
+			}
+			record.Payload, _, err = expandStoredToolResultPayload(record.Kind, record.Payload,
+				item.digest.String, item.content)
 			if err != nil {
 				return RecallEvidence{}, err
 			}
 		}
-		records[index].Relations, err = s.readRelations(ctx, records[index].ID)
+		if record.Kind == "model_result" || record.Kind == "assistant_message" {
+			record.Payload, err = stripProviderState(record.Payload)
+			if err != nil {
+				return RecallEvidence{}, err
+			}
+		}
+		record.Payload, _, err = s.expandStoredToolMessage(ctx, executionID, record.Payload)
 		if err != nil {
 			return RecallEvidence{}, err
 		}
+		record.Relations, err = s.readRelations(ctx, record.ID)
+		if err != nil {
+			return RecallEvidence{}, err
+		}
+		records = append(records, record)
 	}
 	return RecallEvidence{Execution: execution, Messages: messages, Records: records}, nil
 }

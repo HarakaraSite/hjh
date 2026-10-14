@@ -1,6 +1,7 @@
 package history
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -49,12 +50,37 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 		t.Fatal(err)
 	}
 	removedBodies := [][]byte{deletedSnapshot, []byte("child task"), []byte("nested task"), []byte("failed task"), []byte("queued text")}
+	var keptToolResult []byte
+	var keptToolMessageBody []byte
 	for _, execution := range []Execution{root, child, grandchild, kept} {
 		if _, err := store.AppendMessage(ctx, execution.ID, json.RawMessage(`{"role":"assistant","text":"saved response"}`)); err != nil {
 			t.Fatal(err)
 		}
+		toolMessageBody := []byte("tool message failure body for " + execution.ID)
+		toolMessage := contracts.JSON(contracts.ToolResults([]contracts.ToolResult{{CallID: "call-missing",
+			Name: "read_file", Text: string(toolMessageBody), Outcome: "error", Failure: contracts.JSON(map[string]string{"code": "not_found"}),
+			Terminal: "tool_error"}}))
+		if _, err := store.AppendMessage(ctx, execution.ID, toolMessage); err != nil {
+			t.Fatal(err)
+		}
+		if execution.ID == kept.ID {
+			keptToolMessageBody = toolMessageBody
+		} else {
+			removedBodies = append(removedBodies, toolMessageBody)
+		}
 		if _, err := store.AppendOccurrence(ctx, execution.ID, OccurrenceInput{Kind: "tool_call", Payload: json.RawMessage(`{}`), Content: []byte("saved tool result")}); err != nil {
 			t.Fatal(err)
+		}
+		resultBody := contracts.JSON(map[string]string{"stdout": "tool result for " + execution.ID})
+		if _, err := store.AppendOccurrence(ctx, execution.ID, OccurrenceInput{Kind: "tool_result", Payload: contracts.JSON(map[string]any{
+			"callId": "result-" + execution.ID, "name": "command", "phase": "completed", "result": resultBody,
+		})}); err != nil {
+			t.Fatal(err)
+		}
+		if execution.ID == kept.ID {
+			keptToolResult = resultBody
+		} else {
+			removedBodies = append(removedBodies, resultBody)
 		}
 		if err := store.SetContext(ctx, execution.ID, json.RawMessage(`{"items":[]}`)); err != nil {
 			t.Fatal(err)
@@ -89,10 +115,10 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 	if _, err := store.db.ExecContext(ctx, `INSERT INTO data_session_read_cursors VALUES ('reader','deleted',1,1,1,'{}',?)`, root.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.ExecContext(ctx, `INSERT INTO recall_relations VALUES (?,?,?)`, root.ID, kept.ID, semanticRecordID(root.ID, 1)); err != nil {
+	if _, err := store.db.ExecContext(ctx, `INSERT INTO recall_relations VALUES (?,?,?)`, root.ID, kept.ID, semanticRecordID(root.ID, 2)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.ExecContext(ctx, `INSERT INTO recall_relations VALUES (?,?,?)`, kept.ID, root.ID, semanticRecordID(kept.ID, 1)); err != nil {
+	if _, err := store.db.ExecContext(ctx, `INSERT INTO recall_relations VALUES (?,?,?)`, kept.ID, root.ID, semanticRecordID(kept.ID, 2)); err != nil {
 		t.Fatal(err)
 	}
 	for _, execution := range []Execution{grandchild, child, root, kept} {
@@ -116,8 +142,10 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 			t.Fatalf("deleted execution %s still readable: %v", id, err)
 		}
 	}
-	if messages, err := store.Conversation(ctx, "kept", 0, -1); err != nil || len(messages) != 1 {
+	if messages, err := store.Conversation(ctx, "kept", 0, -1); err != nil || len(messages) != 2 {
 		t.Fatalf("other Session conversation affected: %+v, %v", messages, err)
+	} else {
+		assertPublicToolMessageFailure(t, messages[1].JSON, string(keptToolMessageBody))
 	}
 	if _, err := store.Configuration(ctx, "shared-config"); err != nil {
 		t.Fatalf("shared configuration was removed: %v", err)
@@ -136,6 +164,12 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 	}
 	if content, err := store.Content(ctx, sharedTaskDigest); err != nil || string(content) != "shared task" {
 		t.Fatalf("shared task content was removed: %v", err)
+	}
+	if content, err := store.Content(ctx, contentDigest(keptToolResult)); err != nil || !bytes.Equal(content, keptToolResult) {
+		t.Fatalf("remaining Session tool result was removed: %q, %v", content, err)
+	}
+	if content, err := store.Content(ctx, contentDigest(keptToolMessageBody)); err != nil || !bytes.Equal(content, keptToolMessageBody) {
+		t.Fatalf("remaining Session tool Message body was removed: %q, %v", content, err)
 	}
 	for _, table := range []string{"command_receipts", "follow_up_receipts", "core_session_cursors", "data_session_read_cursors", "recall_relations"} {
 		var count int

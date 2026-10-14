@@ -48,6 +48,15 @@ func (s *Store) Messages(ctx context.Context, executionID string, fromOrdinal, t
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("history read messages: %w", err)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("history close messages: %w", err)
+	}
+	for index := range result {
+		result[index].JSON, _, err = s.expandStoredToolMessage(ctx, executionID, result[index].JSON)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 
@@ -90,6 +99,15 @@ func (s *Store) Conversation(ctx context.Context, sessionID string, fromTurn, to
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("history read conversation: %w", err)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("history close conversation: %w", err)
+	}
+	for index := range result {
+		result[index].JSON, _, err = s.expandStoredToolMessage(ctx, result[index].ExecutionID, result[index].JSON)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 
@@ -97,21 +115,27 @@ func (s *Store) Conversation(ctx context.Context, sessionID string, fromTurn, to
 // toOrdinal < 0 leaves the upper end open.
 func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, toOrdinal int64) ([]Record, error) {
 	query := `
-		SELECT record_id, execution_id, ordinal, kind, observed_at, payload_json, content_digest
-		FROM semantic_records WHERE execution_id=? AND ordinal>=?`
+		SELECT semantic_records.record_id, semantic_records.execution_id, semantic_records.ordinal,
+			semantic_records.kind, semantic_records.observed_at, semantic_records.payload_json,
+			semantic_records.content_digest, contents.content_digest, contents.content_bytes
+		FROM semantic_records
+		LEFT JOIN contents ON contents.content_digest=semantic_records.content_digest
+		WHERE semantic_records.execution_id=? AND semantic_records.ordinal>=?`
 	args := []any{executionID, fromOrdinal}
 	if toOrdinal >= 0 {
-		query += " AND ordinal<=?"
+		query += " AND semantic_records.ordinal<=?"
 		args = append(args, toOrdinal)
 	}
-	query += " ORDER BY ordinal"
+	query += " ORDER BY semantic_records.ordinal"
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("history read semantic records: %w", err)
 	}
 	type storedRecord struct {
-		record Record
-		digest sql.NullString
+		record       Record
+		digest       sql.NullString
+		storedDigest sql.NullString
+		content      []byte
 	}
 	var stored []storedRecord
 	for rows.Next() {
@@ -120,6 +144,7 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		if err := rows.Scan(
 			&item.record.ID, &item.record.ExecutionID, &item.record.Ordinal,
 			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest,
+			&item.storedDigest, &item.content,
 		); err != nil {
 			_ = rows.Close()
 			return nil, fmt.Errorf("history scan semantic record: %w", err)
@@ -138,11 +163,23 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 	result := make([]Record, 0, len(stored))
 	for _, item := range stored {
 		if item.digest.Valid {
-			content, err := readContent(ctx, s.db, item.digest.String)
+			if !item.storedDigest.Valid {
+				return nil, ErrNotFound
+			}
+			payload, expanded, err := expandStoredToolResultPayload(item.record.Kind,
+				item.record.Payload, item.digest.String, item.content)
 			if err != nil {
 				return nil, err
 			}
-			item.record.Content = content
+			if expanded {
+				item.record.Payload = payload
+			} else if item.record.Kind != "tool_body" {
+				item.record.Content = append([]byte(nil), item.content...)
+			}
+		}
+		item.record.Payload, _, err = s.expandStoredToolMessage(ctx, executionID, item.record.Payload)
+		if err != nil {
+			return nil, err
 		}
 		relations, err := s.readRelations(ctx, item.record.ID)
 		if err != nil {

@@ -91,9 +91,15 @@ return {result,delta};`), nil
 		if json.Unmarshal(record.Payload, &observation) != nil || observation.Name != "agents.status" || observation.Phase != "completed" {
 			continue
 		}
+		if record.Content != nil {
+			t.Fatalf("agents.status detail duplicated its result in Content: payload=%s content=%d", record.Payload, len(record.Content))
+		}
 		var status contracts.AgentStatus
 		if err := json.Unmarshal(observation.Result, &status); err != nil {
 			t.Fatal(err)
+		}
+		if len(status.Reports) > 0 && !strings.Contains(string(observation.Result), status.Reports[0].Text) {
+			t.Fatalf("agents.status detail did not restore its reports: payload=%s", record.Payload)
 		}
 		for _, report := range status.Reports {
 			if report.ExecutionID != children[0].ID {

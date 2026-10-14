@@ -115,7 +115,7 @@ func TestRoleChoiceAdoptionResumeAndCurrentConfig(t *testing.T) {
 	if err = json.Unmarshal(configuration.Snapshot, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.Agent.Name != "reviewer" || !reflect.DeepEqual(saved.Agent.Tools, []string{"run_js", "read_file", "ls", "find", "grep", "wc", "git_inspect"}) || len(saved.Tools) != 7 {
+	if saved.Agent.Name != "reviewer" || !reflect.DeepEqual(saved.Agent.Tools, []string{"run_js", "read_file", "ls", "find", "grep", "wc", "git_inspect"}) || len(saved.Tools) != 0 {
 		t.Fatalf("saved selection: %s", configuration.Snapshot)
 	}
 }

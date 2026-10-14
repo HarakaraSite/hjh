@@ -37,13 +37,13 @@ func TestRecallMessageCarriesShortMarkerAndSourceAttribution(t *testing.T) {
 	if marker := message.ExecutionFact.Recall; marker.SourceExecutionID != "source-1" || marker.RelationRecordID != "target-1:semantic:1" || marker.OperationID != "operation-1" || marker.Generation != 3 {
 		t.Fatalf("durable marker = %+v", marker)
 	}
-	sources := attribution.sourceRelations()
-	if len(sources) != 2 || sources[0]["sourceExecutionId"] != "source-1" || sources[0]["targetExecutionId"] != "target-1" {
-		t.Fatalf("source relations = %#v", sources)
-	}
 	external := attribution.externalRelation()
 	if external["kind"] != "recall" || external["recordId"] != "target-1:semantic:1" {
 		t.Fatalf("external relation = %#v", external)
+	}
+	locators, ok := external["sourceLocators"].([]contracts.ExecutionLocator)
+	if !ok || len(locators) == 0 || locators[0].ExecutionID != "source-1" {
+		t.Fatalf("recall source locator mapping = %#v", external["sourceLocators"])
 	}
 }
 
@@ -123,7 +123,7 @@ func TestRunAdmitsRecallBeforeProviderAndAttributesReference(t *testing.T) {
 	}
 
 	var relationFound, markerIsLight bool
-	var contextSourceFound bool
+	var requestRecallFound bool
 	records, err := store.Records(context.Background(), continued.ExecutionID, 0, -1)
 	if err != nil {
 		t.Fatal(err)
@@ -136,27 +136,17 @@ func TestRunAdmitsRecallBeforeProviderAndAttributesReference(t *testing.T) {
 			markerIsLight = !strings.Contains(string(record.Payload), "途中で止まった本文") &&
 				strings.Contains(string(record.Payload), admission.RecallRecordID)
 		}
-		if record.Kind == "context_item" {
+		if record.Kind == "model_request" {
 			var payload struct {
-				SourceRelations []struct {
-					SourceExecutionID string                     `json:"sourceExecutionId"`
-					TargetExecutionID string                     `json:"targetExecutionId"`
-					RecordID          string                     `json:"recordId"`
-					SourceLocator     contracts.ExecutionLocator `json:"sourceLocator"`
-					RelationLocator   contracts.ExecutionLocator `json:"relationLocator"`
-				} `json:"sourceRelations"`
+				SchemaVersion          int    `json:"schemaVersion"`
+				RecallRelationRecordID string `json:"recallRelationRecordId"`
 			}
 			_ = json.Unmarshal(record.Payload, &payload)
-			for _, relation := range payload.SourceRelations {
-				if relation.SourceLocator.ExecutionID == stopped.ExecutionID && relation.TargetExecutionID == continued.ExecutionID &&
-					relation.RecordID == admission.RecallRecordID && relation.RelationLocator.RecordID == admission.RecallRecordID {
-					contextSourceFound = true
-				}
-			}
+			requestRecallFound = requestRecallFound || (payload.SchemaVersion == 1 && payload.RecallRelationRecordID == admission.RecallRecordID)
 		}
 	}
-	if !relationFound || !markerIsLight || !contextSourceFound {
-		t.Fatalf("saved recall path: relation=%t lightMarker=%t contextSource=%t", relationFound, markerIsLight, contextSourceFound)
+	if !relationFound || !markerIsLight || !requestRecallFound {
+		t.Fatalf("saved recall path: relation=%t lightMarker=%t requestMapping=%t", relationFound, markerIsLight, requestRecallFound)
 	}
 	manifest, err := store.Context(context.Background(), continued.ExecutionID)
 	if err != nil {
@@ -293,13 +283,23 @@ func TestRecallKeepsActualStoppedRunJSActivityAsMetadata(t *testing.T) {
 			evidence.Messages = append(evidence.Messages, recall.Message{ExecutionID: message.ExecutionID, Ordinal: message.Ordinal, JSON: message.JSON})
 		}
 	}
+	sawReadResult := false
 	for _, record := range saved.Records {
 		var observation contracts.Observation
 		_ = json.Unmarshal(record.Payload, &observation)
+		if record.Kind == "tool_result" && observation.Name == "read_file" {
+			if record.Content != nil || !strings.Contains(string(observation.Result), privateBody) {
+				t.Fatalf("RecallEvidence did not restore the actual read_file result once: payload=%s content=%d", record.Payload, len(record.Content))
+			}
+			sawReadResult = true
+		}
 		if record.Kind == "tool_result" && observation.ID == "script-call" {
 			continue
 		}
 		evidence.Records = append(evidence.Records, recall.Record{ID: record.ID, ExecutionID: record.ExecutionID, Ordinal: record.Ordinal, Kind: record.Kind, Payload: record.Payload, Conversation: record.Conversation})
+	}
+	if !sawReadResult {
+		t.Fatal("RecallEvidence omitted the completed nested read_file result")
 	}
 	projected, e := recall.Project(evidence)
 	if e != nil {

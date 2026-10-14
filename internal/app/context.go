@@ -7,139 +7,56 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"hjh/internal/contextbudget"
 	"hjh/internal/contracts"
 	"hjh/internal/history"
 )
 
 type contextAttribution struct {
-	store              *history.Store
-	ctx                context.Context
-	executionID        string
-	recall             *recallAttribution
-	previousDigest     string
-	previousCount      int
-	requests           []map[string]any
-	sources            []contextbudget.Source
-	budget             json.RawMessage
-	instructionSources []map[string]any
+	store       *history.Store
+	ctx         context.Context
+	executionID string
+	recall      *recallAttribution
 }
 
-func digest(b []byte) string { sum := sha256.Sum256(b); return "sha256:" + hex.EncodeToString(sum[:]) }
-func canonicalDigest(v any) (string, error) {
-	b, e := contracts.EncodeCanonicalJSON(contracts.JSON(v))
-	if e != nil {
-		return "", e
-	}
-	return digest(b), nil
+func digest(b []byte) string {
+	sum := sha256.Sum256(b)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// request records only the small input facts used by /context and recall.
+// The encoded WireBody is owned by this record and is committed before the
+// provider is called. A later prepared request replaces that one body.
 func (a *contextAttribution) request(step int, request contracts.ModelRequest) error {
-	type item struct {
-		kind, resource, identity, media string
-		bytes                           []byte
-		recall                          bool
-		source                          *contextbudget.Source
-	}
-	items := make([]item, 0, len(request.Messages)+len(request.Tools)+2)
+	instructionCount := 0
 	if request.Instruction != "" {
-		items = append(items, item{kind: "system", resource: "instruction_component", identity: "system",
-			media: "text/plain; charset=utf-8", bytes: []byte(request.Instruction)})
+		instructionCount = 1
 	}
-	for i, m := range request.Messages {
-		b, e := contracts.EncodeJSON(m)
-		if e != nil {
-			return e
-		}
-		messageItem := item{kind: "message", resource: "message", identity: fmt.Sprintf("request/%d/message/%d", step, i),
-			media: "application/vnd.henji.message+json", bytes: b}
-		if i < len(a.sources) {
-			source := a.sources[i]
-			messageItem.source = &source
-		}
-		if a.recall != nil && m.ExecutionFact != nil && m.ExecutionFact.Recall != nil &&
-			m.ExecutionFact.Recall.RelationRecordID == a.recall.recordID {
-			messageItem.recall = true
-		}
-		items = append(items, messageItem)
+	// Keep /context's existing item count: message, tool, instruction, and the
+	// one saved provider WireBody item.
+	itemCount := len(request.Messages) + len(request.Tools) + instructionCount + 1
+	metadata := map[string]any{
+		"schemaVersion":     1,
+		"requestOrdinal":    step,
+		"modelStep":         step,
+		"modelSelection":    request.Model,
+		"itemCount":         itemCount,
+		"messageCount":      len(request.Messages),
+		"toolContractCount": len(request.Tools),
+		"instructionCount":  instructionCount,
+		"wireBytes":         len(request.WireBody),
 	}
-	for _, tool := range request.Tools {
-		b, e := contracts.EncodeJSON(tool)
-		if e != nil {
-			return e
-		}
-		items = append(items, item{kind: "tool_contract", resource: "tool_contract", identity: "tool:" + tool.Name,
-			media: "application/vnd.henji.tool+json", bytes: b})
-	}
-	wire := request.WireBody
-	items = append(items, item{kind: "provider_wire_body", resource: "provider_wire_body",
-		identity: fmt.Sprintf("request/%d/wire", step), media: "application/json", bytes: wire})
-	insertions := make([]map[string]any, 0, len(items))
-	occurrences := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		content := map[string]any{"digest": digest(item.bytes), "byteLength": len(item.bytes), "mediaType": item.media}
-		sources := []map[string]any{{"stage": "projected", "resourceKind": item.resource, "logicalIdentity": item.identity, "contentDigest": digest(item.bytes), "lane": "parent", "modelStep": step}}
-		if item.kind == "system" {
-			sources = append(sources, a.instructionSources...)
-		}
-		if item.source != nil {
-			sources = append(sources, map[string]any{"stage": "saved", "resourceKind": "message", "sourceKind": item.source.Kind,
-				"sourceExecutionId": item.source.ExecutionID, "turn": item.source.Turn, "messageOrdinal": item.source.MessageOrdinal})
-		}
-		if item.recall {
-			sources = append(sources, a.recall.sourceRelations()...)
-		}
-		record, e := a.store.AppendOccurrence(a.ctx, a.executionID, history.OccurrenceInput{Kind: "context_item", Payload: contracts.JSON(map[string]any{"kind": item.kind, "content": content, "sourceRelations": sources}), Content: item.bytes})
-		if e != nil {
-			return e
-		}
-		body := map[string]any{"occurrenceId": record.ID, "kind": item.kind, "content": content, "sourceRelations": sources}
-		identity, e := canonicalDigest(body)
-		if e != nil {
-			return e
-		}
-		body["occurrenceDigest"] = identity
-		insertions = append(insertions, map[string]any{"occurrenceId": record.ID, "occurrenceDigest": identity})
-		occurrences = append(occurrences, body)
-	}
-	splices := []map[string]any{{"start": 0, "deleteCount": a.previousCount, "insertions": insertions}}
-	var base any
-	if a.previousDigest != "" {
-		base = a.previousDigest
-	}
-	revision, e := canonicalDigest(map[string]any{"schemaVersion": 2, "lane": "parent", "sequenceKind": "user_turn", "baseRevisionDigest": base, "splices": splices, "resultItemCount": len(items)})
-	if e != nil {
-		return e
-	}
-	delta := map[string]any{"schemaVersion": 2, "requestOrdinal": step, "lane": "parent", "purpose": "user_turn", "modelStep": step, "modelSelection": request.Model, "revisionDigest": revision, "resultItemCount": len(items), "splices": splices, "occurrences": occurrences}
-	if len(a.budget) > 0 {
-		delta["contextBudget"] = a.budget
-	}
-	if a.previousDigest != "" {
-		delta["baseRevisionDigest"] = a.previousDigest
-	}
-	if _, e = a.store.AppendOccurrence(a.ctx, a.executionID, history.OccurrenceInput{Kind: "model_request", Payload: contracts.JSON(delta), Content: wire}); e != nil {
-		return e
-	}
-	a.requests = append(a.requests, map[string]any{"requestOrdinal": step, "revisionDigest": revision})
-	externalRelations := []any{}
 	if a.recall != nil {
-		externalRelations = append(externalRelations, a.recall.externalRelation())
+		metadata["recallRelationRecordId"] = a.recall.recordID
 	}
-	body := map[string]any{"schemaVersion": 2, "requestCount": len(a.requests), "requests": a.requests, "externalRelations": externalRelations}
-	manifestDigest, e := canonicalDigest(body)
-	if e != nil {
-		return e
+	externalRelations := json.RawMessage(`[]`)
+	if a.recall != nil {
+		externalRelations = contracts.JSON([]map[string]any{a.recall.externalRelation()})
 	}
-	body["digest"] = manifestDigest
-	manifest, e := contracts.EncodeCanonicalJSON(json.RawMessage(contracts.JSON(body)))
-	if e != nil {
-		return e
+	_, err := a.store.AppendLatestRequest(a.ctx, a.executionID, history.OccurrenceInput{
+		Kind: "model_request", Payload: contracts.JSON(metadata), Content: request.WireBody,
+	}, externalRelations)
+	if err != nil {
+		return fmt.Errorf("app save latest model request: %w", err)
 	}
-	if e = a.store.SetContext(a.ctx, a.executionID, manifest); e != nil {
-		return e
-	}
-	a.previousDigest = revision
-	a.previousCount = len(items)
 	return nil
 }

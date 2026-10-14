@@ -169,7 +169,20 @@ return {first,second,last,result,status};`
 		t.Fatal(err)
 	}
 	accepted, applied := map[uint64]contracts.ChildInstructionReceipt{}, map[uint64]contracts.ChildInstructionReceipt{}
+	sawCommandDetail := false
 	for _, record := range records {
+		if record.Kind == "tool_result" {
+			var observation contracts.Observation
+			if err := json.Unmarshal(record.Payload, &observation); err != nil {
+				t.Fatal(err)
+			}
+			if observation.ID == "child-command" && observation.Name == "command" {
+				if record.Content != nil || !strings.Contains(string(observation.Result), "child-tool-completed") {
+					t.Fatalf("command detail did not restore its result once: payload=%s content=%d", record.Payload, len(record.Content))
+				}
+				sawCommandDetail = true
+			}
+		}
 		if record.Kind != "control_decision" {
 			continue
 		}
@@ -192,8 +205,8 @@ return {first,second,last,result,status};`
 			applied[decision.Receipt.Sequence] = decision.Receipt
 		}
 	}
-	if len(accepted) != 3 || len(applied) != 3 {
-		t.Fatalf("saved instruction decisions accepted=%+v applied=%+v", accepted, applied)
+	if len(accepted) != 3 || len(applied) != 3 || !sawCommandDetail {
+		t.Fatalf("saved instruction decisions accepted=%+v applied=%+v command detail=%v", accepted, applied, sawCommandDetail)
 	}
 	for sequence := uint64(1); sequence <= 3; sequence++ {
 		acceptedReceipt, hasAccepted := accepted[sequence]
