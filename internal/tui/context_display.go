@@ -91,7 +91,7 @@ func formatCoreBudget(status contracts.ContextBudgetStatus) string {
 	if status.MetadataError != "" {
 		b.WriteString("\nCapacity metadata · " + status.MetadataError)
 	}
-	fmt.Fprintf(&b, "\nSaved budget/wire · execution %s · record %d · /inspect %s", status.ExecutionID, status.RecordOrdinal, status.ExecutionID)
+	fmt.Fprintf(&b, "\nSaved budget · execution %s · record %d · /inspect %s", status.ExecutionID, status.RecordOrdinal, status.ExecutionID)
 	return b.String()
 }
 

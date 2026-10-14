@@ -141,6 +141,18 @@ CREATE TABLE semantic_records (
 CREATE INDEX semantic_records_execution_ordinal
   ON semantic_records(execution_id, ordinal);
 
+CREATE TABLE execution_latest_requests (
+  execution_id TEXT PRIMARY KEY REFERENCES executions(execution_id) ON DELETE CASCADE,
+  record_id TEXT NOT NULL REFERENCES semantic_records(record_id) ON DELETE CASCADE,
+  wire_body BLOB NOT NULL
+);
+
+CREATE TABLE execution_latest_budgets (
+  execution_id TEXT PRIMARY KEY REFERENCES executions(execution_id) ON DELETE CASCADE,
+  record_id TEXT NOT NULL REFERENCES semantic_records(record_id) ON DELETE CASCADE,
+  fact_json TEXT NOT NULL
+);
+
 CREATE TABLE semantic_relations (
   record_id TEXT NOT NULL REFERENCES semantic_records(record_id) ON DELETE CASCADE,
   relation_ordinal INTEGER NOT NULL,
@@ -235,5 +247,5 @@ CREATE TABLE data_session_read_cursors (
 );
 
 INSERT INTO store_metadata(singleton, schema_version, created_at)
-VALUES(1, 3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
-PRAGMA user_version = 3;
+VALUES(1, 4, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+PRAGMA user_version = 4;

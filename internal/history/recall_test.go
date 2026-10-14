@@ -192,6 +192,13 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	budgetPayload := contracts.JSON(map[string]any{"modelStep": 7, "modelSelection": contracts.ModelSelection{
+		Provider: "fixture", API: "fixture-api", ModelID: "model/used"}, "summary": map[string]any{
+		"estimatedTokens": 90, "selectedMessageCount": 2, "omittedCurrentMessageCount": 0, "historyStatus": "none"}, "detailAvailable": false})
+	budgetRecord, err := store.AppendLatestBudget(ctx, requested.ID, budgetPayload, json.RawMessage(`{"step":7,"sources":[{"kind":"current","messageOrdinal":0}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	settleRecallTestExecution(t, store, requested, OutcomeCancelled, "2026-10-11T03:00:00Z")
 	latestRoot := beginRecallTestExecution(t, store, sessionID, "latest-root-no-request", "second")
 	child, err := store.BeginChildExecution(ctx, BeginChildExecutionInput{ExecutionID: "child-with-request", Task: "child",
@@ -200,6 +207,12 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 		t.Fatal(err)
 	}
 	if _, err := store.AppendLatestRequest(ctx, child.ID, OccurrenceInput{Kind: "model_request", Payload: payload, Content: []byte(strings.Repeat("child", 100))}, nil); err != nil {
+		t.Fatal(err)
+	}
+	childBudget := contracts.JSON(map[string]any{"modelStep": 8, "modelSelection": contracts.ModelSelection{
+		Provider: "fixture", API: "fixture-api", ModelID: "model/child"}, "summary": map[string]any{
+		"estimatedTokens": 180, "selectedMessageCount": 1, "omittedCurrentMessageCount": 3, "historyStatus": "omitted"}, "detailAvailable": false})
+	if _, err := store.AppendLatestBudget(ctx, child.ID, childBudget, json.RawMessage(`{"step":8,"sources":[{"kind":"current","messageOrdinal":1}]}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -218,6 +231,14 @@ func TestSessionContextReadsRequestMetadataAndSeparatesLatestRoot(t *testing.T) 
 		result.LatestRequest.MessageCount != 1 || result.LatestRequest.ToolContractCount != 1 || result.LatestRequest.InstructionCount != 1 ||
 		result.LatestRequest.WireBytes != 512 || result.LatestRequest.Selection.ModelID != "model/used" {
 		t.Fatalf("latest parent request = %+v", result.LatestRequest)
+	}
+	var selectedFact struct {
+		Step int `json:"step"`
+	}
+	if result.LatestBudget == nil || result.LatestBudget.ExecutionID != requested.ID || result.LatestBudget.RecordOrdinal != budgetRecord.Ordinal ||
+		result.LatestBudget.ModelStep != 7 || !result.LatestBudget.DetailAvailable || result.LatestBudget.Summary.EstimatedTokens != 90 ||
+		json.Unmarshal(result.LatestBudget.Fact, &selectedFact) != nil || selectedFact.Step != 7 {
+		t.Fatalf("latest parent budget = %+v, fact=%+v", result.LatestBudget, selectedFact)
 	}
 }
 

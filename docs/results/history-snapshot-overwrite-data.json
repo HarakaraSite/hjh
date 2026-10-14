@@ -1,0 +1,1447 @@
+{
+  "baseline": "aae542e",
+  "date": "2026-10-14",
+  "measurements": {
+    "before": {
+      "300": {
+        "label": "before",
+        "steps": 300,
+        "model_calls": 300,
+        "tool_calls": 299,
+        "elapsed_seconds": 11.710631360008847,
+        "db_bytes": 16433152,
+        "page_size": 4096,
+        "free_pages": 0,
+        "journal_mode": "delete",
+        "records": {
+          "assistant_message": {
+            "count": 1198,
+            "payload_bytes": 904541
+          },
+          "context_budget": {
+            "count": 300,
+            "payload_bytes": 9659362
+          },
+          "context_update": {
+            "count": 5,
+            "payload_bytes": 23580
+          },
+          "effect_observation": {
+            "count": 598,
+            "payload_bytes": 176628
+          },
+          "execution_admission": {
+            "count": 1,
+            "payload_bytes": 1228
+          },
+          "host_decision": {
+            "count": 1,
+            "payload_bytes": 316
+          },
+          "model_request": {
+            "count": 900,
+            "payload_bytes": 220669
+          },
+          "model_result": {
+            "count": 600,
+            "payload_bytes": 424010
+          },
+          "resource_revision": {
+            "count": 1,
+            "payload_bytes": 342
+          },
+          "tool_call": {
+            "count": 598,
+            "payload_bytes": 281127
+          },
+          "tool_result": {
+            "count": 897,
+            "payload_bytes": 544645
+          },
+          "user_message": {
+            "count": 1,
+            "payload_bytes": 674
+          }
+        },
+        "tables": {
+          "assistant_text_states": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "command_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "configurations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 136
+          },
+          "contents": {
+            "allocated_bytes": 540672,
+            "payload_bytes": 290199
+          },
+          "conversation_messages": {
+            "allocated_bytes": 57344,
+            "payload_bytes": 48940
+          },
+          "conversation_messages_turn": {
+            "allocated_bytes": 36864,
+            "payload_bytes": 26742
+          },
+          "core_session_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "data_session_read_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "diagnostics": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_contexts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 206
+          },
+          "execution_control_facts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_display_positions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 76
+          },
+          "execution_display_positions_execution": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "executions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 1104
+          },
+          "executions_canonical_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_correlation_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_lifecycle_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 72
+          },
+          "executions_parent_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 28
+          },
+          "executions_runtime_context_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "executions_session_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 102
+          },
+          "follow_up_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "follow_up_receipts_session_updated": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "messages": {
+            "allocated_bytes": 77824,
+            "payload_bytes": 68270
+          },
+          "recall_relations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "semantic_records": {
+            "allocated_bytes": 13737984,
+            "payload_bytes": 13057233
+          },
+          "semantic_records_execution_ordinal": {
+            "allocated_bytes": 274432,
+            "payload_bytes": 224144
+          },
+          "semantic_relations": {
+            "allocated_bytes": 376832,
+            "payload_bytes": 351040
+          },
+          "semantic_relations_unresolved": {
+            "allocated_bytes": 196608,
+            "payload_bytes": 167000
+          },
+          "session_model_changes": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 171
+          },
+          "session_turns": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 77
+          },
+          "sessions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 296
+          },
+          "sqlite_autoindex_assistant_text_states_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_command_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_configurations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_contents_1": {
+            "allocated_bytes": 61440,
+            "payload_bytes": 46498
+          },
+          "sqlite_autoindex_conversation_messages_1": {
+            "allocated_bytes": 36864,
+            "payload_bytes": 26142
+          },
+          "sqlite_autoindex_core_session_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_data_session_read_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_diagnostics_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_contexts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_control_facts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_display_positions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_display_positions_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_executions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_follow_up_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_messages_1": {
+            "allocated_bytes": 36864,
+            "payload_bytes": 26142
+          },
+          "sqlite_autoindex_recall_relations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_recall_relations_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_semantic_records_1": {
+            "allocated_bytes": 335872,
+            "payload_bytes": 279265
+          },
+          "sqlite_autoindex_semantic_records_2": {
+            "allocated_bytes": 274432,
+            "payload_bytes": 224144
+          },
+          "sqlite_autoindex_semantic_relations_1": {
+            "allocated_bytes": 196608,
+            "payload_bytes": 167006
+          },
+          "sqlite_autoindex_session_model_changes_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_session_turns_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_3": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_sessions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_schema": {
+            "allocated_bytes": 16384,
+            "payload_bytes": 11192
+          },
+          "store_metadata": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 29
+          }
+        },
+        "contents": {
+          "count": 605,
+          "bytes": 242405
+        },
+        "wire_bytes_total": 7807266,
+        "wire_first": 11630,
+        "wire_last": 26123,
+        "budget_first": {
+          "bytes": 662,
+          "sources": 1,
+          "omitted": 0
+        },
+        "budget_last": {
+          "bytes": 63875,
+          "sources": 7,
+          "omitted": 592
+        },
+        "budget_payload_bytes": 9659362,
+        "rss_peak_kib": 49720,
+        "process_io_before_final_reply": {
+          "rchar": 4410955450,
+          "wchar": 435282311,
+          "syscr": 1076707,
+          "syscw": 214562,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "io_measurement": "/proc/PID/io includes all process IO; SQLite bytes, journal bytes and transaction count not separately instrumented. Captured immediately before final HTTP reply; final settlement writes excluded.",
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "schema_version": 3
+      },
+      "600": {
+        "label": "before",
+        "steps": 600,
+        "model_calls": 600,
+        "tool_calls": 599,
+        "elapsed_seconds": 62.0559002289956,
+        "db_bytes": 51576832,
+        "page_size": 4096,
+        "free_pages": 0,
+        "journal_mode": "delete",
+        "records": {
+          "assistant_message": {
+            "count": 2398,
+            "payload_bytes": 1813909
+          },
+          "context_budget": {
+            "count": 600,
+            "payload_bytes": 38413071
+          },
+          "context_update": {
+            "count": 5,
+            "payload_bytes": 23579
+          },
+          "effect_observation": {
+            "count": 1198,
+            "payload_bytes": 353899
+          },
+          "execution_admission": {
+            "count": 1,
+            "payload_bytes": 1228
+          },
+          "host_decision": {
+            "count": 1,
+            "payload_bytes": 316
+          },
+          "model_request": {
+            "count": 1800,
+            "payload_bytes": 442001
+          },
+          "model_result": {
+            "count": 1200,
+            "payload_bytes": 849679
+          },
+          "resource_revision": {
+            "count": 1,
+            "payload_bytes": 342
+          },
+          "tool_call": {
+            "count": 1198,
+            "payload_bytes": 563950
+          },
+          "tool_result": {
+            "count": 1797,
+            "payload_bytes": 1092743
+          },
+          "user_message": {
+            "count": 1,
+            "payload_bytes": 674
+          }
+        },
+        "tables": {
+          "assistant_text_states": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "command_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "configurations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 136
+          },
+          "contents": {
+            "allocated_bytes": 913408,
+            "payload_bytes": 519700
+          },
+          "conversation_messages": {
+            "allocated_bytes": 110592,
+            "payload_bytes": 98140
+          },
+          "conversation_messages_turn": {
+            "allocated_bytes": 69632,
+            "payload_bytes": 53742
+          },
+          "core_session_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "data_session_read_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "diagnostics": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_contexts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 208
+          },
+          "execution_control_facts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_display_positions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 76
+          },
+          "execution_display_positions_execution": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "executions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 1105
+          },
+          "executions_canonical_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_correlation_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_lifecycle_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 72
+          },
+          "executions_parent_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 28
+          },
+          "executions_runtime_context_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "executions_session_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 102
+          },
+          "follow_up_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "follow_up_receipts_session_updated": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "messages": {
+            "allocated_bytes": 151552,
+            "payload_bytes": 136670
+          },
+          "recall_relations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "semantic_records": {
+            "allocated_bytes": 46559232,
+            "payload_bytes": 45197262
+          },
+          "semantic_records_execution_ordinal": {
+            "allocated_bytes": 557056,
+            "payload_bytes": 448544
+          },
+          "semantic_relations": {
+            "allocated_bytes": 749568,
+            "payload_bytes": 704073
+          },
+          "semantic_relations_unresolved": {
+            "allocated_bytes": 401408,
+            "payload_bytes": 335114
+          },
+          "session_model_changes": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 171
+          },
+          "session_turns": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 77
+          },
+          "sessions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 296
+          },
+          "sqlite_autoindex_assistant_text_states_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_command_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_configurations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_contents_1": {
+            "allocated_bytes": 106496,
+            "payload_bytes": 92698
+          },
+          "sqlite_autoindex_conversation_messages_1": {
+            "allocated_bytes": 69632,
+            "payload_bytes": 52542
+          },
+          "sqlite_autoindex_core_session_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_data_session_read_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_diagnostics_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_contexts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_control_facts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_display_positions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_display_positions_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_executions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_follow_up_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_messages_1": {
+            "allocated_bytes": 69632,
+            "payload_bytes": 52542
+          },
+          "sqlite_autoindex_recall_relations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_recall_relations_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_semantic_records_1": {
+            "allocated_bytes": 663552,
+            "payload_bytes": 559966
+          },
+          "sqlite_autoindex_semantic_records_2": {
+            "allocated_bytes": 557056,
+            "payload_bytes": 448544
+          },
+          "sqlite_autoindex_semantic_relations_1": {
+            "allocated_bytes": 405504,
+            "payload_bytes": 335125
+          },
+          "sqlite_autoindex_session_model_changes_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_session_turns_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_3": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_sessions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_schema": {
+            "allocated_bytes": 16384,
+            "payload_bytes": 11192
+          },
+          "store_metadata": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 29
+          }
+        },
+        "contents": {
+          "count": 1205,
+          "bytes": 424506
+        },
+        "wire_bytes_total": 15644766,
+        "wire_first": 11631,
+        "wire_last": 26124,
+        "budget_first": {
+          "bytes": 662,
+          "sources": 1,
+          "omitted": 0
+        },
+        "budget_last": {
+          "bytes": 127867,
+          "sources": 7,
+          "omitted": 1192
+        },
+        "budget_payload_bytes": 38413071,
+        "rss_peak_kib": 56276,
+        "process_io_before_final_reply": {
+          "rchar": 26056433000,
+          "wchar": 895069659,
+          "syscr": 6371479,
+          "syscw": 436405,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "io_measurement": "/proc/PID/io includes all process IO; SQLite bytes, journal bytes and transaction count not separately instrumented. Captured immediately before final HTTP reply; final settlement writes excluded.",
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "schema_version": 3
+      }
+    },
+    "after": {
+      "300": {
+        "label": "after",
+        "steps": 300,
+        "model_calls": 300,
+        "tool_calls": 299,
+        "elapsed_seconds": 5.753482798987534,
+        "db_bytes": 6668288,
+        "page_size": 4096,
+        "free_pages": 0,
+        "journal_mode": "delete",
+        "records": {
+          "assistant_message": {
+            "count": 1198,
+            "payload_bytes": 904552
+          },
+          "context_budget": {
+            "count": 300,
+            "payload_bytes": 183263
+          },
+          "context_update": {
+            "count": 5,
+            "payload_bytes": 23579
+          },
+          "effect_observation": {
+            "count": 598,
+            "payload_bytes": 176642
+          },
+          "execution_admission": {
+            "count": 1,
+            "payload_bytes": 1227
+          },
+          "host_decision": {
+            "count": 1,
+            "payload_bytes": 316
+          },
+          "model_request": {
+            "count": 900,
+            "payload_bytes": 220678
+          },
+          "model_result": {
+            "count": 600,
+            "payload_bytes": 424009
+          },
+          "resource_revision": {
+            "count": 1,
+            "payload_bytes": 342
+          },
+          "tool_call": {
+            "count": 598,
+            "payload_bytes": 281149
+          },
+          "tool_result": {
+            "count": 897,
+            "payload_bytes": 544631
+          },
+          "user_message": {
+            "count": 1,
+            "payload_bytes": 673
+          }
+        },
+        "tables": {
+          "assistant_text_states": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "command_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "configurations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 136
+          },
+          "contents": {
+            "allocated_bytes": 286720,
+            "payload_bytes": 263993
+          },
+          "conversation_messages": {
+            "allocated_bytes": 57344,
+            "payload_bytes": 48940
+          },
+          "conversation_messages_turn": {
+            "allocated_bytes": 36864,
+            "payload_bytes": 26742
+          },
+          "core_session_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "data_session_read_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "diagnostics": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_contexts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 81
+          },
+          "execution_control_facts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_display_positions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 76
+          },
+          "execution_display_positions_execution": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "execution_latest_budgets": {
+            "allocated_bytes": 65536,
+            "payload_bytes": 63784
+          },
+          "execution_latest_requests": {
+            "allocated_bytes": 28672,
+            "payload_bytes": 26215
+          },
+          "executions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 1133
+          },
+          "executions_canonical_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_correlation_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_lifecycle_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 72
+          },
+          "executions_parent_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 28
+          },
+          "executions_runtime_context_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "executions_session_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 102
+          },
+          "follow_up_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "follow_up_receipts_session_updated": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "messages": {
+            "allocated_bytes": 77824,
+            "payload_bytes": 68270
+          },
+          "recall_relations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "semantic_records": {
+            "allocated_bytes": 4120576,
+            "payload_bytes": 3580877
+          },
+          "semantic_records_execution_ordinal": {
+            "allocated_bytes": 274432,
+            "payload_bytes": 224144
+          },
+          "semantic_relations": {
+            "allocated_bytes": 376832,
+            "payload_bytes": 351040
+          },
+          "semantic_relations_unresolved": {
+            "allocated_bytes": 196608,
+            "payload_bytes": 167000
+          },
+          "session_model_changes": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 171
+          },
+          "session_turns": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 77
+          },
+          "sessions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 296
+          },
+          "sqlite_autoindex_assistant_text_states_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_command_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_configurations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_contents_1": {
+            "allocated_bytes": 61440,
+            "payload_bytes": 46380
+          },
+          "sqlite_autoindex_conversation_messages_1": {
+            "allocated_bytes": 36864,
+            "payload_bytes": 26142
+          },
+          "sqlite_autoindex_core_session_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_data_session_read_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_diagnostics_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_contexts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_control_facts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_display_positions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_display_positions_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_execution_latest_budgets_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_latest_requests_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_executions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_follow_up_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_messages_1": {
+            "allocated_bytes": 36864,
+            "payload_bytes": 26142
+          },
+          "sqlite_autoindex_recall_relations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_recall_relations_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_semantic_records_1": {
+            "allocated_bytes": 335872,
+            "payload_bytes": 279265
+          },
+          "sqlite_autoindex_semantic_records_2": {
+            "allocated_bytes": 274432,
+            "payload_bytes": 224144
+          },
+          "sqlite_autoindex_semantic_relations_1": {
+            "allocated_bytes": 196608,
+            "payload_bytes": 167006
+          },
+          "sqlite_autoindex_session_model_changes_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_session_turns_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_3": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_sessions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_schema": {
+            "allocated_bytes": 20480,
+            "payload_bytes": 11953
+          },
+          "store_metadata": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 29
+          }
+        },
+        "contents": {
+          "count": 604,
+          "bytes": 216279
+        },
+        "wire_bytes_total": 7807266,
+        "wire_first": 11630,
+        "wire_last": 26123,
+        "budget_first": {
+          "bytes": 566,
+          "sources": 1,
+          "omitted": 0,
+          "detail_available": false
+        },
+        "budget_last": {
+          "bytes": 612,
+          "sources": 7,
+          "omitted": 592,
+          "detail_available": false
+        },
+        "budget_payload_bytes": 183263,
+        "rss_peak_kib": 47804,
+        "process_io_before_final_reply": {
+          "rchar": 1170929757,
+          "wchar": 425511983,
+          "syscr": 285611,
+          "syscw": 211838,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "io_measurement": "/proc/PID/io includes all process IO; SQLite bytes, journal bytes and transaction count not separately instrumented. Captured immediately before final HTTP reply; final settlement writes excluded.",
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "schema_version": 4,
+        "latest_request_rows": 1,
+        "latest_wire_bytes": 26123,
+        "latest_budget_rows": 1,
+        "latest_budget_bytes": 63692,
+        "wire_contents_refs": 0,
+        "latest_budget_omitted": 592
+      },
+      "600": {
+        "label": "after",
+        "steps": 600,
+        "model_calls": 600,
+        "tool_calls": 599,
+        "elapsed_seconds": 18.713280038005905,
+        "db_bytes": 13037568,
+        "page_size": 4096,
+        "free_pages": 0,
+        "journal_mode": "delete",
+        "records": {
+          "assistant_message": {
+            "count": 2398,
+            "payload_bytes": 1813893
+          },
+          "context_budget": {
+            "count": 600,
+            "payload_bytes": 366960
+          },
+          "context_update": {
+            "count": 5,
+            "payload_bytes": 23579
+          },
+          "effect_observation": {
+            "count": 1198,
+            "payload_bytes": 353879
+          },
+          "execution_admission": {
+            "count": 1,
+            "payload_bytes": 1227
+          },
+          "host_decision": {
+            "count": 1,
+            "payload_bytes": 316
+          },
+          "model_request": {
+            "count": 1800,
+            "payload_bytes": 442013
+          },
+          "model_result": {
+            "count": 1200,
+            "payload_bytes": 849646
+          },
+          "resource_revision": {
+            "count": 1,
+            "payload_bytes": 342
+          },
+          "tool_call": {
+            "count": 1198,
+            "payload_bytes": 563953
+          },
+          "tool_result": {
+            "count": 1797,
+            "payload_bytes": 1092763
+          },
+          "user_message": {
+            "count": 1,
+            "payload_bytes": 674
+          }
+        },
+        "tables": {
+          "assistant_text_states": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "command_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "configurations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 136
+          },
+          "contents": {
+            "allocated_bytes": 532480,
+            "payload_bytes": 493493
+          },
+          "conversation_messages": {
+            "allocated_bytes": 110592,
+            "payload_bytes": 98140
+          },
+          "conversation_messages_turn": {
+            "allocated_bytes": 69632,
+            "payload_bytes": 53742
+          },
+          "core_session_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "data_session_read_cursors": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "diagnostics": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_contexts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 81
+          },
+          "execution_control_facts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "execution_display_positions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 76
+          },
+          "execution_display_positions_execution": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "execution_latest_budgets": {
+            "allocated_bytes": 131072,
+            "payload_bytes": 127777
+          },
+          "execution_latest_requests": {
+            "allocated_bytes": 28672,
+            "payload_bytes": 26217
+          },
+          "executions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 1134
+          },
+          "executions_canonical_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_correlation_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 101
+          },
+          "executions_lifecycle_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 72
+          },
+          "executions_parent_created": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 28
+          },
+          "executions_runtime_context_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "executions_session_turn": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 102
+          },
+          "follow_up_receipts": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "follow_up_receipts_session_updated": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "messages": {
+            "allocated_bytes": 151552,
+            "payload_bytes": 136670
+          },
+          "recall_relations": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "semantic_records": {
+            "allocated_bytes": 8228864,
+            "payload_bytes": 7150448
+          },
+          "semantic_records_execution_ordinal": {
+            "allocated_bytes": 557056,
+            "payload_bytes": 448544
+          },
+          "semantic_relations": {
+            "allocated_bytes": 749568,
+            "payload_bytes": 704073
+          },
+          "semantic_relations_unresolved": {
+            "allocated_bytes": 401408,
+            "payload_bytes": 335114
+          },
+          "session_model_changes": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 171
+          },
+          "session_turns": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 77
+          },
+          "sessions": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 296
+          },
+          "sqlite_autoindex_assistant_text_states_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_command_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_configurations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_contents_1": {
+            "allocated_bytes": 106496,
+            "payload_bytes": 92580
+          },
+          "sqlite_autoindex_conversation_messages_1": {
+            "allocated_bytes": 69632,
+            "payload_bytes": 52542
+          },
+          "sqlite_autoindex_core_session_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_data_session_read_cursors_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_diagnostics_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_contexts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_control_facts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_execution_display_positions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_display_positions_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_execution_latest_budgets_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_execution_latest_requests_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_executions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_follow_up_receipts_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_messages_1": {
+            "allocated_bytes": 69632,
+            "payload_bytes": 52542
+          },
+          "sqlite_autoindex_recall_relations_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_recall_relations_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 0
+          },
+          "sqlite_autoindex_semantic_records_1": {
+            "allocated_bytes": 663552,
+            "payload_bytes": 559966
+          },
+          "sqlite_autoindex_semantic_records_2": {
+            "allocated_bytes": 557056,
+            "payload_bytes": 448544
+          },
+          "sqlite_autoindex_semantic_relations_1": {
+            "allocated_bytes": 405504,
+            "payload_bytes": 335125
+          },
+          "sqlite_autoindex_session_model_changes_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_autoindex_session_turns_2": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_session_turns_3": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 40
+          },
+          "sqlite_autoindex_sessions_1": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 39
+          },
+          "sqlite_schema": {
+            "allocated_bytes": 20480,
+            "payload_bytes": 11953
+          },
+          "store_metadata": {
+            "allocated_bytes": 4096,
+            "payload_bytes": 29
+          }
+        },
+        "contents": {
+          "count": 1204,
+          "bytes": 398379
+        },
+        "wire_bytes_total": 15644766,
+        "wire_first": 11631,
+        "wire_last": 26124,
+        "budget_first": {
+          "bytes": 566,
+          "sources": 1,
+          "omitted": 0,
+          "detail_available": false
+        },
+        "budget_last": {
+          "bytes": 613,
+          "sources": 7,
+          "omitted": 1192,
+          "detail_available": false
+        },
+        "budget_payload_bytes": 366960,
+        "rss_peak_kib": 54328,
+        "process_io_before_final_reply": {
+          "rchar": 5200792924,
+          "wchar": 876005211,
+          "syscr": 1279780,
+          "syscw": 431341,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "io_measurement": "/proc/PID/io includes all process IO; SQLite bytes, journal bytes and transaction count not separately instrumented. Captured immediately before final HTTP reply; final settlement writes excluded.",
+        "integrity": "ok",
+        "foreign_key_violations": 0,
+        "schema_version": 4,
+        "latest_request_rows": 1,
+        "latest_wire_bytes": 26124,
+        "latest_budget_rows": 1,
+        "latest_budget_bytes": 127684,
+        "wire_contents_refs": 0,
+        "latest_budget_omitted": 1192
+      }
+    }
+  },
+  "restore": {
+    "before": {
+      "label": "before",
+      "steps": 300,
+      "history_cli_reopen_and_render": {
+        "session": {
+          "median_seconds": 0.12856290501076728,
+          "samples_seconds": [
+            0.12856290501076728,
+            0.13143517999560572,
+            0.12697723499150015
+          ],
+          "output_bytes": 43742
+        },
+        "canonical": {
+          "median_seconds": 0.0577990579768084,
+          "samples_seconds": [
+            0.05444278800860047,
+            0.06735076900804415,
+            0.0577990579768084
+          ],
+          "output_bytes": 1369265
+        },
+        "detail": {
+          "median_seconds": 0.5360708800144494,
+          "samples_seconds": [
+            0.5270004300109576,
+            0.5360708800144494,
+            0.5485217820096295
+          ],
+          "output_bytes": 21546121
+        }
+      },
+      "measurement": "Fresh CLI process per sample; full history render with OS page cache retained. Not a cold-cache benchmark or TUI-only timing."
+    },
+    "after": {
+      "label": "after",
+      "steps": 300,
+      "history_cli_reopen_and_render": {
+        "session": {
+          "median_seconds": 0.10295030401903205,
+          "samples_seconds": [
+            0.10295030401903205,
+            0.1032074700051453,
+            0.10285172000294551
+          ],
+          "output_bytes": 43742
+        },
+        "canonical": {
+          "median_seconds": 0.056352080981014296,
+          "samples_seconds": [
+            0.056352080981014296,
+            0.05810469601419754,
+            0.05530904501210898
+          ],
+          "output_bytes": 1369265
+        },
+        "detail": {
+          "median_seconds": 0.43848813499789685,
+          "samples_seconds": [
+            0.43239899998297915,
+            0.4419582199770957,
+            0.43848813499789685
+          ],
+          "output_bytes": 12133825
+        }
+      },
+      "measurement": "Fresh CLI process per sample; full history render with OS page cache retained. Not a cold-cache benchmark or TUI-only timing."
+    }
+  },
+  "integration": {
+    "core_cli_tui": "pass",
+    "parallel_children_status_steer_collect": "pass",
+    "reopen_resume": "pass",
+    "failure_recall_cancel_latest_wire": "pass",
+    "budget_exceeded_keeps_prior_wire_and_latest_details": "pass",
+    "schema_v4_scalar_budgets": "pass",
+    "deletion_reclaims_all_owned_bodies": "pass",
+    "model_calls": 15,
+    "external_api_calls": 0
+  }
+}

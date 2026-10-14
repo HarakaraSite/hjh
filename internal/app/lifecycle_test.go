@@ -357,14 +357,16 @@ func TestLifecycleContextIsIncludedInInputBudget(t *testing.T) {
 	var found bool
 	for _, record := range records {
 		if record.Kind == "context_budget" {
-			var payload struct {
-				Exceeded bool               `json:"exceeded"`
-				Fact     contextbudget.Fact `json:"fact"`
-			}
+			var payload contracts.ContextBudgetStatus
 			if err := json.Unmarshal(record.Payload, &payload); err != nil {
 				t.Fatal(err)
 			}
-			found = payload.Exceeded && payload.Fact.Budget.Limit != nil && payload.Fact.EstimatedTokens > *payload.Fact.Budget.Limit && record.Content == nil
+			var fact contextbudget.Fact
+			if err := json.Unmarshal(payload.Fact, &fact); err != nil {
+				t.Fatal(err)
+			}
+			found = payload.Exceeded && payload.DetailAvailable && fact.Budget.Limit != nil &&
+				fact.EstimatedTokens > *fact.Budget.Limit && payload.Summary.EstimatedTokens == fact.EstimatedTokens && record.Content == nil
 		}
 	}
 	if !found {

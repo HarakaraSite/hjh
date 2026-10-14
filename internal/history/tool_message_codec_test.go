@@ -225,8 +225,8 @@ func TestLatestRequestReplacementPreservesToolMessageBodies(t *testing.T) {
 			secondBody := []byte("wire request B body")
 			secondRequest := appendRequest(2, secondBody)
 
-			// Replacing the latest request drops A's model_request FK. The tool
-			// message must still own A through tool_body and remain readable.
+			// Replacing the latest request leaves its old semantic metadata
+			// without a body; the tool Message must own A through tool_body.
 			if _, err := store.Content(ctx, contentDigest(firstBody)); err != nil {
 				t.Fatalf("tool Message body was reclaimed with prior model_request: %v", err)
 			}

@@ -3,6 +3,11 @@
 2026-10-14の通常履歴整理は[通常履歴の保存契約](normal-history-storage.md)を参照する。
 毎回の送信全文・context構成archiveとツール定義保存、tool結果本文の重複を整理する。
 新しい契約・実装の到達点は[結果](../results/normal-history-storage.md)に記録する。
+同日の追加改善は[上書き計画](../plans/history-snapshot-overwrite.md)を採用し、新規Go DBをschema v4へ変更する。
+wireはexecution_latest_requests、最新の完全なbudget Factはexecution_latest_budgetsへ直接保存する。
+各回のcontext_budgetはsummaryとdetailAvailable:falseだけを持ち、最新の公開読取りにだけ
+factを付けてdetailAvailable:trueとする。今回の到達点は[追加改善の結果](../results/history-snapshot-overwrite.md)を参照する。
+以下のv3に関する記述は初期・各increment採用時の契約であり、現在のversionは[schema契約](history-schema.md)に従う。
 
 2026-10-11更新。取得元は[固定したsource](schema-source.json)、DDLは
 [schema v3](history-schema.md)。初期の対応に、後続incrementで採用した保存契約を末尾の各節で追加する。
@@ -99,8 +104,9 @@ call IDと親IDをpayloadに残し、未終了callでも開始と実際の副作
 assistant_text_statesはまだ完了していないmodel requestの最新textを持つ。
 完了後のmessageとは分け、失敗／取消でも観測済みtextを失わないようにする。
 model_requestのrequest bytesは各executionの最新準備済み送信だけを保持する。
-論理requestに小さな件数等を保存し、execution_contextsは最新位置とrecall関係を持つ。
-context_budgetは予算・選択/除外のfactを保持するが本文を参照しない。
+論理requestに小さな件数等を保存し、execution_contextsはrecall関係を保持する。
+公開の最新位置はexecution_latest_requestsとmetadataから生成する。
+context_budgetの各回summaryとexecution_latest_budgetsの最新Factはwire本文を参照しない。
 物理送信開始recordはmetadataのみ、live観測は全文を持つ。credential headerは観測へ渡さない。
 旧ExecutionContextManifestV2とcontext_item archiveは新規生成しない。
 

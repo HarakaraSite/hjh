@@ -2,6 +2,7 @@ package history
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -12,10 +13,13 @@ import (
 	"hjh/internal/contracts"
 )
 
-func TestAppendLatestRequestReclaimsOnlyUnreferencedPreviousBody(t *testing.T) {
+func TestAppendLatestRequestDirectlyOverwritesExecutionOwnedBody(t *testing.T) {
 	ctx := context.Background()
 	store, sessionID := recallTestStore(t)
 	execution := beginRecallTestExecution(t, store, sessionID, "latest-body-owner", "task")
+	if err := store.SetContext(ctx, execution.ID, json.RawMessage(`{"items":[{"digest":"sha256:generic-context"}]}`)); err != nil {
+		t.Fatal(err)
+	}
 	appendRequest := func(step int, body string) Record {
 		t.Helper()
 		payload := contracts.JSON(map[string]any{
@@ -60,7 +64,7 @@ func TestAppendLatestRequestReclaimsOnlyUnreferencedPreviousBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	if retained != 1 {
-		t.Fatalf("body still referenced by another semantic record was reclaimed: count=%d", retained)
+		t.Fatalf("generic semantic content was not retained: count=%d", retained)
 	}
 
 	third := appendRequest(3, "third wire body")
@@ -68,12 +72,34 @@ func TestAppendLatestRequestReclaimsOnlyUnreferencedPreviousBody(t *testing.T) {
 	if err != nil || len(latest) != 1 || latest[0].ID != third.ID || string(latest[0].Content) != "third wire body" {
 		t.Fatalf("latest request after second replacement = %+v, %v", latest, err)
 	}
-	var reclaimed int
-	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM contents WHERE content_digest=?`, digestBytes([]byte("second wire body"))).Scan(&reclaimed); err != nil {
+	var priorWireCopies int
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM contents WHERE content_digest=?`, digestBytes([]byte("second wire body"))).Scan(&priorWireCopies); err != nil {
 		t.Fatal(err)
 	}
-	if reclaimed != 0 {
-		t.Fatalf("unreferenced prior WireBody remains in contents: count=%d", reclaimed)
+	if priorWireCopies != 0 {
+		t.Fatalf("prior WireBody was inserted into contents: count=%d", priorWireCopies)
+	}
+	var latestID string
+	var latestBody []byte
+	if err := store.db.QueryRowContext(ctx, `SELECT record_id,wire_body FROM execution_latest_requests WHERE execution_id=?`, execution.ID).Scan(&latestID, &latestBody); err != nil {
+		t.Fatal(err)
+	}
+	if latestID != third.ID || string(latestBody) != "third wire body" {
+		t.Fatalf("execution latest request row = %q/%q", latestID, latestBody)
+	}
+	var latestDigest sql.NullString
+	if err := store.db.QueryRowContext(ctx, `SELECT content_digest FROM semantic_records WHERE record_id=?`, third.ID).Scan(&latestDigest); err != nil {
+		t.Fatal(err)
+	}
+	if latestDigest.Valid {
+		t.Fatalf("latest request semantic record owns shared contents digest %q", latestDigest.String)
+	}
+	var latestWireCopies int
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM contents WHERE content_digest=?`, digestBytes([]byte("third wire body"))).Scan(&latestWireCopies); err != nil {
+		t.Fatal(err)
+	}
+	if latestWireCopies != 0 {
+		t.Fatalf("latest WireBody was inserted into contents: count=%d", latestWireCopies)
 	}
 	manifest, err := store.Context(ctx, execution.ID)
 	if err != nil {
@@ -86,7 +112,85 @@ func TestAppendLatestRequestReclaimsOnlyUnreferencedPreviousBody(t *testing.T) {
 		} `json:"latestRequest"`
 	}
 	if err := json.Unmarshal(manifest, &locator); err != nil || locator.SchemaVersion != 1 || locator.LatestRequest.RecordID != third.ID {
-		t.Fatalf("latest request locator = %s, %v", manifest, err)
+		t.Fatalf("reconstructed latest request locator = %s, %v", manifest, err)
+	}
+	var contextView struct {
+		Items []struct {
+			Digest string `json:"digest"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(manifest, &contextView); err != nil || len(contextView.Items) != 1 || contextView.Items[0].Digest != "sha256:generic-context" {
+		t.Fatalf("generic execution context was not retained: %s, %v", manifest, err)
+	}
+	var storedManifest string
+	if err := store.db.QueryRowContext(ctx, `SELECT manifest_json FROM execution_contexts WHERE execution_id=?`, execution.ID).Scan(&storedManifest); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(storedManifest, `"latestRequest"`) {
+		t.Fatalf("stored context duplicated latest request locator: %s", storedManifest)
+	}
+}
+
+func TestLatestRequestBodiesAreSeparateForParentAndChildAndCascadeOnDelete(t *testing.T) {
+	ctx := context.Background()
+	store, sessionID := recallTestStore(t)
+	parent := beginRecallTestExecution(t, store, sessionID, "latest-parent", "parent task")
+	child, err := store.BeginChildExecution(ctx, BeginChildExecutionInput{
+		ExecutionID: "latest-child", ParentExecutionID: parent.ID, Task: "child task",
+		Model: json.RawMessage(`{"provider":"fixture"}`), Build: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	appendRequest := func(executionID, body string) Record {
+		t.Helper()
+		payload := contracts.JSON(map[string]any{
+			"schemaVersion": 1, "requestOrdinal": 1, "modelStep": 1, "wireBytes": len(body),
+		})
+		record, err := store.AppendLatestRequest(ctx, executionID, OccurrenceInput{
+			Kind: "model_request", Payload: payload, Content: []byte(body),
+		}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return record
+	}
+	parentRecord := appendRequest(parent.ID, "parent-wire")
+	childRecord := appendRequest(child.ID, "child-wire")
+	for _, want := range []struct {
+		executionID string
+		recordID    string
+		body        string
+	}{{parent.ID, parentRecord.ID, "parent-wire"}, {child.ID, childRecord.ID, "child-wire"}} {
+		records, err := store.Records(ctx, want.executionID, 0, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var matched bool
+		for _, record := range records {
+			if record.ID == want.recordID && string(record.Content) == want.body {
+				matched = true
+			}
+		}
+		if !matched {
+			t.Fatalf("execution %s did not return its own latest wire %q: %+v", want.executionID, want.body, records)
+		}
+	}
+	var requestRows int
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM execution_latest_requests WHERE execution_id IN (?,?)`, parent.ID, child.ID).Scan(&requestRows); err != nil {
+		t.Fatal(err)
+	}
+	if requestRows != 2 {
+		t.Fatalf("parent and child own %d latest request rows, want 2", requestRows)
+	}
+	if err := store.DeleteSession(ctx, sessionID); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM execution_latest_requests WHERE execution_id IN (?,?)`, parent.ID, child.ID).Scan(&requestRows); err != nil {
+		t.Fatal(err)
+	}
+	if requestRows != 0 {
+		t.Fatalf("Session deletion retained %d execution latest request rows", requestRows)
 	}
 }
 

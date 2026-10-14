@@ -110,11 +110,40 @@ type SessionContext struct {
 // ContextBudgetStatus describes Core's latest input selection, including a
 // selection that exceeded budget before a provider request was sent.
 type ContextBudgetStatus struct {
-	ExecutionID   string          `json:"executionId"`
-	RecordOrdinal int64           `json:"recordOrdinal"`
-	ModelStep     int             `json:"modelStep"`
-	Selection     ModelSelection  `json:"modelSelection"`
-	Fact          json.RawMessage `json:"fact"`
-	MetadataError string          `json:"metadataError,omitempty"`
-	Exceeded      bool            `json:"exceeded"`
+	ExecutionID     string               `json:"executionId"`
+	RecordOrdinal   int64                `json:"recordOrdinal"`
+	ModelStep       int                  `json:"modelStep"`
+	Selection       ModelSelection       `json:"modelSelection"`
+	Summary         ContextBudgetSummary `json:"summary"`
+	DetailAvailable bool                 `json:"detailAvailable"`
+	Fact            json.RawMessage      `json:"fact"`
+	MetadataError   string               `json:"metadataError,omitempty"`
+	Exceeded        bool                 `json:"exceeded"`
+}
+
+// ContextBudgetSummary is the per-call scalar history retained for every
+// budget decision. Selection lists and per-turn history details belong only
+// to the latest execution budget snapshot.
+type ContextBudgetSummary struct {
+	Budget                     ContextBudgetValues `json:"budget"`
+	Estimator                  string              `json:"estimator"`
+	WireBytes                  int64               `json:"wireBytes"`
+	EstimatedTokens            int64               `json:"estimatedTokens"`
+	HistoryWireBytes           *int64              `json:"historyWireBytes,omitempty"`
+	HistoryEstimatedTokens     *int64              `json:"historyEstimatedTokens,omitempty"`
+	SelectedMessageCount       int                 `json:"selectedMessageCount"`
+	OmittedCurrentMessageCount int                 `json:"omittedCurrentMessageCount"`
+	HistoryStatus              string              `json:"historyStatus"`
+	HistoryReason              string              `json:"historyReason,omitempty"`
+}
+
+// ContextBudgetValues retains the scalar effective budget and field origins.
+type ContextBudgetValues struct {
+	ContextTokens *int64            `json:"contextTokens,omitempty"`
+	InputTokens   *int64            `json:"inputTokens,omitempty"`
+	OutputReserve *int64            `json:"outputReserve,omitempty"`
+	InputRatio    *float64          `json:"inputRatio"`
+	HistoryTokens *int64            `json:"historyTokens,omitempty"`
+	Limit         *int64            `json:"limit,omitempty"`
+	Sources       map[string]string `json:"sources"`
 }

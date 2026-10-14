@@ -350,7 +350,7 @@ Denoの開発体制変更を契機に、Henjiを継続して育てる実行基�
 - tool・hookとAgent生成JSの実行基盤はPure Goの `github.com/go-quickjs/go-quickjs v0.25.2`。
 - Go本体内でQuickJSを実行し、Worker間でVMを共有しない。
 - モデル接続は外部provider設定で選択する。OpenRouter、OpenCode Go、OpenAI API、ChatGPT OAuthを用意し、非対話runとTUIは共通実行層を使う。
-- 履歴SQLiteは旧henji-harnessの現行schema v3と同一にする。スパイクの簡略schemaは製品に採用しない。
+- 履歴SQLiteは旧henji-harnessのschema v3を初期採用し、最新送信全文・予算詳細の専用2 tablesを追加したv4へ変更する。[schema契約](design/history-schema.md)を参照する。
 - 生成コードはJSでよい。TypeScript実行、Deno API・Web標準APIの完全互換は必須としない。
 - 非同期処理はGoのgoroutineやcontextに合わせて設計する。現行Deno版のWorker配置やイベントループをそのまま再現することは要求しない。
 - runや将来のTUIから利用する操作を共通のGo APIへ整理する。共通の操作契約と、HTTP等の呼出し方式は分けて判断する。

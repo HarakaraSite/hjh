@@ -59,7 +59,7 @@ func TestContextRendersCoreComputedBudgetAndUnsentFailure(t *testing.T) {
 		Fact: contracts.JSON(map[string]any{"budget": map[string]any{"limit": 1000, "contextTokens": 1250, "inputRatio": 0.8, "sources": map[string]string{"contextTokens": "catalog/provider", "inputRatio": "default"}}, "estimatedTokens": 1200, "wireBytes": 3500, "omittedCurrent": []int{1, 2}, "historyStatus": "omitted",
 			"history": map[string]any{"turns": []any{map[string]any{"number": 2, "status": "partial", "selectedSources": []any{map[string]any{"executionId": "saved", "messageOrdinal": 0}}, "omittedSources": []any{map[string]any{"executionId": "saved", "messageOrdinal": 1}, map[string]any{"executionId": "saved", "messageOrdinal": 2}}}}}}),
 	}})
-	for _, want := range []string{"Core context budget", "1200 tokens", "limit 1000", "omitted current messages 2", "provider request was not sent", "Context C · 1250 · catalog/provider", "Input ratio q · 0.8 · default", "Turn 2 · partial · saved", "kept messages 0 · omitted messages 1-2", "/inspect execution"} {
+	for _, want := range []string{"Core context budget", "1200 tokens", "limit 1000", "omitted current messages 2", "provider request was not sent", "Context C · 1250 · catalog/provider", "Input ratio q · 0.8 · default", "Turn 2 · partial · saved", "kept messages 0 · omitted messages 1-2", "Saved budget", "/inspect execution"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q: %s", want, text)
 		}

@@ -78,10 +78,10 @@ func compactToolMessageTx(ctx context.Context, tx *sql.Tx, executionID string, m
 
 func ensureToolBodyOwnerTx(ctx context.Context, tx *sql.Tx, executionID, digest string, body []byte) error {
 	var exists int
-	// Latest model request bodies are replaceable and cannot own durable
-	// Message references after the next request replaces them.
+	// Latest model request bodies live in execution_latest_requests, outside
+	// shared contents. Any explicit semantic content remains a durable owner.
 	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(
-		SELECT 1 FROM semantic_records WHERE execution_id=? AND content_digest=? AND kind<>'model_request')`, executionID, digest).Scan(&exists); err != nil {
+		SELECT 1 FROM semantic_records WHERE execution_id=? AND content_digest=?)`, executionID, digest).Scan(&exists); err != nil {
 		return fmt.Errorf("history check same-execution tool body owner: %w", err)
 	}
 	if exists != 0 {

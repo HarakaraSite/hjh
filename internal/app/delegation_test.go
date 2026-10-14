@@ -31,6 +31,38 @@ func (f delegationProvider) Generate(ctx context.Context, request contracts.Mode
 func scriptedJS(code string) contracts.ModelResult {
 	return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "script-call", Name: "run_js", Arguments: contracts.JSON(map[string]any{"code": code})}}}
 }
+
+func requireLatestRequestBody(t *testing.T, store *history.Store, executionID string) {
+	t.Helper()
+	records, err := store.Records(context.Background(), executionID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bodyCount := 0
+	for _, record := range records {
+		if record.Kind != "model_request" {
+			continue
+		}
+		var metadata struct {
+			SchemaVersion int `json:"schemaVersion"`
+			WireBytes     int `json:"wireBytes"`
+		}
+		if err := json.Unmarshal(record.Payload, &metadata); err != nil {
+			t.Fatal(err)
+		}
+		if metadata.SchemaVersion != 1 || record.Content == nil {
+			continue
+		}
+		if len(record.Content) != metadata.WireBytes {
+			t.Fatalf("execution %s latest request metadata says %d bytes but read %d", executionID, metadata.WireBytes, len(record.Content))
+		}
+		bodyCount++
+	}
+	if bodyCount != 1 {
+		t.Fatalf("execution %s exposes %d prepared request bodies, want one", executionID, bodyCount)
+	}
+}
+
 func delegationStore(t *testing.T) (*history.Store, string) {
 	t.Helper()
 	workspace := t.TempDir()
@@ -106,6 +138,7 @@ func TestDelegationParallelResultsEvidenceAndResume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	requireLatestRequestBody(t, store, result.ExecutionID)
 	spawns := map[string]bool{}
 	for _, child := range children {
 		if child.SessionID != "" || child.SessionCorrelation != result.SessionID || child.Adoption != "non_canonical" || child.Outcome != "completed" || child.BaseMessageCount != 0 {
@@ -133,6 +166,7 @@ func TestDelegationParallelResultsEvidenceAndResume(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
+		requireLatestRequestBody(t, store, child.ID)
 		var admissionLinked bool
 		for _, r := range records {
 			if r.Kind == "execution_admission" {

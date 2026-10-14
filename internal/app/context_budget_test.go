@@ -55,6 +55,9 @@ func budgetFact(t *testing.T, store *history.Store, session string) (contracts.S
 	if err != nil || state.LatestBudget == nil {
 		t.Fatalf("budget readback: %+v %v", state, err)
 	}
+	if !state.LatestBudget.DetailAvailable {
+		t.Fatal("latest SessionContext budget did not include its full detail")
+	}
 	var fact contextbudget.Fact
 	if err := json.Unmarshal(state.LatestBudget.Fact, &fact); err != nil {
 		t.Fatal(err)
@@ -113,6 +116,7 @@ func TestCoreBudgetPreservesFullTurnAndReloadsItAfterModelChange(t *testing.T) {
 	if len(fact.OmittedCurrent) != 2 || *fact.Budget.Limit != 17000 {
 		t.Fatalf("budget: %+v", fact)
 	}
+	assertBudgetRecordRetention(t, store, first.ExecutionID)
 	cut, err := store.CaptureConversationCut(ctx, first.ExecutionID)
 	if err != nil {
 		t.Fatal(err)
@@ -156,6 +160,80 @@ func TestCoreBudgetPreservesFullTurnAndReloadsItAfterModelChange(t *testing.T) {
 		if source.Kind == "history" && source.ExecutionID == "" {
 			t.Fatal("missing saved source")
 		}
+	}
+}
+
+func assertBudgetRecordRetention(t *testing.T, store *history.Store, executionID string) {
+	t.Helper()
+	records, err := store.Records(context.Background(), executionID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var budgets []history.Record
+	for _, record := range records {
+		if record.Kind == "context_budget" {
+			budgets = append(budgets, record)
+		}
+	}
+	if len(budgets) < 2 {
+		t.Fatalf("budget records = %d, want multiple model steps", len(budgets))
+	}
+	detailCount := 0
+	for i, record := range budgets {
+		var payload map[string]json.RawMessage
+		if err := json.Unmarshal(record.Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		var detailAvailable bool
+		if err := json.Unmarshal(payload["detailAvailable"], &detailAvailable); err != nil {
+			t.Fatalf("budget record %d detailAvailable: %v", record.Ordinal, err)
+		}
+		var summary contracts.ContextBudgetSummary
+		if err := json.Unmarshal(payload["summary"], &summary); err != nil {
+			t.Fatalf("budget record %d summary: %v", record.Ordinal, err)
+		}
+		var summaryFields map[string]json.RawMessage
+		if err := json.Unmarshal(payload["summary"], &summaryFields); err != nil {
+			t.Fatal(err)
+		}
+		for _, key := range []string{"sources", "omittedCurrent", "omittedCurrentSources", "history", "turns"} {
+			if _, exists := summaryFields[key]; exists {
+				t.Fatalf("budget record %d summary retained %s detail", record.Ordinal, key)
+			}
+		}
+		var budgetFields map[string]json.RawMessage
+		if err := json.Unmarshal(summaryFields["budget"], &budgetFields); err != nil {
+			t.Fatalf("budget record %d budget: %v", record.Ordinal, err)
+		}
+		var configurationSources map[string]string
+		if err := json.Unmarshal(budgetFields["sources"], &configurationSources); err != nil {
+			t.Fatalf("budget record %d budget sources must be scalar origins: %v", record.Ordinal, err)
+		}
+		if !detailAvailable {
+			if _, exists := payload["fact"]; exists {
+				t.Fatalf("historical budget record %d retained full Fact", record.Ordinal)
+			}
+			for _, key := range []string{"sources", "omittedCurrent", "omittedCurrentSources", "history"} {
+				if _, exists := payload[key]; exists {
+					t.Fatalf("historical budget record %d retained %s detail", record.Ordinal, key)
+				}
+			}
+			continue
+		}
+		detailCount++
+		if i != len(budgets)-1 {
+			t.Fatalf("non-latest budget record %d has full detail", record.Ordinal)
+		}
+		var fact contextbudget.Fact
+		if err := json.Unmarshal(payload["fact"], &fact); err != nil {
+			t.Fatalf("latest budget record %d Fact: %v", record.Ordinal, err)
+		}
+		if summary.SelectedMessageCount != len(fact.Sources) || summary.OmittedCurrentMessageCount != len(fact.OmittedCurrent) {
+			t.Fatalf("summary counts differ from latest detail: summary=%+v fact=%+v", summary, fact)
+		}
+	}
+	if detailCount != 1 {
+		t.Fatalf("full budget detail records = %d, want one", detailCount)
 	}
 }
 

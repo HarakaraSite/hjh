@@ -1,4 +1,26 @@
-# 履歴SQLite schema：旧henji-harnessと同一
+# 履歴SQLite schema
+
+## 現行Go schema v4（2026-10-14）
+
+利用者が[最新状態の上書き計画](../plans/history-snapshot-overwrite.md)に沿った実装を指示した。
+Go製品の新規DBはschema v4とし、`PRAGMA user_version`と`store_metadata.schema_version`を4へ揃える。
+元の21 tables・11 explicit indexesを維持し、executionが所有する最新状態の2 tablesを追加する。
+
+| 追加表 | 保存するもの |
+| --- | --- |
+| execution_latest_requests | execution IDをPKとする最新準備済みwire bytesと、そのmetadataを持つrecord ID |
+| execution_latest_budgets | execution IDをPKとする最新の完全な予算Fact JSONと、そのsummaryを持つrecord ID |
+
+両表のexecution IDとrecord IDは外部キーで、参照先削除時にcascadeする。
+metadata追加と最新行のUPSERTは同じtransactionで行い、各状態の保存・読戻しを分ける。
+具体的な所有・読戻し契約は[通常履歴の保存契約](normal-history-storage.md)を参照する。
+v3 DBのmigration・converter・互換読取りは追加しない。既存の常用DB・backupは操作しない。
+新v4 binaryでv3 DBを開くことはできないため、常用環境の切替は別途利用者が決める。
+
+以下の固定DDL・source・schema照合資料は、初期採用したv3の履歴資料として保持する。
+現在のGo DDLは`internal/history/schema.sql`であり、保管したHenji DDLを書き換えない。
+
+## 初期採用：旧henji-harnessのschema v3
 
 2026-10-10の利用者の明示指定により、初期製品の履歴SQLite schemaは
 `/home/agent/projects/henji-harness` の現行schema v3と同じものを採用する。

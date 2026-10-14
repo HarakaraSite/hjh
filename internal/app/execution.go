@@ -323,10 +323,8 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			if projectErr != nil && !errors.As(projectErr, &exceeded) {
 				return request, projectErr
 			}
-			payload := contracts.JSON(map[string]any{"modelStep": step, "modelSelection": input.model,
-				"fact": projection.Fact, "metadataError": metadataError, "exceeded": exceeded != nil})
-			if _, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{
-				Kind: "context_budget", Payload: payload}); e != nil {
+			payload, factJSON := contextBudgetRecord(step, input.model, metadataError, exceeded != nil, projection.Fact)
+			if _, e := store.AppendLatestBudget(persist, execution.ID, payload, factJSON); e != nil {
 				return request, control.storage(e)
 			}
 			if e := contextBudgetNotice(j, step, projection.Fact, notices); e != nil {

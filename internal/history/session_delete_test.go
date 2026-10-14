@@ -49,6 +49,16 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, execution := range []Execution{root, child, kept} {
+		if _, err := store.AppendLatestRequest(ctx, execution.ID, OccurrenceInput{Kind: "model_request",
+			Payload: json.RawMessage(`{"schemaVersion":1}`), Content: []byte("latest wire " + execution.ID)}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.AppendLatestBudget(ctx, execution.ID, json.RawMessage(`{"modelStep":1,"summary":{},"detailAvailable":false}`),
+			json.RawMessage(`{"step":1,"sources":[]}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	removedBodies := [][]byte{deletedSnapshot, []byte("child task"), []byte("nested task"), []byte("failed task"), []byte("queued text")}
 	var keptToolResult []byte
 	var keptToolMessageBody []byte
@@ -140,6 +150,19 @@ func TestDeleteSessionRemovesConversationExecutionTreeAndRelatedReceipts(t *test
 	for _, id := range []string{root.ID, child.ID, grandchild.ID, failed.ID} {
 		if _, err := store.Execution(ctx, id); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("deleted execution %s still readable: %v", id, err)
+		}
+	}
+	for _, table := range []string{"execution_latest_requests", "execution_latest_budgets"} {
+		var deleted, retained int
+		if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table+" WHERE execution_id IN (?,?,?,?)",
+			root.ID, child.ID, grandchild.ID, failed.ID).Scan(&deleted); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table+" WHERE execution_id=?", kept.ID).Scan(&retained); err != nil {
+			t.Fatal(err)
+		}
+		if deleted != 0 || retained != 1 {
+			t.Fatalf("%s cascade rows deleted=%d retained=%d", table, deleted, retained)
 		}
 	}
 	if messages, err := store.Conversation(ctx, "kept", 0, -1); err != nil || len(messages) != 2 {

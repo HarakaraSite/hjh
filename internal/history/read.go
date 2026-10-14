@@ -117,9 +117,19 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 	query := `
 		SELECT semantic_records.record_id, semantic_records.execution_id, semantic_records.ordinal,
 			semantic_records.kind, semantic_records.observed_at, semantic_records.payload_json,
-			semantic_records.content_digest, contents.content_digest, contents.content_bytes
+			semantic_records.content_digest, contents.content_digest, contents.content_bytes,
+			latest_requests.record_id, latest_requests.wire_body,
+			latest_budgets.record_id, latest_budgets.fact_json
 		FROM semantic_records
 		LEFT JOIN contents ON contents.content_digest=semantic_records.content_digest
+		LEFT JOIN execution_latest_requests latest_requests
+			ON latest_requests.execution_id=semantic_records.execution_id
+			AND latest_requests.record_id=semantic_records.record_id
+			AND semantic_records.kind='model_request'
+		LEFT JOIN execution_latest_budgets latest_budgets
+			ON latest_budgets.execution_id=semantic_records.execution_id
+			AND latest_budgets.record_id=semantic_records.record_id
+			AND semantic_records.kind='context_budget'
 		WHERE semantic_records.execution_id=? AND semantic_records.ordinal>=?`
 	args := []any{executionID, fromOrdinal}
 	if toOrdinal >= 0 {
@@ -132,10 +142,14 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		return nil, fmt.Errorf("history read semantic records: %w", err)
 	}
 	type storedRecord struct {
-		record       Record
-		digest       sql.NullString
-		storedDigest sql.NullString
-		content      []byte
+		record           Record
+		digest           sql.NullString
+		storedDigest     sql.NullString
+		content          []byte
+		latestID         sql.NullString
+		latestBody       []byte
+		latestBudgetID   sql.NullString
+		latestBudgetFact []byte
 	}
 	var stored []storedRecord
 	for rows.Next() {
@@ -144,7 +158,8 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		if err := rows.Scan(
 			&item.record.ID, &item.record.ExecutionID, &item.record.Ordinal,
 			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest,
-			&item.storedDigest, &item.content,
+			&item.storedDigest, &item.content, &item.latestID, &item.latestBody,
+			&item.latestBudgetID, &item.latestBudgetFact,
 		); err != nil {
 			_ = rows.Close()
 			return nil, fmt.Errorf("history scan semantic record: %w", err)
@@ -177,6 +192,16 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 				item.record.Content = append([]byte(nil), item.content...)
 			}
 		}
+		if item.latestID.Valid {
+			item.record.Content = make([]byte, len(item.latestBody))
+			copy(item.record.Content, item.latestBody)
+		}
+		if item.latestBudgetID.Valid {
+			item.record.Payload, err = expandLatestBudgetPayload(item.record.Payload, item.latestBudgetFact)
+			if err != nil {
+				return nil, err
+			}
+		}
 		item.record.Payload, _, err = s.expandStoredToolMessage(ctx, executionID, item.record.Payload)
 		if err != nil {
 			return nil, err
@@ -189,6 +214,26 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		result = append(result, item.record)
 	}
 	return result, nil
+}
+
+func expandLatestBudgetPayload(summary json.RawMessage, fact []byte) (json.RawMessage, error) {
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(summary, &payload); err != nil || payload == nil {
+		if err != nil {
+			return nil, fmt.Errorf("history decode latest budget summary: %w", err)
+		}
+		return nil, fmt.Errorf("history decode latest budget summary: expected object")
+	}
+	if !json.Valid(fact) {
+		return nil, fmt.Errorf("history decode latest budget Fact: invalid JSON")
+	}
+	payload["fact"] = append(json.RawMessage(nil), fact...)
+	payload["detailAvailable"] = json.RawMessage("true")
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("history encode latest budget detail: %w", err)
+	}
+	return encoded, nil
 }
 
 func conversationMetadata(payload json.RawMessage) *contracts.ConversationMetadata {
@@ -354,14 +399,57 @@ func (s *Store) Content(ctx context.Context, digest string) ([]byte, error) {
 }
 
 func (s *Store) Context(ctx context.Context, executionID string) (json.RawMessage, error) {
-	var value string
-	if err := s.db.QueryRowContext(ctx,
-		"SELECT manifest_json FROM execution_contexts WHERE execution_id=?", executionID,
-	).Scan(&value); err != nil {
+	var value sql.NullString
+	var requestID sql.NullString
+	var requestOrdinal, requestRecordOrdinal sql.NullInt64
+	err := s.db.QueryRowContext(ctx, `SELECT ec.manifest_json,lr.record_id,
+		COALESCE(CAST(json_extract(r.payload_json,'$.requestOrdinal') AS INTEGER),0),
+		COALESCE(r.ordinal,0)
+		FROM executions e
+		LEFT JOIN execution_contexts ec ON ec.execution_id=e.execution_id
+		LEFT JOIN execution_latest_requests lr ON lr.execution_id=e.execution_id
+		LEFT JOIN semantic_records r ON r.record_id=lr.record_id
+			AND r.execution_id=e.execution_id AND r.kind='model_request'
+		WHERE e.execution_id=?`, executionID).Scan(&value, &requestID, &requestOrdinal, &requestRecordOrdinal)
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("history read execution context: %w", err)
 	}
-	return json.RawMessage(value), nil
+	if !value.Valid && !requestID.Valid {
+		return nil, ErrNotFound
+	}
+	if !requestID.Valid {
+		var manifest map[string]json.RawMessage
+		if json.Unmarshal([]byte(value.String), &manifest) == nil && manifest != nil {
+			if _, exists := manifest["latestRequest"]; exists {
+				delete(manifest, "latestRequest")
+				encoded, err := contracts.EncodeCanonicalJSON(contracts.JSON(manifest))
+				if err != nil {
+					return nil, fmt.Errorf("history encode execution context view: %w", err)
+				}
+				return encoded, nil
+			}
+		}
+		return json.RawMessage(value.String), nil
+	}
+	manifest := make(map[string]json.RawMessage)
+	if value.Valid {
+		_ = json.Unmarshal([]byte(value.String), &manifest)
+		if manifest == nil {
+			manifest = make(map[string]json.RawMessage)
+		}
+	}
+	delete(manifest, "latestRequest")
+	manifest["schemaVersion"] = contracts.JSON(1)
+	manifest["latestRequest"] = contracts.JSON(latestRequestLocator{
+		RecordID: requestID.String, RecordOrdinal: requestRecordOrdinal.Int64,
+		RequestOrdinal: int(requestOrdinal.Int64),
+	})
+	encoded, err := contracts.EncodeCanonicalJSON(contracts.JSON(manifest))
+	if err != nil {
+		return nil, fmt.Errorf("history encode execution context view: %w", err)
+	}
+	return encoded, nil
 }

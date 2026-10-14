@@ -3,6 +3,9 @@
 2026-10-14。利用者が[改訂計画](../plans/normal-history-storage.md)に沿った実装を指示した。
 今回の保存契約は、旧Henji由来の詳細なcontext archive契約に優先する。
 実装・検証の到達点は[結果](../results/normal-history-storage.md)を参照する。
+続く[最新状態の上書き計画](../plans/history-snapshot-overwrite.md)の採用により、
+schema v4ではwireの直接上書きと予算の保存粒度を本書の契約へ反映する。
+この追加変更の到達点は[上書き改善の結果](../results/history-snapshot-overwrite.md)を参照する。
 
 ## 会話と送信全文の分離
 
@@ -17,8 +20,10 @@ APIへ送ったJSON全文を会話の継続用データとして使わない。
 
 送信準備は`contextbudget.Projector`と`provider.Prepare`で行う。
 準備できた正確なWireBodyを、API呼出し前にDBへ保存する。
-各executionで最新の論理`model_request`だけが`content_digest`を持ち、本文テーブルを参照する。
-親・子それぞれで最新1件を保持する。
+各executionの最新準備済みwireを、`execution_latest_requests.wire_body`へ直接保存する。
+execution IDをPKにして最新1件を上書きし、親・子は独立して保持する。
+対応する論理`model_request`の位置は同表の`record_id`で示す。
+通常の論理requestは`content_digest`を持たず、wireをcontentsへ保存しない。
 
 小さな論理request payloadは次の形式とする。件数は準備済み入力の件数であり、
 tool定義の本体や会話本文をpayloadへ埋めない。
@@ -38,17 +43,18 @@ tool定義の本体や会話本文をpayloadへ埋めない。
 ```
 
 recall参考Messageを選択したrequestは、適用した`recallRelationRecordId`も持つ。
-予算の選択/除外結果は`context_budget`recordに一度だけ保存する。
+予算判断は`context_budget`の各回summaryと、execution専用行の最新の完全なFactに分けて保存する。
 論理requestへ予算recordを埋め直さず、予算recordと物理送信開始recordはWireBodyを参照しない。
 live observerへは実際の送信Inputを従来どおり渡すが、物理recordの保存は時刻・ID等のみとする。
 
-新しいrequestと本文の保存、古いrequestの本文参照解除、未参照の古い本文回収、
-`execution_contexts`の最新locator更新を同じtransactionで行う。
-transaction失敗ではAPIへ進まず、それ以前の本文・locatorを保持する。
-他のrecord・Message・構成等が使う本文は回収しない。
+新しいrequest metadataの追加と専用wire行のUPSERTを同じtransactionで行う。
+transaction失敗ではAPIへ進まず、それ以前の専用wire行を保持する。
+古いwireのハッシュ照合・FK解除・全DB参照検索・本文回収は行わない。
+他のrecord・Message・構成等のcontents所有は変えず、Session削除時の共通本文回収は維持する。
 
-`execution_contexts`は、次のように最新request位置と通常recallの外部関係だけを持つ。
-本文の所有者はrecordのFKであり、このmanifest JSONではない。
+`execution_contexts`にはschemaVersionと通常recallの外部関係を保存し、最新request位置を重ねて保存しない。
+公開`Context`は専用request行とmetadataから次のlocatorを組み立てる。
+本文の所有者は専用request行であり、この公開JSONではない。
 
 ```json
 {
@@ -65,9 +71,41 @@ HTTP失敗や取消の後も最新本文を取得でき、予算超過等で準�
 取得には既存のexecution inspect/Record APIを使う。古い論理requestのContentは空、
 最新のContentだけが正確な送信bytesである。物理recordのpayload.input全文復元は廃止する。
 実行中のinspect/Recordは、record metadataと参照本文を同じSQLで取得する。
-metadataだけを先に読んでから別SQLで本文を読むと、次の送信による旧本文回収と競合するためである。
+専用行のrecord_idが一致するrequestだけにContentを付ける。
+metadataだけを先に読んでから別SQLで本文を読むと、次の送信による上書きと競合するためである。
 `SessionContext`は小さなpayloadからmodel・step・件数・wire bytesを読み、
 予算recordとrecall relation IDを合わせて`/context`を構成する。
+
+## 予算の各回summaryと最新詳細（schema v4）
+
+実行時のcontextbudget.Projector、除外済み状態、モデル入力の選択、通知とlive observerは変更しない。
+保存は`AppendLatestBudget`へ集約し、次の2種類を同じtransactionで確定する。
+
+- 各回のcontext_budget payload：modelStep・modelSelection・metadataError・exceeded、summary、detailAvailable:false。
+- execution_latest_budgets：execution IDをPKとし、対応record IDと最新の完全なFact JSONを1件だけUPSERT。
+
+summaryはbudgetの上限・入出力reserve・比率・設定出所、estimator、wireBytes・estimatedTokens、
+任意のhistoryWireBytes・historyEstimatedTokens、selectedMessageCount・omittedCurrentMessageCount、
+historyStatus・historyReasonを持つ。Sources・OmittedCurrent・OmittedCurrentSources・History.Turns全体は保存しない。
+過去の除外番号やturn別の理由は残さず、実際の件数をsummaryに保持する。
+
+Records/Recordは同じSELECTでexecution IDとrecord IDが一致する専用行のFactを捕捉する。
+その最新recordだけにfactを付け、detailAvailable:trueとして返す。
+過去recordはsummaryとdetailAvailable:falseを返し、存在しない詳細を空配列や0件へ偽装しない。
+CLI detail・inspectはこの粒度を明示する。通常の会話表示や次turnの継続には影響しない。
+
+SessionContextはbudget記録を持つ最新rootのmetadata・summary・完全なFactを返す。
+LatestRootExecution、requestを持つ最新root、budgetを持つ最新rootを独立に選び、各記録のexecution・ordinal・stepを示す。
+新rootにまだ記録がなければ、記録を持つ前のrootの情報を返す。
+`/context`の選択/除外番号・historyの理由は最新Factから表示する。
+
+予算判断とwire保存は独立して更新する。最初の判断が予算超過でもbudgetを保存でき、
+次stepの予算超過なら前stepのwireと新しいbudgetが共存する。
+親子は別execution IDで保持し、Session削除では両専用行をexecutionと一緒にcascade削除する。
+会話継続とrecallは保存Messageを使い、過去の予算一覧や送信全文には依存しない。
+
+予算の保持量は各回summaryと最新詳細1件になるが、最新Factの生成・全文上書き、wire全文書込みは残る。
+容量と全体時間・process I/Oを分けて測定し、処理別のCPU/I/Oを測ったとは扱わない。
 
 ## S-2：ツール定義を保存する範囲
 
@@ -130,8 +168,8 @@ textRefが指す本文は同じexecutionのsemantic_records.content_digestで所
 正常な結果はS-3の観測recordが先に保存する原Result bytesと同じ本文を参照する。
 error文などで同じexecutionに所有recordがない場合は、会話保存transaction内に
 本文FKだけを持つ小さなtool_body recordを追加する。別executionの所有だけに依存しない。
-再利用する所有recordからmodel_requestを除く。そのFKは次の送信で外れるため、
-同bytesの最新wireがあるだけでは会話本文の永続的な所有にはならない。
+通常のmodel_requestのwireはcontentsの所有FKを持たないため、tool本文の所有にはならない。
+汎用OccurrenceInput.Contentで明示的な添付本文を持つrecordは、kindによらず永続的な所有として使える。
 AppendMessageとAppendConversationMessageの両入口を同じcodecへ接続する。
 
 表示用のtool Message semantic mirrorもtextRefとMessage/item位置を保持し、
@@ -145,7 +183,7 @@ RecallEvidenceの公開読取りで内部参照を展開し、元のMessage/Text
 
 Messages/ConversationはSQL rowsを閉じてから本文を解決する。
 単一DB connectionのままrowsを開いて別読取りを行う経路を作らない。
-会話本文の所有FKは最新wire置換のGCから保持され、Session削除では既存FK収集から回収される。
+会話本文の所有FKはwire専用行とは独立し、Session削除では既存FK収集から回収される。
 保存後に停止した実行も、この所有と公開読戻しの経路を使う。
 
 hookのruntime入力・動作の改善、圧縮、要約checkpoint、旧DBの変換は対象外。

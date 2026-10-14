@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"hjh/internal/contracts"
 	"hjh/internal/history"
@@ -203,11 +204,11 @@ func TestRunPersistsRealToolPathAndResumes(t *testing.T) {
 	}
 	if contextManifest.SchemaVersion != 1 || contextManifest.LatestRequest.RecordID == "" || contextManifest.LatestRequest.RecordOrdinal == 0 ||
 		strings.Contains(string(manifest), `"requests"`) || strings.Contains(string(manifest), `"occurrences"`) || strings.Contains(string(manifest), `"splices"`) {
-		t.Fatalf("execution context is not the compact latest-request locator: %s", manifest)
+		t.Fatalf("Context did not reconstruct the compact latest-request locator: %s", manifest)
 	}
 	requestRecords, err := store.Records(context.Background(), first.ExecutionID, contextManifest.LatestRequest.RecordOrdinal, contextManifest.LatestRequest.RecordOrdinal)
 	if err != nil || len(requestRecords) != 1 || requestRecords[0].ID != contextManifest.LatestRequest.RecordID || len(requestRecords[0].Content) == 0 {
-		t.Fatalf("latest request locator does not resolve to its saved body: %+v %v", requestRecords, err)
+		t.Fatalf("reconstructed latest request locator does not resolve to its saved body: %+v %v", requestRecords, err)
 	}
 }
 
@@ -294,6 +295,75 @@ func TestStreamFailureRetainsTextWithoutAdopting(t *testing.T) {
 	}
 	if startedMarkers != 1 || incompleteBodies != 1 || requestBodies != 1 {
 		t.Fatalf("assistant marker/incomplete/request body records = %d/%d/%d, want one each", startedMarkers, incompleteBodies, requestBodies)
+	}
+}
+
+func TestLatestRequestBodySurvivesProviderCancellation(t *testing.T) {
+	received := make(chan []byte, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		received <- body
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+	workspace := t.TempDir()
+	store, err := history.Open(filepath.Join(workspace, "history.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	type runResult struct {
+		result RunResult
+		err    error
+	}
+	done := make(chan runResult, 1)
+	go func() {
+		result, err := Run(ctx, store,
+			chatFixtureProvider(server.URL, "", "cancelled-request-fixture", protocol.Options{}),
+			RunOptions{Task: "cancel after request preparation", Workspace: workspace, ModelID: "test/model"})
+		done <- runResult{result: result, err: err}
+	}()
+	var wire []byte
+	select {
+	case wire = <-received:
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatal("provider did not receive the prepared request")
+	}
+	cancel()
+	var completed runResult
+	select {
+	case completed = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancelled provider run did not finish")
+	}
+	if completed.err == nil {
+		t.Fatal("cancelled provider run completed without an error")
+	}
+	execution, err := store.Execution(context.Background(), completed.result.ExecutionID)
+	if err != nil || execution.Outcome != string(history.OutcomeCancelled) {
+		t.Fatalf("cancelled execution = %+v, %v", execution, err)
+	}
+	records, err := store.Records(context.Background(), execution.ID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var retained int
+	for _, record := range records {
+		if record.Kind == "model_request" && record.Content != nil {
+			if !bytes.Equal(record.Content, wire) {
+				t.Fatal("cancelled provider request body differs from the retained latest wire")
+			}
+			retained++
+		}
+	}
+	if retained != 1 {
+		t.Fatalf("cancelled execution retained %d prepared request bodies, want 1", retained)
 	}
 }
 

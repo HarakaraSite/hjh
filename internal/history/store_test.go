@@ -14,19 +14,7 @@ import (
 	"hjh/internal/contracts"
 )
 
-func TestEmbeddedSchemaMatchesAdoptedDDL(t *testing.T) {
-	storedDDL, err := schemaFile.ReadFile("schema.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	adoptedDDL, err := os.ReadFile(filepath.Join("..", "..", "docs", "design", "henji-history-schema.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(storedDDL, adoptedDDL) {
-		t.Fatal("embedded DDL differs from the adopted schema")
-	}
-
+func TestEmbeddedSchemaV4AddsLatestSnapshotTables(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "history.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -36,8 +24,15 @@ func TestEmbeddedSchemaMatchesAdoptedDDL(t *testing.T) {
 	if err := store.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 3 {
-		t.Fatalf("user_version = %d, want 3", version)
+	if version != 4 {
+		t.Fatalf("user_version = %d, want 4", version)
+	}
+	var metadataVersion int
+	if err := store.db.QueryRow("SELECT schema_version FROM store_metadata WHERE singleton=1").Scan(&metadataVersion); err != nil {
+		t.Fatal(err)
+	}
+	if metadataVersion != 4 {
+		t.Fatalf("store_metadata.schema_version = %d, want 4", metadataVersion)
 	}
 	var tables, indexes int
 	if err := store.db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").Scan(&tables); err != nil {
@@ -46,8 +41,22 @@ func TestEmbeddedSchemaMatchesAdoptedDDL(t *testing.T) {
 	if err := store.db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='index' AND sql IS NOT NULL").Scan(&indexes); err != nil {
 		t.Fatal(err)
 	}
-	if tables != 21 || indexes != 11 {
-		t.Fatalf("catalog has %d tables and %d explicit indexes, want 21 and 11", tables, indexes)
+	if tables != 23 || indexes != 11 {
+		t.Fatalf("catalog has %d tables and %d explicit indexes, want 23 and 11", tables, indexes)
+	}
+	for table, columns := range map[string][]string{
+		"execution_latest_requests": {"execution_id", "record_id", "wire_body"},
+		"execution_latest_budgets":  {"execution_id", "record_id", "fact_json"},
+	} {
+		var ddl string
+		if err := store.db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&ddl); err != nil {
+			t.Fatal(err)
+		}
+		for _, column := range columns {
+			if !strings.Contains(ddl, column) {
+				t.Fatalf("%s schema does not contain column %q: %s", table, column, ddl)
+			}
+		}
 	}
 	rows, err := store.db.Query("PRAGMA foreign_key_check")
 	if err != nil {
