@@ -18,17 +18,22 @@ func TestSlashMenuTypingNavigationCompletionAndDispatch(t *testing.T) {
 	if !m.commandMenuVisible() || len(m.commandMenu.options) != len(slashCommands) {
 		t.Fatal("typing / did not automatically show the command catalog")
 	}
-	update(m, tea.KeyPressMsg{Code: 'p', Text: "p"})
+	for _, removed := range []string{"/providers", "/models"} {
+		if isSlashCommand(removed) || strings.Contains(helpText, removed) {
+			t.Fatalf("removed listing command is still recognized or advertised: %s", removed)
+		}
+	}
 	update(m, tea.KeyPressMsg{Code: 'r', Text: "r"})
-	if m.commandMenu.options[0].name != "/provider" || m.commandMenu.options[1].name != "/providers" {
+	update(m, tea.KeyPressMsg{Code: 'e', Text: "e"})
+	if m.commandMenu.options[0].name != "/resume" || m.commandMenu.options[1].name != "/rename" {
 		t.Fatalf("prefix matches did not lead the menu: %+v", m.commandMenu.options)
 	}
 	update(m, tea.KeyPressMsg{Code: tea.KeyDown})
-	if m.textarea.Value() != "/pr" || m.commandMenu.options[m.commandMenu.index].name != "/providers" {
+	if m.textarea.Value() != "/re" || m.commandMenu.options[m.commandMenu.index].name != "/rename" {
 		t.Fatal("arrow navigation changed the draft instead of the selection")
 	}
 	update(m, tea.KeyPressMsg{Code: tea.KeyTab})
-	if m.textarea.Value() != "/providers " || m.commandMenuVisible() || len(m.entries) != 0 || m.activeRun != nil {
+	if m.textarea.Value() != "/rename " || m.commandMenuVisible() || len(m.entries) != 0 || m.activeRun != nil {
 		t.Fatal("Tab must complete the selected name without executing it")
 	}
 	m.clearDraft()
@@ -142,7 +147,7 @@ func TestSlashMenuDockKeepsEditorAndHistory(t *testing.T) {
 	update(m, tea.KeyPressMsg{Code: tea.KeyEsc})
 	m.View()
 	combined := initialOutput + output.String()
-	if strings.Contains(combined, ansi.SetAltScreenSaveCursorMode) || strings.Count(renderer.ReceiptText(combined), answer.Text) != 1 || m.sessionEntities[answer.ID].Text != answer.Text {
+	if strings.Contains(combined, ansi.SetMode(ansi.ModeAltScreenSaveCursor)) || strings.Count(renderer.ReceiptText(combined), answer.Text) != 1 || m.sessionEntities[answer.ID].Text != answer.Text {
 		t.Fatal("suggestions switched screens or duplicated/lost saved history")
 	}
 	if strings.Count(renderer.ReceiptText(combined), progress.Text) != 1 {

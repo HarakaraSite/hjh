@@ -369,6 +369,14 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) sessionRoute(w http.ResponseWriter, r *http.Request, parts []string) {
 	if len(parts) == 1 {
+		if r.Method == http.MethodDelete {
+			if err := s.runs.DeleteSession(r.Context(), parts[0]); err != nil {
+				writeFailure(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if !requireMethod(w, r, http.MethodGet) {
 			return
 		}

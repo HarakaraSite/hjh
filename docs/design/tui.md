@@ -19,12 +19,15 @@ favorite未取得時のTabは再取得だけ、保存結果不明時は先行完
 詳細は[保存・API・picker契約](i11-model-favorites-contract.md)を参照する。
 
 Coreは実行・DB・provider・credential・JS Workerを所有する。
+最新の再開は`hjh-tui --continue`・`/resume latest`で同じworkspaceを対象にする。
+選択と履歴なし時の契約は[最新Sessionの再開](latest-session-resume.md)を参照する。
 TUIはdraft、次回の接続／role／Session選択、会話entity、Markdown・折返し、
 端末scrollbackへの確定出力と下部live bandを所有する。DBやCore実装packageをimportしない。
 Bubble Teaのupdate loopで入力と表示状態を管理し、独立writerで通常画面へ出力する。
-pickerと認証の選択画面は一時的なalternate screenへ描く。通常画面の会話とcursorを保持し、
+Session・provider・model・effortの候補は入力欄の上へ1項目1行で一時表示する。
+認証の選択画面は一時的なalternate screenへ描く。通常画面の会話とcursorを保持し、
 キャンセル・選択完了で元の画面へ戻す。選択画面の内容を会話のscrollbackへ残さない。
-picker表示中に確定した親本文は通常画面へ戻ってから一度だけ出力する。
+inline picker表示中も親本文を通常画面へ出力する。認証画面中に確定した本文は戻ってから一度だけ出力する。
 Slash command候補は通常画面の入力欄の上へ一時表示し、alternate screenへ切り替えない。
 候補の行は入力欄と同じdockに含め、会話履歴・scrollbackへ保存しない。
 端末の検索・コピーは端末／tmuxのscrollbackを使う。
@@ -112,7 +115,7 @@ Commands are:
 | `/`入力 | Show command names, argument hints and descriptions. Type to filter, arrows to select, Tab to complete, Enter to choose, Esc to close. Commands requiring arguments leave the completed name in the editor. |
 | F4 / `/sessions` | Select a Session with arrows/j/k, PgUp/PgDn, Home/End; Enter resumes and Esc closes. |
 | `/new` | Start a new conversation in the current workspace. A Session is created by its first run. |
-| `/resume SESSION_ID` | Load saved history and attach to the same active run, if present. |
+| `/resume SESSION_ID\|latest` | Load saved history and attach to the same active run, if present. |
 | `/rename TEXT` | Save the current Session title, including during a run. |
 | Ctrl+D / `/detach` | Exit TUI while Core and its run continue. |
 | `/history [FROM_TURN TO_TURN]` | Show adopted messages, optionally for an inclusive turn range. |
@@ -122,9 +125,7 @@ Commands are:
 | `/inspect ID [FROM_ORDINAL TO_ORDINAL]` | Show execution messages, records, relations, captured configuration, and context. |
 | `/roles` | Show the current workspace/config role catalog and tool lists. |
 | `/role [NAME]` | Show the next-run role selection, or select a role for the next run. |
-| `/providers` | List provider definitions from the current external config. |
 | `/provider [ID]` | Open the provider picker, or directly select the next provider and clear previous model/effort/auth overrides. |
-| `/models [ID]` | List the selected route's model candidates. |
 | `/effort` | Choose auto or a declared effort from the model's picker; auto uses the endpoint default. |
 | `/auth [ID]` | Show ChatGPT login status without token values. |
 | `/login [ID]` | Open authentication profiles, or the selected provider's key/account screen. |
@@ -205,7 +206,9 @@ effortの直接指定は受け付けず、保存値が候補外でも選択肢�
 model検索は文字入力・bracketed paste・Backspaceを使い、j/kも検索文字として扱う。
 現在値を初期選択し、選択行は実画面高と本文共通の文字幅・折返し計算で画面内へ保つ。
 検索queryは会話draftから分離し、pickerを閉じてもdraftを変更しない。
-Session pickerとは一つのoverlayを共有し、loading中もEsc、F1、Ctrl+D、Ctrl+Qを扱う。
+Session pickerと共通のinline候補表示を使い、loading中もEsc、F1、Ctrl+D、Ctrl+Qを扱う。
+Session pickerはDel→Enterで削除し、Escで確認を取り消す。実行中は先にrunを停止する。
+表示・削除の契約は[inline pickers](inline-pickers.md)を参照する。
 
 Coreの`GET /selection`は次run入力を同じrun解決規則で解決する。TUIで優先順位を複製しない。
 provider一覧は現在selectionの解決が失敗しても選べるため、保存providerがconfigから消えた場合にも

@@ -66,25 +66,24 @@ func (m *Manager) ensureRunView(ctx context.Context, runID string, run *managedR
 			}
 			err = view.LoadCut(ctx, capture.through, rootCuts, walk)
 		}
-		if err != nil {
-			if dataSubscription != nil {
-				dataSubscription.Close()
-			}
-			view.Release()
-		}
-
 		m.mu.Lock()
 		run.viewMu.Lock()
-		if err == nil && run.viewConsumers > 0 {
-			run.view = &conversationView{view: view, data: dataSubscription}
-		} else if err == nil {
-			err = conversation.ErrClosed
+		if err == nil {
+			if run.viewConsumers > 0 && m.runs[runID] == run && !m.deletingSessions[run.sessionReservation] {
+				run.view = &conversationView{view: view, data: dataSubscription}
+			} else {
+				err = conversation.ErrClosed
+			}
 		}
 		run.viewCreating = nil
 		close(creating)
 		run.viewMu.Unlock()
 		m.mu.Unlock()
 		if err != nil {
+			if dataSubscription != nil {
+				dataSubscription.Close()
+			}
+			view.Release()
 			return nil, err
 		}
 		return view, nil
@@ -161,6 +160,10 @@ func (m *Manager) SessionView(ctx context.Context, sessionID string) (api.Conver
 func (m *Manager) sessionViewSnapshot(ctx context.Context, sessionID string,
 	restore func(context.Context, string) (*conversation.View, *executiondata.Subscription, error)) (api.ConversationSnapshot, error) {
 	m.mu.Lock()
+	if m.deletingSessions[sessionID] {
+		m.mu.Unlock()
+		return api.ConversationSnapshot{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
+	}
 	flight := m.sessionViews[sessionID]
 	creator := flight == nil
 	if creator {
@@ -188,8 +191,30 @@ func (m *Manager) sessionViewSnapshot(ctx context.Context, sessionID string,
 		m.releaseSessionView(sessionID, flight)
 		return api.ConversationSnapshot{}, flight.err
 	}
+	m.mu.Lock()
+	invalidated := flight.invalidated
+	deleting := m.deletingSessions[sessionID]
+	m.mu.Unlock()
+	if deleting {
+		m.releaseSessionView(sessionID, flight)
+		return api.ConversationSnapshot{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
+	}
+	if invalidated {
+		m.releaseSessionView(sessionID, flight)
+		return api.ConversationSnapshot{}, history.ErrNotFound
+	}
 	snapshot, err := flight.view.Snapshot(ctx)
+	m.mu.Lock()
+	invalidated = flight.invalidated
+	deleting = m.deletingSessions[sessionID]
+	m.mu.Unlock()
 	m.releaseSessionView(sessionID, flight)
+	if deleting {
+		return api.ConversationSnapshot{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
+	}
+	if invalidated {
+		return api.ConversationSnapshot{}, history.ErrNotFound
+	}
 	return snapshot, err
 }
 
@@ -241,6 +266,24 @@ func (m *Manager) restoreSessionView(ctx context.Context, sessionID string) (*co
 			return m.service.WalkSessionConversationCut(ctx, cut, visit)
 		})
 		if err == nil {
+			m.mu.Lock()
+			deleting := m.deletingSessions[sessionID]
+			changed = m.sessionVersions[sessionID] != version
+			m.mu.Unlock()
+			if deleting {
+				if dataSubscription != nil {
+					dataSubscription.Close()
+				}
+				view.Release()
+				return nil, nil, sessionBusy("", "Session deletion is in progress; retry after it completes")
+			}
+			if changed {
+				if dataSubscription != nil {
+					dataSubscription.Close()
+				}
+				view.Release()
+				continue
+			}
 			return view, dataSubscription, nil
 		}
 		if dataSubscription != nil {

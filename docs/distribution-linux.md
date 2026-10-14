@@ -234,9 +234,10 @@ F2は現在runの正常保存後にCoreが同じSessionで実行する。F3は�
 停止後は`/recall [ID|latest]`で公開情報を次の通常rootへ一度引き継ぎ、`/recall clear`で解除する。
 準備はdetach中も残るがCore再起動で失われる。元runと完了済みtoolを自動再実行しない。
 `/detach`／Ctrl+DはTUIだけを終了し、Coreとrunは継続する。`--session ID`／`/resume ID`で同runへ再接続する。
+`hjh-tui --continue`／`/resume latest`は同じworkspaceの最新Sessionを再開する。
 `/quit`／Ctrl+QはCoreを停止し、全runの取消・join・保存を待ってTUIも終了する。
 serve側のCtrl-C/SIGTERMも終了保存を待つ。F4でSession選択、`/rename 名前`で現在Sessionを命名する。
-`/sessions`、`/new`、`/resume ID`、`/history`、`/executions`、`/inspect ID`、`/providers`、`/provider [ID]`、`/models [ID]`、`/model [ID]`、`/effort [VALUE]`、`/login [ID]`、`/roles`、`/role [NAME]` が使える。
+`/sessions`、`/new`、`/resume ID|latest`、`/history`、`/executions`、`/inspect ID`、`/provider [ID]`、`/model [ID]`、`/effort`、`/login [ID]`、`/roles`、`/role [NAME]` が使える。
 引数なしの`/provider`・`/model`・`/effort`はpickerを開く。`/model`はID／表示名を検索できる。
 model pickerのTabでお気に入りを登録・解除し、保存確認後に印と先頭への整列を反映する。
 同じ実効config path・provider IDで共有し、認証accountの変更やCore再起動後も好みを保持する。

@@ -167,7 +167,7 @@ func Ensure(ctx context.Context, options Options, progress io.Writer) (api.Core,
 		if childExited {
 			if receivedHTTPResponse {
 				writeProgress(progress, fmt.Sprintf("Core exited before readiness. Log: %s\n", logPath))
-				return api.Core{}, fmt.Errorf("Core process exited before becoming ready (%s); inspect %s", describeExit(childExitErr), logPath)
+				return api.Core{}, fmt.Errorf("core process exited before becoming ready (%s); inspect %s", describeExit(childExitErr), logPath)
 			}
 			listening := tcpListening(ctx, listen)
 			if err := ctx.Err(); err != nil {
@@ -176,7 +176,7 @@ func Ensure(ctx context.Context, options Options, progress io.Writer) (api.Core,
 			}
 			if !listening {
 				writeProgress(progress, fmt.Sprintf("Core exited before readiness. Log: %s\n", logPath))
-				return api.Core{}, fmt.Errorf("Core process exited before becoming ready (%s); inspect %s", describeExit(childExitErr), logPath)
+				return api.Core{}, fmt.Errorf("core process exited before becoming ready (%s); inspect %s", describeExit(childExitErr), logPath)
 			}
 			if !waitingForListeningCore {
 				writeProgress(progress, fmt.Sprintf("Core process exited; waiting for the listening Core to become ready. Log: %s\n", logPath))
@@ -239,7 +239,7 @@ func tcpListening(ctx context.Context, address string) bool {
 func listenAddress(endpoint *url.URL) (string, error) {
 	host := endpoint.Hostname()
 	if host == "" {
-		return "", fmt.Errorf("Core endpoint must include a host")
+		return "", fmt.Errorf("core endpoint must include a host")
 	}
 	port := endpoint.Port()
 	if port == "" {

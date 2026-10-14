@@ -39,7 +39,7 @@ func TestMarkdownBlocksKeepSourceStartsForHeadingListAndFence(t *testing.T) {
 }
 
 func TestGlamourFormatsAnswerWithoutChangingSource(t *testing.T) {
-	m := newModel(nil, nil, nil, Options{})
+	m := newModel(t.Context(), nil, nil, Options{})
 	defer m.shutdown()
 	source := "本文\n\n## 見出し\n\n- 項目A\n- 項目B\n\n```go\nfmt.Println(\"ok\")\n```\n\n**強調**と[link](https://example.test)\n"
 	blocks, _ := m.markdownBlocksForSource("answer", source)
@@ -75,7 +75,7 @@ func TestGlamourFormatsAnswerWithoutChangingSource(t *testing.T) {
 }
 
 func TestGlamourRendersTableAndRefreshesWidthCache(t *testing.T) {
-	m := newModel(nil, nil, nil, Options{})
+	m := newModel(t.Context(), nil, nil, Options{})
 	defer m.shutdown()
 	source := "| ファイル | 内容 |\n| --- | --- |\n| README.md | 日本語🐈を含む説明です。 |\n"
 	m.width = 64

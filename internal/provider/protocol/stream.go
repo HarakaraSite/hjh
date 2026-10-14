@@ -580,10 +580,10 @@ func (assembly *streamAssembly) result(provider *Provider, request contracts.Mod
 	}
 	if assembly.api == "responses" {
 		if !assembly.responseDone || assembly.terminal != "completed" {
-			return contracts.ModelResult{}, errors.New("Responses stream ended before response.completed")
+			return contracts.ModelResult{}, errors.New("provider Responses stream ended before response.completed")
 		}
 	} else if !assembly.chatDone {
-		return contracts.ModelResult{}, errors.New("Chat Completions stream ended before [DONE]")
+		return contracts.ModelResult{}, errors.New("provider Chat Completions stream ended before [DONE]")
 	}
 	calls, err := assembly.toolCallResults()
 	if err != nil {

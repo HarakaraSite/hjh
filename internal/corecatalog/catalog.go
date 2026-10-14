@@ -140,10 +140,10 @@ func Select(entries []Entry, selector string) (Entry, error) {
 		}
 	}
 	if len(matches) == 0 {
-		return Entry{}, fmt.Errorf("Core %q not found", selector)
+		return Entry{}, fmt.Errorf("core %q not found", selector)
 	}
 	if len(matches) > 1 {
-		return Entry{}, fmt.Errorf("Core prefix %q is ambiguous (%d matches)", selector, len(matches))
+		return Entry{}, fmt.Errorf("core prefix %q is ambiguous (%d matches)", selector, len(matches))
 	}
 	return matches[0], nil
 }

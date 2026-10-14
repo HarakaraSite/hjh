@@ -68,11 +68,12 @@ type conversationView struct {
 }
 
 type sessionViewFlight struct {
-	ready chan struct{}
-	refs  int
-	view  *conversation.View
-	data  *executiondata.Subscription
-	err   error
+	ready       chan struct{}
+	refs        int
+	view        *conversation.View
+	data        *executiondata.Subscription
+	err         error
+	invalidated bool // protected by Manager.mu
 }
 
 type Manager struct {
@@ -83,6 +84,8 @@ type Manager struct {
 	cancel           context.CancelFunc
 	runs             map[string]*managedRun
 	sessions         map[string]string
+	deletingSessions map[string]bool
+	sessionWrites    map[string]int
 	inputSequences   map[string]uint64
 	sessionVersions  map[string]uint64
 	sessionViews     map[string]*sessionViewFlight
@@ -97,7 +100,8 @@ type Manager struct {
 func New(service *app.Service, workspace string) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{service: service, core: api.Core{CoreID: uuid.NewString(), APIVersion: "v2", Workspace: workspace},
-		ctx: ctx, cancel: cancel, runs: map[string]*managedRun{}, sessions: map[string]string{}, inputSequences: map[string]uint64{},
+		ctx: ctx, cancel: cancel, runs: map[string]*managedRun{}, sessions: map[string]string{}, deletingSessions: map[string]bool{},
+		sessionWrites: map[string]int{}, inputSequences: map[string]uint64{},
 		sessionVersions: map[string]uint64{}, sessionViews: map[string]*sessionViewFlight{}, recallPending: map[string]pendingRecall{},
 		recallRevision: map[string]uint64{}, recallOperations: map[string]*recallOperation{}, recallBySession: map[string]*recallOperation{}}
 }
@@ -140,6 +144,10 @@ func (m *Manager) StartContext(ctx context.Context, request api.StartRunRequest)
 		return api.RunState{}, false, err
 	}
 	if existing := m.runs[request.RunID]; existing != nil {
+		if m.deletingSessions[existing.sessionReservation] {
+			m.mu.Unlock()
+			return api.RunState{}, false, sessionBusy("", "Session deletion is in progress; retry after it completes")
+		}
 		if existing.fingerprint != fingerprint {
 			m.mu.Unlock()
 			return api.RunState{}, false, &api.Error{Code: "run_id_conflict", Message: "runId already identifies a different request"}
@@ -158,6 +166,10 @@ func (m *Manager) StartContext(ctx context.Context, request api.StartRunRequest)
 	reserved := request.SessionID
 	if reserved == "" {
 		reserved = uuid.NewString()
+	}
+	if m.deletingSessions[reserved] {
+		m.mu.Unlock()
+		return api.RunState{}, false, sessionBusy("", "Session deletion is in progress; retry after it completes")
 	}
 	if active := m.sessions[reserved]; active != "" {
 		m.mu.Unlock()
@@ -344,6 +356,9 @@ func (m *Manager) findLocked(coreID, runID string) (*managedRun, error) {
 	r := m.runs[runID]
 	if r == nil {
 		return nil, &api.Error{Code: "run_not_found", Message: "runId was not registered in this Core"}
+	}
+	if m.deletingSessions[r.sessionReservation] {
+		return nil, sessionBusy("", "Session deletion is in progress; retry after it completes")
 	}
 	return r, nil
 }

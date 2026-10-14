@@ -1,5 +1,9 @@
 # I-08：接続先・model・effortの選択
 
+2026-10-14追記：TUIの`/providers`・`/models`は利用者の指定で廃止し、一覧確認と選択を
+`/provider`・`/model`へ集約した。以下の一覧コマンドの記載はI-08当時の動作。
+現在の契約は[inline pickers](../design/inline-pickers.md)を参照。
+
 2026-10-11。I-07の利用確認後、利用者が次のインクリメントへ進むよう指示した。
 [I-06の優先順位](i06-conversation-tui.md)の次段階から、provider／model／effort pickerと検索を具体化する。
 この文書はI-08の承認済み計画である。

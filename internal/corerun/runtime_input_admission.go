@@ -101,9 +101,13 @@ func (m *Manager) SubmitInput(ctx context.Context, runID string, request api.Sub
 			return api.InputReceipt{}, false, &api.Error{Code: "core_closing", Message: "Core is shutting down"}
 		}
 		m.wg.Add(1)
+		m.sessionWrites[chain.sessionID]++
 		chain.mu.Unlock()
 		m.mu.Unlock()
-		defer m.wg.Done()
+		defer func() {
+			m.finishSessionWrite(chain.sessionID)
+			m.wg.Done()
+		}()
 		return m.replayOrClosed(ctx, request, runID, signature, body)
 	}
 

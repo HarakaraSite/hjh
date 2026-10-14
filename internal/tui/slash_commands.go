@@ -7,7 +7,6 @@ import (
 	"unicode"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type slashCommand struct {
@@ -19,7 +18,7 @@ type slashCommand struct {
 var slashCommands = []slashCommand{
 	{"/sessions", "", "Choose a saved session", false},
 	{"/new", "", "Start a new conversation in this workspace", false},
-	{"/resume", "SESSION_ID", "Resume a session or attach to its running execution", true},
+	{"/resume", "SESSION_ID|latest", "Resume a session or attach to its running execution", true},
 	{"/rename", "TEXT", "Rename the current session", true},
 	{"/detach", "", "Exit the TUI and let Core keep running", false},
 	{"/history", "[FROM_TURN TO_TURN]", "Show the complete adopted turn range", false},
@@ -31,9 +30,7 @@ var slashCommands = []slashCommand{
 	{"/tool", "NUMBER_OR_ENTITY_ID", "Show one saved tool call and result", true},
 	{"/inspect", "ID [FROM TO]", "Show an execution, children, records and context", true},
 	{"/model", "[MODEL_ID]", "Choose a model for the next run", false},
-	{"/models", "[PROVIDER_ID]", "List models for a connection", false},
 	{"/provider", "[PROVIDER_ID]", "Choose a connection for the next run", false},
-	{"/providers", "", "List configured connections", false},
 	{"/effort", "", "Choose reasoning effort for the next run", false},
 	{"/auth", "[PROVIDER_ID]", "Show authentication status", false},
 	{"/login", "[PROVIDER_ID]", "Open API-key or ChatGPT account settings", false},
@@ -164,30 +161,15 @@ func (m *model) commandMenuRows(available int) []string {
 		return nil
 	}
 	menu := m.commandMenu
-	count := min(len(menu.options), 8, available-1)
-	start := max(0, min(menu.index-count/2, len(menu.options)-count))
-	width := max(1, m.width)
-	rows := []string{styledText(ansi.Truncate(fmt.Sprintf("Commands · %d/%d", menu.index+1, len(menu.options)), width, "…"), defaultDimSGR)}
-	for index := start; index < start+count; index++ {
-		command := menu.options[index]
-		marker := "  "
-		if index == menu.index {
-			marker = "> "
-		}
-		label := marker + command.name
+	options := make([]inlineOption, len(menu.options))
+	for i, command := range menu.options {
+		label := command.name
 		if command.arguments != "" {
 			label += " " + command.arguments
 		}
-		label = ansi.Truncate(label, width, "…")
-		if index == menu.index {
-			label = styledText(label, blueSGR)
-		}
-		if available := width - ansi.StringWidth(label) - 3; available > 0 {
-			label += styledText(" · "+ansi.Truncate(command.description, available, "…"), defaultDimSGR)
-		}
-		rows = append(rows, label)
+		options[i] = inlineOption{label: label, detail: command.description}
 	}
-	return rows
+	return inlineMenuRows("Commands", nil, options, menu.index, m.width, available)
 }
 
 func slashCommandHelp() string {

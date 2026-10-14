@@ -2,15 +2,13 @@ package tui
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"errors"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
 	"hjh/internal/sessionid"
-	"hjh/internal/tui/renderer"
 )
 
 type sessionRenamedMsg struct {
@@ -35,10 +33,11 @@ func (m *model) shortSessionID(id string) string {
 }
 
 type sessionResolvedMsg struct {
-	generation uint64
-	request    uint64
-	id         string
-	err        error
+	generation    uint64
+	request       uint64
+	id            string
+	err           error
+	latestMissing bool
 }
 
 // Resolve before deciding whether to stop the current run. Resuming its own
@@ -51,8 +50,20 @@ func (m *model) resolveResume(selector string) {
 	m.resumePending = true
 	m.pendingSession = nil
 	request := m.resumeRequest
+	workspace, coreWorkspace := m.workspace, m.core.Workspace
 	m.status = "resolving Session " + m.shortSessionID(selector)
 	m.launch(job, func() tea.Msg {
+		if selector == "latest" {
+			sessions, err := m.backend.Sessions(ctx)
+			if err != nil {
+				return sessionResolvedMsg{generation: generation, request: request, err: err}
+			}
+			id, found := latestSessionID(sessions, workspace, coreWorkspace)
+			if !found {
+				return sessionResolvedMsg{generation: generation, request: request, latestMissing: true}
+			}
+			selector = id
+		}
 		session, err := m.backend.ResolveSession(ctx, selector)
 		return sessionResolvedMsg{generation: generation, request: request, id: session.ID, err: err}
 	})
@@ -71,6 +82,7 @@ func (m *model) openSessionPicker() {
 	m.sealCurrentFrame()
 	m.pickerOpen = true
 	m.pickerIndex = 0
+	m.sessionPickerNotice = ""
 	m.refreshViewport(false)
 	ctx, cancel := context.WithCancel(m.ctx)
 	job := m.newJob(cancel)
@@ -88,6 +100,7 @@ func (m *model) closeSessionPicker() {
 		m.cancelJob(m.pickerJobID)
 	}
 	m.pickerJobID = 0
+	m.sessionDeleteTarget = ""
 	m.pickerOpen = false
 }
 
@@ -200,32 +213,91 @@ func (m *model) requestCoreShutdown() {
 	})
 }
 
-// Rows and selection offsets use the same cell wrapping as the terminal, so
-// long names, Japanese text, and narrow windows keep the selected row visible.
-func sessionPickerRows(sessions []api.Session, selected, width int) ([]string, []int) {
-	rows := renderer.WrapText("Saved Sessions · ↑/↓ or j/k · PgUp/PgDn · Home/End · Enter resumes · Esc closes", max(1, width))
-	starts := make([]int, len(sessions))
-	ids := make([]string, len(sessions))
-	for i, session := range sessions {
-		ids[i] = session.ID
+type sessionDeletedMsg struct {
+	jobID       uint64
+	id, shortID string
+	err         error
+}
+
+func (m *model) handleSessionDeleteKey(msg tea.KeyPressMsg) bool {
+	if m.pickerJobID != 0 {
+		return msg.String() != "esc"
 	}
-	for i, session := range sessions {
-		rows = append(rows, "")
-		starts[i] = len(rows)
-		marker := "  "
-		if i == selected {
-			marker = "▶ "
+	if m.sessionDeleteJobID != 0 {
+		if msg.String() == "esc" {
+			m.closeSessionPicker()
 		}
-		title := sessionTitle(session)
-		if title == "" {
-			title = "(untitled)"
-		}
-		running := ""
-		if session.ActiveRunID != "" {
-			running = " · running"
-		}
-		text := fmt.Sprintf("%s%s · %s%s\n  model: %s · turns: %d · updated: %s\n  workspace: %s", marker, title, sessionid.Short(session.ID, ids...), running, selectedModel(session.ActiveModel), session.TurnCount, session.UpdatedAt, session.WorkspaceRoot)
-		rows = append(rows, renderer.WrapText(strings.TrimSuffix(text, "\n"), max(1, width))...)
+		return true
 	}
-	return rows, starts
+	if m.sessionDeleteTarget != "" {
+		switch msg.String() {
+		case "esc":
+			m.sessionDeleteTarget = ""
+			m.status = "deletion cancelled"
+		case "enter":
+			id := m.sessionDeleteTarget
+			shortID := m.shortSessionID(id)
+			job := m.newJob(func() {})
+			job.closeBeforeBackend = true
+			ctx := context.WithoutCancel(m.ctx)
+			saveTail := m.selectionSaveTail
+			m.sessionDeleteJobID = job.id
+			m.status = "deleting Session " + shortID
+			// Closing the picker does not cancel an already confirmed deletion.
+			m.launch(job, func() tea.Msg {
+				_ = waitForSelectionSave(ctx, saveTail)
+				return sessionDeletedMsg{jobID: job.id, id: id, shortID: shortID, err: m.backend.DeleteSession(ctx, id)}
+			})
+		}
+		return true
+	}
+	if msg.String() == "delete" {
+		if m.pickerIndex >= 0 && m.pickerIndex < len(m.sessions) {
+			m.sessionPickerNotice = ""
+			m.sessionDeleteTarget = m.sessions[m.pickerIndex].ID
+			m.status = "confirm deletion of Session " + m.shortSessionID(m.sessionDeleteTarget)
+		}
+		return true
+	}
+	return false
+}
+
+func (m *model) finishSessionDeletion(msg sessionDeletedMsg) {
+	if msg.jobID != m.sessionDeleteJobID {
+		return
+	}
+	m.sessionDeleteJobID = 0
+	m.sessionDeleteTarget = ""
+	if msg.err != nil {
+		m.status = "Session deletion failed: " + msg.err.Error()
+		m.sessionPickerNotice = "Delete failed: " + msg.err.Error()
+		var apiErr *api.Error
+		if errors.As(msg.err, &apiErr) && apiErr.Code == "session_busy" && apiErr.ActiveRunID != "" {
+			m.sessionPickerNotice = "Resume this Session and stop its run with F1 before deleting."
+			if m.activeRun != nil && m.activeRun.id == apiErr.ActiveRunID {
+				m.sessionPickerNotice = "Stop the run with F1 before deleting this Session."
+			}
+		}
+		return
+	}
+	sessions := m.sessions[:0]
+	for _, session := range m.sessions {
+		if session.ID != msg.id {
+			sessions = append(sessions, session)
+		}
+	}
+	m.sessions = sessions
+	m.pickerIndex = max(0, min(m.pickerIndex, len(sessions)-1))
+	if m.sessionID == msg.id {
+		// Core has completed all writes before deletion; drop any late run event.
+		if m.activeRun != nil && m.activeRun.session == msg.id {
+			m.activeRun = nil
+		}
+		m.sessionID = "" // Avoid saving preferences against the removed Session.
+		m.applySessionAction(sessionAction{newSession: true})
+	} else if len(sessions) == 0 && m.connectionPicker == nil && !m.screenOverlayOpen() {
+		m.closeSessionPicker()
+	}
+	m.status = "deleted Session " + msg.shortID
+	m.sessionPickerNotice = m.status
 }

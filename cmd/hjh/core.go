@@ -108,7 +108,7 @@ func runCore(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return fail(err)
 	}
 	if entry.CoreID != "" && entry.CoreID != core.CoreID {
-		return fail(fmt.Errorf("Core %s has stopped; %s now serves another Core (%s)", entry.CoreID, entry.Endpoint, core.CoreID))
+		return fail(fmt.Errorf("core %s has stopped; %s now serves another Core (%s)", entry.CoreID, entry.Endpoint, core.CoreID))
 	}
 	if operation == "stop" {
 		if err := client.ShutdownCore(ctx, core.CoreID); err != nil {
@@ -129,7 +129,7 @@ func runCore(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return fail(err)
 	}
 	if runtime.CoreID != core.CoreID {
-		return fail(fmt.Errorf("Core changed while reading status; query its current identity again"))
+		return fail(fmt.Errorf("core changed while reading status; query its current identity again"))
 	}
 	status.ActiveRuns, status.Phase = runtime.ActiveRuns, runtime.Phase
 	sessions, err := client.Sessions(ctx)

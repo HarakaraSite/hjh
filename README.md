@@ -39,6 +39,7 @@ go build -o dist/hjh-tui ./cmd/hjh-tui
 
 The TUI starts a local Core when needed and reuses an existing one.
 Keep `hjh` and `hjh-tui` in the same directory.
+Use `./dist/hjh-tui --continue` to resume the latest session in the same workspace.
 
 In the TUI, use `/login` to configure credentials, then `/provider` and `/model`
 to choose a connection and model. OpenRouter is the default connection.
@@ -48,6 +49,7 @@ Type `/` to browse commands; use arrows to select, Tab to complete, and Enter to
 | Command | Action |
 | --- | --- |
 | `/sessions` | Open a saved session |
+| `/resume latest` | Resume the latest session in this workspace |
 | `/new` | Start a new conversation |
 | `/effort` | Choose reasoning effort |
 | `/detach` | Close the TUI while the Core keeps running |

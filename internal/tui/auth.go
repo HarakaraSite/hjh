@@ -112,17 +112,6 @@ func (m *model) loadAuthProfiles(state *authUIState) {
 	})
 }
 
-func (m *model) openAuthStatus(providerID string) {
-	request := m.authRequestForProvider(providerID)
-	m.query("authentication", func(ctx context.Context) (string, error) {
-		profiles, err := m.backend.AuthProfiles(ctx, request)
-		if err != nil {
-			return "", err
-		}
-		return formatAuthProfiles(profiles), nil
-	})
-}
-
 func (m *model) acceptAuthProfiles(msg authProfilesLoadedMsg) {
 	state := m.authUI
 	if state == nil || !state.open || state.generation != msg.generation || state.coreID != msg.coreID ||
@@ -537,5 +526,4 @@ func (m *model) acceptAuthAccountSelected(msg authAccountSelectedMsg) {
 	} else {
 		m.loadAuthAccounts(state)
 	}
-	return
 }

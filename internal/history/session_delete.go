@@ -11,7 +11,7 @@ import (
 // DeleteSession removes the Session and its execution subtree in one
 // transaction, including its configurations and bodies that no remaining
 // record references.
-// The caller owns stopping live runs before this offline operation.
+// The caller owns excluding concurrent Session writes during this operation.
 func (s *Store) DeleteSession(ctx context.Context, sessionID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

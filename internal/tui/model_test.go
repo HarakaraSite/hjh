@@ -65,13 +65,14 @@ type fakeBackend struct {
 	closeHandles     []*fakeRun
 	closeFunc        func() error
 
-	runCalls chan runCall
-	roles    api.RoleCatalog
-	sessions []api.Session
-	session  api.Session
-	view     api.ConversationSnapshot
-	messages []api.Message
-	inspect  api.Inspection
+	runCalls          chan runCall
+	roles             api.RoleCatalog
+	sessions          []api.Session
+	deleteSessionFunc func(context.Context, string) error
+	session           api.Session
+	view              api.ConversationSnapshot
+	messages          []api.Message
+	inspect           api.Inspection
 
 	selection                api.SelectionPreview
 	selectionFunc            func(context.Context, api.SelectionRequest) (api.SelectionPreview, error)
@@ -221,6 +222,12 @@ func (f *fakeBackend) InputChain(ctx context.Context, coreID, runID string) (api
 		return f.inputChainFunc(ctx, coreID, runID)
 	}
 	return api.InputChainState{CoreID: coreID, AnchorRunID: runID, Phase: "settled"}, nil
+}
+func (f *fakeBackend) DeleteSession(ctx context.Context, id string) error {
+	if f.deleteSessionFunc != nil {
+		return f.deleteSessionFunc(ctx, id)
+	}
+	return nil
 }
 func (f *fakeBackend) RenameSession(_ context.Context, id, title string) (api.Session, error) {
 	return api.Session{ID: id, Title: &title}, nil

@@ -420,16 +420,6 @@ func randomURLToken(size int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
-func statusFor(record oauthRecord) Status {
-	return Status{
-		Connected:        true,
-		Identity:         accountIdentity(record.Issuer, record.ClientID, record.Subject),
-		Account:          record.Email,
-		ExpiresAt:        record.ExpiresAt,
-		PlanUsageEnabled: hasScope(record.Scopes, chatGPTPlanScope),
-	}
-}
-
 func hasScope(scopes []string, wanted string) bool {
 	for _, scope := range scopes {
 		if scope == wanted {

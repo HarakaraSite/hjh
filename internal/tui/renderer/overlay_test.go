@@ -36,7 +36,7 @@ func TestPickerOverlayRestoresNormalFrameWithoutRepeatingConversation(t *testing
 	if w.previous != previous || w.overlay != nil {
 		t.Fatal("closing picker did not restore its original frame")
 	}
-	for _, sequence := range []string{ansi.SetAltScreenSaveCursorMode, ansi.ResetAltScreenSaveCursorMode, "saved conversation"} {
+	for _, sequence := range []string{ansi.SetMode(ansi.ModeAltScreenSaveCursor), ansi.ResetMode(ansi.ModeAltScreenSaveCursor), "saved conversation"} {
 		if strings.Count(output.String(), sequence) != 1 {
 			t.Fatalf("overlay repeated/lost %q: %q", sequence, output.String())
 		}
@@ -58,7 +58,7 @@ func TestClosePickerRestoresNormalScreenBeforeClearingEditor(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(output.String(), ansi.ResetAltScreenSaveCursorMode) || !strings.Contains(output.String(), eraseLine) {
+	if !strings.HasPrefix(output.String(), ansi.ResetMode(ansi.ModeAltScreenSaveCursor)) || !strings.Contains(output.String(), eraseLine) {
 		t.Fatalf("close cleared the wrong screen or left the picker active: %q", output.String())
 	}
 }

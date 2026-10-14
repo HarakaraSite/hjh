@@ -188,6 +188,9 @@ type model struct {
 	pickerIndex            int
 	pickerOpen             bool
 	pickerJobID            uint64
+	sessionDeleteTarget    string
+	sessionDeleteJobID     uint64
+	sessionPickerNotice    string
 	connectionPicker       *connectionPickerState
 	connectionPickerSeq    uint64
 	modelFavoriteSnapshots map[string]api.ModelFavorites
@@ -414,6 +417,9 @@ func newModel(ctx context.Context, cancel context.CancelFunc, backend Backend, o
 		modelFavoriteSnapshots: make(map[string]api.ModelFavorites),
 		modelFavoriteOps:       make(map[string]*modelFavoriteOperation),
 	}
+	if options.Continue && options.SessionID == "" {
+		m.status = "no saved Session in this workspace · starting a new conversation"
+	}
 	m.layout()
 	return m
 }
@@ -487,16 +493,6 @@ func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case contextLoadedMsg:
 		m.acceptContextResult(msg)
 		return m, nil
-	case runCancelMsg:
-		if m.activeRun != nil && msg.runID == m.activeRun.id {
-			if msg.err != nil {
-				m.activeRun.canceling = false
-				m.status = "cancel request failed · " + msg.err.Error()
-			} else {
-				m.status = "cancel accepted · waiting for Core terminal result"
-			}
-		}
-		return m, nil
 	case runtimeInputSubmittedMsg:
 		return m, m.acceptRuntimeInput(msg)
 	case runtimeInputsLoadedMsg:
@@ -508,6 +504,8 @@ func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resumePending = false
 			if msg.err != nil {
 				m.status = "session resolution failed: " + msg.err.Error()
+			} else if msg.latestMissing {
+				m.status = "no saved Session in this workspace"
 			} else {
 				m.changeSession(sessionAction{resumeID: msg.id})
 			}
@@ -548,8 +546,12 @@ func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case sessionDeletedMsg:
+		m.finishSessionDeletion(msg)
+		return m, nil
 	case sessionsLoadedMsg:
 		if msg.generation == m.sessionGeneration && msg.jobID == m.pickerJobID {
+			m.pickerJobID = 0
 			if msg.err != nil {
 				m.closeSessionPicker()
 				m.status = "sessions failed: " + msg.err.Error()
@@ -581,6 +583,9 @@ func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.connectionPicker != nil {
 			m.appendModelQuery(msg.Content)
+			return m, nil
+		}
+		if m.pickerOpen {
 			return m, nil
 		}
 		before := m.textarea.Value()
@@ -758,6 +763,9 @@ func (m *model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if m.connectionPicker != nil {
 		return m.handleConnectionPickerKey(msg)
 	}
+	if m.pickerOpen && m.handleSessionDeleteKey(msg) {
+		return nil
+	}
 	if m.handleCommandMenuKey(msg) {
 		if m.quitting {
 			return tea.Quit
@@ -816,13 +824,16 @@ func (m *model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		if !m.pickerOpen {
 			return nil
 		}
-		delta := max(1, m.viewport.Height()/4)
+		delta := m.pickerPageSize()
 		if msg.String() == "pgup" || msg.String() == "alt+up" {
 			delta = -delta
 		}
 		m.movePicker(delta)
 		return nil
 	default:
+		if m.pickerOpen {
+			return nil
+		}
 		before := m.textarea.Value()
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
@@ -1117,23 +1128,6 @@ func (m *model) finishRun(msg runDoneMsg) tea.Cmd {
 	return nil
 }
 
-type runCancelMsg struct {
-	runID string
-	err   error
-}
-
-func (m *model) requestRunCancel(run *activeRun) {
-	if run == nil || run.handle == nil || run.canceling {
-		return
-	}
-	handle, runID := run.handle, run.id
-	run.canceling = true
-	job := m.newJob(func() {})
-	m.launch(job, func() tea.Msg {
-		return runCancelMsg{runID: runID, err: handle.Cancel()}
-	})
-}
-
 func (m *model) newJob(cancel context.CancelFunc) *uiJob {
 	m.jobMu.Lock()
 	defer m.jobMu.Unlock()
@@ -1219,20 +1213,10 @@ func (m *model) layout() {
 }
 
 func (m *model) refreshViewport(gotoBottom bool) {
-	if !m.pickerOpen {
+	if !m.screenOverlayOpen() {
 		return
 	}
-	var rows []string
-	var starts []int
-	selected := m.pickerIndex
-	if m.authUI != nil && m.authUI.open {
-		rows, starts, selected, _, _ = m.authRows()
-	} else if m.connectionPicker != nil {
-		rows, starts = m.connectionPickerRows()
-		selected = m.connectionPicker.index
-	} else {
-		rows, starts = sessionPickerRows(m.sessions, m.pickerIndex, m.width)
-	}
+	rows, starts, selected, _, _ := m.authRows()
 	m.viewport.SoftWrap = false
 	m.viewport.SetContent(strings.Join(rows, "\n"))
 	if len(starts) > 0 && selected >= 0 && selected < len(starts) {
@@ -1298,8 +1282,8 @@ func (m *model) View() tea.View {
 	footer := m.footerRows()
 	printHeader := m.openingHeaderReady()
 	frame, cursor, content, committedThrough, bodyStart, bodyRows := m.screenFrame(footer)
-	frame.Overlay = m.pickerOpen
-	if m.pickerOpen {
+	frame.Overlay = m.screenOverlayOpen()
+	if m.screenOverlayOpen() {
 		printHeader = false
 	} else {
 		frame.SealedRows = append(frame.SealedRows, m.pendingSealRows...)
@@ -1318,7 +1302,7 @@ func (m *model) View() tea.View {
 				m.deferTranscriptUntilHeader = false
 			}
 			doc := m.ensureTranscript()
-			if !m.pickerOpen {
+			if !m.screenOverlayOpen() {
 				if committedThrough > doc.startRow {
 					m.receiptByPart = receiptsThroughRow(doc, m.receiptByPart, committedThrough)
 					m.receiptOffset = max(m.receiptOffset, receiptOffset(doc.parts, m.receiptByPart))
@@ -1331,7 +1315,7 @@ func (m *model) View() tea.View {
 				m.lastBodyStartRow = doc.startRow
 			}
 			m.lastTranscriptBytes = doc.sourceLength
-			if !m.pickerOpen {
+			if !m.screenOverlayOpen() {
 				m.pendingSealRows = nil
 			}
 		}

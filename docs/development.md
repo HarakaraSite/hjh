@@ -43,6 +43,7 @@ git diff --check
 - Exa Web検索とResponses任意引数の修正：[I-22結果](results/i22-exa-web-search.md)。
 - 標準toolの引数・省略値・戻り値の説明改善：[確認結果](results/tool-definition-guidance.md)。
 - run_jsと内側toolの字下げ：[確認結果](results/tui-tool-nesting.md)。
+- Session・接続pickerの1項目1行表示とTUI/CoreのSession削除：[確認結果](results/inline-pickers.md)。
 - APIキー・ChatGPT認証情報のユーザー設定配下への集約：[確認結果](results/credential-config-directory.md)。
 - 同じworkspaceの新規Sessionへのモデル選択の引き継ぎ：[確認結果](results/remembered-model-selection.md)。
 - rg未導入時のGNU grep利用：[確認結果](results/grep-native-backends.md)。
@@ -194,7 +195,12 @@ TUIを起動すると、同じVMのCoreへ接続し、未起動なら独立し�
 ```sh
 ./dist/hjh-tui --workspace /path/to/work
 ./dist/hjh-tui --session SESSION_ID
+./dist/hjh-tui --continue
 ```
+
+`--continue`は同じworkspaceの最新Sessionを再開する。TUI内では`/resume latest`を使える。
+最新は最終更新日時で選び、実行中なら同runへ再接続する。履歴がなければ起動時は新規会話に入る。
+`history --latest`は履歴表示だけの操作。[契約](design/latest-session-resume.md)を参照。
 
 既定の接続先は`http://127.0.0.1:8765`。Coreが起動済みなら再利用する。
 起動するCoreの`--db`・`--config`・`--credential-file`・`--credential-state-dir`・
@@ -248,7 +254,7 @@ F4／`/sessions`でSessionを選び、`/rename 名前`で現在Sessionを命名�
 お気に入りは同じ実効config・providerを使うSession間で共有し、Core再起動後も残る。
 保存先は`$XDG_STATE_HOME/hjh/model-favorites/`または`~/.local/state/hjh/model-favorites/`。
 Coreの`--model-favorites-dir PATH`で保存先だけを変更でき、credentialの保存先には影響しない。
-上下で選びEnterで確定、Escで閉じる。`/providers`・`/models [PROVIDER]`の一覧表示と、
+一覧確認と選択は`/provider`・`/model`のpickerにまとめる。上下で選びEnterで確定、Escで閉じる。
 `/provider ID`・`/model ID`の直接指定も使える。effortは`/effort`のpickerから選ぶ。
 `/roles` はrole一覧、`/role NAME` は次の実行のrole選択、
 `/role` は選択状態を表示する。実行中の選択変更は次runから反映する。成功rootのmodelとroleはSessionへ保存される。

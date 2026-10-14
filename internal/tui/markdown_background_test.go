@@ -12,7 +12,7 @@ import (
 func TestMarkdownBackgroundPaintsEveryRenderedCellAndPreservesReceipt(t *testing.T) {
 	const width = 72
 	source := "# Heading\n\nParagraph with **strong**, *emphasis*, `inline code`, and [link](https://example.test).\n\n- list item\n\n> quoted row\n\n| name | value |\n| --- | --- |\n| cat | 42 |\n\n```go\nfmt.Println(\"highlighted\")\n```\n"
-	m := newModel(nil, nil, nil, Options{})
+	m := newModel(t.Context(), nil, nil, Options{})
 	defer m.shutdown()
 	m.width = width
 
@@ -67,7 +67,7 @@ func TestWrappedOperationListPaintsShortContinuationRowsToTerminalWidth(t *testi
 	// boundaries; the final hard wrap must still paint the short last row.
 	const width = 94
 	source := "## Main operations\n- `hjh run`: executes a request (stdout = final answer, stderr = progress/IDs, Ctrl-C to stop). `--stream` displays output incrementally.\n- `hjh history`: shows conversation / Markdown / execution evidence (NDJSON) via `--view session|canonical|detail`.\n"
-	m := newModel(nil, nil, nil, Options{})
+	m := newModel(t.Context(), nil, nil, Options{})
 	defer m.shutdown()
 	m.width = width
 	blocks, _ := m.markdownBlocksForSource("operations", source)

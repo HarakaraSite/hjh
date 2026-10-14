@@ -34,6 +34,7 @@ type Backend interface {
 	Recall(context.Context, string, api.RecallOperationRequest) (api.RecallOperationResult, error)
 	RecallOperation(context.Context, string, string, string) (api.RecallOperationResult, error)
 	RenameSession(context.Context, string, string) (api.Session, error)
+	DeleteSession(context.Context, string) error
 	ShutdownCore(context.Context, string) error
 	Roles(context.Context, apiclient.Scope) (api.RoleCatalog, error)
 	Sessions(context.Context) ([]api.Session, error)
@@ -47,7 +48,6 @@ type Backend interface {
 	Selection(context.Context, api.SelectionRequest) (api.SelectionPreview, error)
 	RememberSelection(context.Context, api.RememberSelectionRequest) (api.SelectionPreview, error)
 	Providers(context.Context, apiclient.Scope) ([]api.ProviderDefinition, error)
-	Models(context.Context, apiclient.Scope, string, string) ([]api.ModelInfo, error)
 	ModelsWithAuth(context.Context, apiclient.Scope, string, string) (api.ModelsResult, error)
 	ModelFavorites(context.Context, apiclient.Scope, string) (api.ModelFavorites, error)
 	SetModelFavorite(context.Context, api.SetModelFavoriteRequest) (api.ModelFavoriteResult, error)
@@ -76,6 +76,7 @@ type Options struct {
 	Core                            api.Core
 	Workspace                       string
 	SessionID                       string
+	Continue                        bool
 	ModelID                         string
 	Role                            string
 	ProviderID, Effort, AuthProfile string
@@ -104,15 +105,11 @@ func Run(ctx context.Context, backend Backend, options Options, input io.Reader,
 		}
 		return err
 	}
-	if options.SessionID != "" {
-		session, resolveErr := backend.ResolveSession(ctx, options.SessionID)
-		if resolveErr != nil {
-			if closer, ok := backend.(io.Closer); ok {
-				resolveErr = errors.Join(resolveErr, closer.Close())
-			}
-			return resolveErr
+	if resolveErr := resolveStartupSession(ctx, backend, &options, sessions); resolveErr != nil {
+		if closer, ok := backend.(io.Closer); ok {
+			resolveErr = errors.Join(resolveErr, closer.Close())
 		}
-		options.SessionID = session.ID
+		return resolveErr
 	}
 	uiCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -83,6 +83,7 @@ func parseOptions(args []string, stderr io.Writer) (startupOptions, tui.Options,
 	credentialStateDir := flags.String("credential-state-dir", "", "Core startup: credential storage root (default: XDG_CONFIG_HOME/hjh or ~/.config/hjh; records under credentials/)")
 	modelFavoritesDir := flags.String("model-favorites-dir", "", "Core startup: model favorite state directory")
 	sessionID := flags.String("session", "", "Session short ID (unique prefix) to resume")
+	continueSession := flags.Bool("continue", false, "resume the latest Session in this workspace")
 	modelID := flags.String("model", "", "model ID for the next run")
 	providerID := flags.String("provider", "", "provider ID for the next run")
 	effort := flags.String("effort", "", "reasoning effort for the next run")
@@ -96,9 +97,12 @@ func parseOptions(args []string, stderr io.Writer) (startupOptions, tui.Options,
 	if flags.NArg() != 0 {
 		return startupOptions{}, tui.Options{}, fmt.Errorf("hjh-tui does not accept positional arguments")
 	}
+	if *continueSession && *sessionID != "" {
+		return startupOptions{}, tui.Options{}, fmt.Errorf("--session and --continue are mutually exclusive")
+	}
 	endpointSet, startCoreSet := false, false
 	options := tui.Options{
-		Workspace: *workspace, SessionID: *sessionID, ModelID: *modelID,
+		Workspace: *workspace, SessionID: *sessionID, Continue: *continueSession, ModelID: *modelID,
 		ProviderID: *providerID, Effort: *effort, AuthProfile: *authProfile, Role: *role,
 	}
 	flags.Visit(func(value *flag.Flag) {

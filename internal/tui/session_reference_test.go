@@ -166,7 +166,7 @@ func TestShortSessionResumePreservesAttachedRunAndFullIdentity(t *testing.T) {
 	if cancelled != 0 {
 		t.Fatal("own short selector cancelled attached Core work")
 	}
-	rows, _ := sessionPickerRows([]api.Session{{ID: id}}, 0, 100)
+	rows := inlineMenuRows("Sessions", nil, sessionPickerOptions([]api.Session{{ID: id}}, ""), 0, 100, 8)
 	if text := strings.Join(rows, "\n"); strings.Contains(text, id) || !strings.Contains(text, sessionid.Short(id)) {
 		t.Fatalf("picker does not show human reference: %s", text)
 	}

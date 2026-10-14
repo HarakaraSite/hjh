@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"hjh/internal/api"
+	"hjh/internal/apiclient"
 	"hjh/internal/app"
 	"hjh/internal/contracts"
 	"hjh/internal/corerun"
@@ -272,6 +273,130 @@ func TestSessionRenameAndActiveRunRoutesDuringExecution(t *testing.T) {
 	if err != nil || saved.Title == nil || *saved.Title != "renamed while running" || saved.TurnCount != 1 {
 		t.Fatalf("renamed Session after run adoption = %#v, %v", saved, err)
 	}
+}
+
+func TestDeleteSessionThroughClientPreservesOtherSessionAndRejectsActiveRun(t *testing.T) {
+	workspace := t.TempDir()
+	store, err := history.Open(filepath.Join(workspace, "history.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &heldSessionProvider{entered: make(chan struct{}), release: make(chan struct{})}
+	service := app.NewService(store, provider, app.RunOptions{Workspace: workspace})
+	manager := corerun.New(service, workspace)
+	handler := New(service, manager)
+	defer func() {
+		provider.releaseRun()
+		if err := handler.Close(); err != nil {
+			t.Error(err)
+		}
+		if err := store.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	for _, id := range []string{"delete-me", "keep-me"} {
+		if _, err := store.CreateSession(t.Context(), history.SessionInput{ID: id, WorkspaceRoot: workspace,
+			AgentChoice: json.RawMessage(`{}`), ActiveModel: json.RawMessage(`{}`)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	client, err := apiclient.New(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	if err := client.DeleteSession(t.Context(), "delete-me"); err != nil {
+		t.Fatalf("DELETE Session: %v", err)
+	}
+	sessions, err := client.Sessions(t.Context())
+	if err != nil || len(sessions) != 1 || sessions[0].ID != "keep-me" {
+		t.Fatalf("remaining Sessions = %+v, %v", sessions, err)
+	}
+
+	request := api.StartRunRequest{CoreID: manager.Core().CoreID, RunID: "delete-busy-run", Task: "hold this Session while deletion is requested"}
+	if _, created, err := manager.Start(request); err != nil || !created {
+		t.Fatalf("start run: created=%t err=%v", created, err)
+	}
+	select {
+	case <-provider.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("run did not reach provider: %+v", mustGetRun(t, manager, request.RunID))
+	}
+	active, err := manager.Get(request.CoreID, request.RunID)
+	if err != nil || active.SessionID == "" || active.Phase == "terminal" {
+		t.Fatalf("active run state = %+v, %v", active, err)
+	}
+	err = client.DeleteSession(t.Context(), active.SessionID)
+	var coded *api.Error
+	if !errors.As(err, &coded) || coded.Code != "session_busy" || coded.ActiveRunID != request.RunID || !strings.Contains(coded.Message, "Stop") {
+		t.Fatalf("active Session deletion error = %v", err)
+	}
+	busyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(busyResponse, httptest.NewRequest(http.MethodDelete, "/api/v2/sessions/"+active.SessionID, nil))
+	var busyBody api.ErrorResponse
+	if busyResponse.Code != http.StatusConflict || json.Unmarshal(busyResponse.Body.Bytes(), &busyBody) != nil ||
+		busyBody.Error == nil || busyBody.Error.Code != "session_busy" || busyBody.Error.ActiveRunID != request.RunID {
+		t.Fatalf("busy DELETE response = %d %s", busyResponse.Code, busyResponse.Body.String())
+	}
+	stillRunning, err := manager.Get(request.CoreID, request.RunID)
+	if err != nil || stillRunning.Phase != "running" {
+		t.Fatalf("rejected deletion changed the active run: %+v, %v", stillRunning, err)
+	}
+
+	provider.releaseRun()
+	deadline := time.Now().Add(5 * time.Second)
+	completed := false
+	for time.Now().Before(deadline) {
+		state, getErr := manager.Get(request.CoreID, request.RunID)
+		if getErr != nil {
+			t.Fatal(getErr)
+		}
+		if state.Phase == "terminal" {
+			completed = true
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !completed {
+		t.Fatal("run did not complete after provider release")
+	}
+	subscription, err := manager.Subscribe(request.CoreID, request.RunID)
+	if err != nil {
+		t.Fatalf("subscribe to completed run: %v", err)
+	}
+	defer subscription.Close()
+	if err := client.DeleteSession(t.Context(), active.SessionID); err != nil {
+		t.Fatalf("DELETE completed Session: %v", err)
+	}
+	if _, err := client.SessionView(t.Context(), active.SessionID); !errors.As(err, &coded) || coded.Code != "not_found" {
+		t.Fatalf("deleted Session view remained available: %v", err)
+	}
+	if _, err := manager.Get(request.CoreID, request.RunID); !errors.As(err, &coded) || coded.Code != "run_not_found" {
+		t.Fatalf("deleted Session run remained available from Manager: %v", err)
+	}
+	if _, _, err := subscription.UpdateContext(t.Context()); !errors.As(err, &coded) || coded.Code != "run_not_found" {
+		t.Fatalf("deleted Session run subscription remained available: %v", err)
+	}
+	if _, err := subscription.Snapshot(); !errors.As(err, &coded) || coded.Code != "run_not_found" {
+		t.Fatalf("deleted Session run snapshot remained available: %v", err)
+	}
+	sessions, err = client.Sessions(t.Context())
+	if err != nil || len(sessions) != 1 || sessions[0].ID != "keep-me" {
+		t.Fatalf("Sessions after deleting completed run = %+v, %v", sessions, err)
+	}
+}
+
+func mustGetRun(t *testing.T, manager *corerun.Manager, runID string) api.RunState {
+	t.Helper()
+	state, err := manager.Get(manager.Core().CoreID, runID)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	return state
 }
 
 func TestShutdownRouteAcknowledgesBeforeJoiningAndSavesCancelledRun(t *testing.T) {

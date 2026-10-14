@@ -9,7 +9,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"hjh/internal/api"
 	"hjh/internal/apiclient"
-	"hjh/internal/tui/renderer"
 )
 
 type connectionOption struct {
@@ -336,10 +335,6 @@ func modelPickerOptions(picker *connectionPickerState) []connectionOption {
 	return ordered
 }
 
-func (picker *connectionPickerState) queryMatches(value string) bool {
-	return picker == nil || picker.query == "" || strings.Contains(strings.ToLower(value), strings.ToLower(picker.query))
-}
-
 func (picker *connectionPickerState) selectedIndex(options []connectionOption) int {
 	if picker == nil {
 		return 0
@@ -382,92 +377,93 @@ func findModel(models []api.ModelInfo, id string) (api.ModelInfo, bool) {
 	return api.ModelInfo{}, false
 }
 
-func (m *model) connectionPickerRows() ([]string, []int) {
+func (m *model) connectionPickerRows(available int) []string {
 	picker := m.connectionPicker
-	width := max(1, m.width)
 	if picker == nil {
-		return nil, nil
+		return nil
 	}
-	header := string(picker.kind) + " for next run · arrows move · Enter selects · Esc closes"
-	if picker.loading {
-		return renderer.WrapText(header+"\nLoading…", width), nil
-	}
-	if picker.err != nil {
-		return renderer.WrapText(header+"\n"+picker.err.Error(), width), nil
-	}
-	if picker.kind == modelPicker {
-		header = "Models · type to search ID/name · ↑/↓, PgUp/PgDn, Home/End · Enter selects · Tab favorite · Esc closes"
+	title := "Providers"
+	var notices []string
+	switch picker.kind {
+	case modelPicker:
+		title = "Models · " + picker.preview.Selection.Provider
 		if picker.query != "" {
-			header += "\nsearch: " + picker.query
+			notices = append(notices, "search: "+picker.query)
 		}
 		if picker.modelsLoading {
-			header += "\ncatalog: loading…"
+			notices = append(notices, "catalog: loading…")
 		}
 		if picker.favoritesLoading {
-			header += "\nfavorites: loading…"
+			notices = append(notices, "favorites: loading…")
 		} else if picker.favoritesErr != nil {
-			header += "\nfavorites unavailable: " + picker.favoritesErr.Error() + " · Tab to retry"
+			notices = append(notices, "favorites unavailable: "+picker.favoritesErr.Error()+" · Tab to retry")
 		} else if !picker.favoritesKnown {
-			header += "\nfavorites not loaded · Tab to load"
+			notices = append(notices, "favorites not loaded · Tab to load")
 		}
-	}
-	if picker.kind == effortPicker {
-		modelInfo, found := findModel(picker.models, picker.preview.Selection.ModelID)
+	case effortPicker:
+		title = "Effort · " + picker.preview.Selection.ModelID
+		info, found := findModel(picker.models, picker.preview.Selection.ModelID)
 		source := "no catalog information"
-		if found && modelInfo.EffortSource != "" {
-			source = "catalog: " + modelInfo.EffortSource
-		} else if found && len(modelInfo.Efforts) > 0 {
+		if found && info.EffortSource != "" {
+			source = "catalog: " + info.EffortSource
+		} else if found && len(info.Efforts) > 0 {
 			source = "catalog"
 		}
-		header = "Effort · " + picker.preview.Selection.ModelID + " · " + source + " · ↑/↓ select · Enter confirms · Esc closes"
+		notices = append(notices, source)
 	}
-	preview := picker.preview
-	rows := renderer.WrapText(header, width)
+	if picker.loading {
+		notices = append(notices, "Loading…")
+	}
+	if picker.err != nil {
+		notices = append(notices, picker.err.Error())
+	}
 	if picker.previewErr != nil {
-		rows = append(rows, renderer.WrapText("Current selection preview unavailable: "+picker.previewErr.Error(), width)...)
-		rows = append(rows, renderer.WrapText("Choose a defined provider to continue.", width)...)
-	} else {
-		selected := preview.Selection.Provider + " / " + preview.Selection.ModelID + " · effort: " + preview.Selection.Effort + " · role: " + preview.Role
-		rows = append(rows, renderer.WrapText("resolved next run: "+strings.TrimSpace(selected), width)...)
+		notices = append(notices, "Current selection preview unavailable: "+picker.previewErr.Error())
 	}
-	options := m.connectionPickerOptions()
-	starts := make([]int, len(options))
-	for index, option := range options {
-		rows = append(rows, "")
-		starts[index] = len(rows)
-		marker := "  "
-		if index == picker.index {
-			marker = "▶ "
+	choices := m.connectionPickerOptions()
+	options := make([]inlineOption, len(choices))
+	current := picker.preview.Selection.Provider
+	switch picker.kind {
+	case modelPicker:
+		current = picker.preview.Selection.ModelID
+	case effortPicker:
+		current = picker.preview.Selection.Effort
+		if current == "" {
+			current = "auto"
 		}
-		favoriteMarker := "  "
+	}
+	for i, option := range choices {
+		label := option.label
 		if option.favorite {
-			favoriteMarker = "★ "
+			label = "★ " + label
 		}
-		rows = append(rows, renderer.WrapText(marker+favoriteMarker+option.label, width)...)
-		if option.detail != "" {
-			rows = append(rows, renderer.WrapText("  "+option.detail, width)...)
+		if option.id == current {
+			label = "✓ " + label
 		}
+		detail := option.detail
 		if picker.kind == modelPicker {
 			if op := m.pendingModelFavorite(picker, option.id); op != nil {
-				message := "saving favorite…"
+				detail = "saving favorite…"
 				if op.recovering {
-					message = "checking favorite…"
+					detail = "checking favorite…"
 				} else if !op.putInFlight {
-					message = "favorite result unknown · Tab to check"
+					detail = "favorite result unknown · Tab to check"
 				}
-				rows = append(rows, renderer.WrapText("  "+message, width)...)
+				if i == picker.index {
+					notices = append(notices, detail)
+				}
 			}
 		}
+		options[i] = inlineOption{label: label, detail: detail}
 	}
-	if len(options) == 0 {
-		message := "No catalog candidates. Direct IDs remain available."
+	if len(options) == 0 && !picker.loading && picker.err == nil {
 		if picker.kind == modelPicker && picker.query != "" {
-			message = "No models match the search. Direct /model MODEL_ID remains available."
+			notices = append(notices, "No models match the search. Direct /model MODEL_ID remains available.")
+		} else {
+			notices = append(notices, "No catalog candidates. Direct IDs remain available.")
 		}
-		rows = append(rows, "")
-		rows = append(rows, renderer.WrapText(message, width)...)
 	}
-	return rows, starts
+	return inlineMenuRows(title, notices, options, picker.index, m.width, available)
 }
 
 func (m *model) moveConnectionPicker(delta int) {
@@ -502,9 +498,9 @@ func (m *model) handleConnectionPickerKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "down":
 		m.moveConnectionPicker(1)
 	case "pgup", "alt+up":
-		m.moveConnectionPicker(-max(1, m.viewport.Height()/4))
+		m.moveConnectionPicker(-m.pickerPageSize())
 	case "pgdown", "alt+down":
-		m.moveConnectionPicker(max(1, m.viewport.Height()/4))
+		m.moveConnectionPicker(m.pickerPageSize())
 	case "home":
 		picker.index = 0
 		m.refreshViewport(false)

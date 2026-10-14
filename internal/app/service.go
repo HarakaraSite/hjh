@@ -182,6 +182,9 @@ func (s *Service) Sessions(ctx context.Context) ([]history.Session, error) {
 func (s *Service) Session(ctx context.Context, id string) (history.Session, error) {
 	return s.store.Session(ctx, id)
 }
+func (s *Service) DeleteSession(ctx context.Context, id string) error {
+	return s.store.DeleteSession(ctx, id)
+}
 func (s *Service) RenameSession(ctx context.Context, id, title string) (history.Session, error) {
 	return s.store.RenameSession(ctx, id, title)
 }

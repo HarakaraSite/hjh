@@ -7,10 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"hjh/internal/api"
 	"hjh/internal/contracts"
@@ -119,27 +117,19 @@ func SelectSession(sessions []history.Session, workspace, selector string) (hist
 			}
 		}
 	}
-	filtered := make([]history.Session, 0, len(sessions))
-	for _, session := range sessions {
-		if workspace == "" || filepath.Clean(session.WorkspaceRoot) == filepath.Clean(workspace) {
-			filtered = append(filtered, session)
+	candidates := make([]sessionid.Candidate, len(sessions))
+	for i, session := range sessions {
+		candidates[i] = sessionid.Candidate{ID: session.ID, WorkspaceRoot: session.WorkspaceRoot, UpdatedAt: session.UpdatedAt}
+	}
+	id, ok := sessionid.Latest(candidates, workspace)
+	if ok {
+		for _, session := range sessions {
+			if session.ID == id {
+				return session, true, nil
+			}
 		}
 	}
-	if len(filtered) == 0 {
-		return history.Session{}, false, nil
-	}
-	sort.Slice(filtered, func(i, j int) bool {
-		left, leftErr := time.Parse(time.RFC3339Nano, filtered[i].UpdatedAt)
-		right, rightErr := time.Parse(time.RFC3339Nano, filtered[j].UpdatedAt)
-		if leftErr == nil && rightErr == nil && !left.Equal(right) {
-			return left.After(right)
-		}
-		if filtered[i].UpdatedAt != filtered[j].UpdatedAt {
-			return filtered[i].UpdatedAt > filtered[j].UpdatedAt
-		}
-		return filtered[i].ID < filtered[j].ID
-	})
-	return filtered[0], true, nil
+	return history.Session{}, false, nil
 }
 
 func InTurnRange(turn, from, to int64) bool {
@@ -517,13 +507,4 @@ func prettyJSON(raw json.RawMessage) string {
 		return out.String()
 	}
 	return string(raw)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

@@ -113,7 +113,7 @@ func runConnected(ctx context.Context, endpoint string, request api.StartRunRequ
 	}
 	state := result.state
 	if state.Result == nil {
-		return fail(fmt.Errorf("Core returned no result for run %s", request.RunID))
+		return fail(fmt.Errorf("core returned no result for run %s", request.RunID))
 	}
 	if !state.Result.OK {
 		if stream {
@@ -142,7 +142,7 @@ func runConnected(ctx context.Context, endpoint string, request api.StartRunRequ
 		return 130
 	}
 	if state.Result.AgentResult == nil {
-		return fail(fmt.Errorf("Core returned no answer for run %s", request.RunID))
+		return fail(fmt.Errorf("core returned no answer for run %s", request.RunID))
 	}
 	if err := output.finish(state.Result.AgentResult.FinalText); err != nil {
 		return fail(err)

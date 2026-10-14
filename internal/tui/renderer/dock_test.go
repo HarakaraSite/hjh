@@ -112,7 +112,7 @@ func TestDockConsumesSpaceThenScrollsWithoutResendingConversation(t *testing.T) 
 			t.Fatalf("committed text duplicated: %s", text)
 		}
 	}
-	if strings.Contains(output.String(), "\x1b[2J") || strings.Contains(output.String(), ansi.SetAltScreenSaveCursorMode) {
+	if strings.Contains(output.String(), "\x1b[2J") || strings.Contains(output.String(), ansi.SetMode(ansi.ModeAltScreenSaveCursor)) {
 		t.Fatal("docking cleared history or enabled the alternate screen")
 	}
 	if strings.Count(output.String(), ansi.SetModeSynchronizedOutput) != 10 || strings.Count(output.String(), ansi.ResetModeSynchronizedOutput) != 10 {

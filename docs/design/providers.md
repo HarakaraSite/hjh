@@ -316,8 +316,8 @@ The login command prints the authorization URL and accepts the pasted browser
 callback URL, or an empty line after an automatic local callback. In the TUI,
 use `/provider`, `/model`, and `/effort` to open pickers. `/model` searches IDs
 and display names while keeping the conversation draft separate. Direct
-`/provider PROVIDER_ID` and `/model MODEL_ID` remain available,
-as do `/providers` and `/models PROVIDER_ID` listings. `/login` opens the authentication
+`/provider PROVIDER_ID` and `/model MODEL_ID` remain available.
+Use the pickers to browse provider and model candidates. `/login` opens the authentication
 profile picker; `/login PROVIDER_ID` opens its API-key input or ChatGPT account screen.
 Account Enter selects a connected slot or authorizes an unconnected slot; `a` adds
 and `r` reauthorizes. Callback URLs go into a separate masked input field. The old

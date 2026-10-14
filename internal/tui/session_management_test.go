@@ -72,15 +72,15 @@ func TestSessionPickerCurrentSelectionVisibilityAndRename(t *testing.T) {
 	update(m, tea.WindowSizeMsg{Width: 38, Height: 20})
 	update(m, tea.KeyPressMsg{Code: tea.KeyF4})
 	update(m, receive(t, messages))
-	if !m.pickerOpen || m.pickerIndex != 18 || !strings.Contains(m.viewport.View(), "▶") {
-		t.Fatalf("current selection invisible: index=%d %q", m.pickerIndex, m.viewport.View())
+	if !m.pickerOpen || m.pickerIndex != 18 || !strings.Contains(strings.Join(m.pickerRows(8), "\n"), "> ") {
+		t.Fatalf("current selection invisible: index=%d %q", m.pickerIndex, strings.Join(m.pickerRows(8), "\n"))
 	}
 	update(m, tea.KeyPressMsg{Code: tea.KeyHome})
-	if m.pickerIndex != 0 || !strings.Contains(m.viewport.View(), "▶") {
+	if m.pickerIndex != 0 || !strings.Contains(strings.Join(m.pickerRows(8), "\n"), "> ") {
 		t.Fatal("Home lost selection")
 	}
 	update(m, tea.KeyPressMsg{Code: tea.KeyEnd})
-	if m.pickerIndex != 29 || !strings.Contains(m.viewport.View(), "▶") {
+	if m.pickerIndex != 29 || !strings.Contains(strings.Join(m.pickerRows(8), "\n"), "> ") {
 		t.Fatal("End lost selection")
 	}
 	update(m, tea.KeyPressMsg{Code: tea.KeyEsc})

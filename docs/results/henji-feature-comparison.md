@@ -4,7 +4,7 @@
 workspaceのモデル選択保存、CLIセッション削除、履歴保存とprovider互換性の後続改善を反映した。
 通常の対話、Core、履歴、認証、コンテキスト予算管理はhjhにも揃っている。
 残る差は、コマンド途中出力・分割取得、要約checkpoint、
-設定管理CLI、TUI・Core経由のセッション削除などである。未実装の項目すべてを採用する方針ではない。
+設定管理CLIなどである。未実装の項目すべてを採用する方針ではない。
 
 この比較は未実装機能を検討するための調査結果であり、全機能の移植を要求する要件や実装計画ではない。
 採否は利用者の指定とhjhの採用済み設計に従う。
@@ -13,8 +13,8 @@ workspaceのモデル選択保存、CLIセッション削除、履歴保存とpr
 
 | 対象 | 比較時点 |
 | --- | --- |
-| hjh | `/home/agent/projects/hjh`。HEAD `2a2a718177fb670ef99532464ca4784766fb13b3`と、その上のslash command候補の実装・結果文書 |
-| 更新時の未コミット変更 | slash command候補と、この比較の更新を含む。ユーザー共通base.mdの差替えはコミット済み |
+| hjh | `/home/agent/projects/hjh`。HEAD `9b99775`と、その上のinline picker・Session削除・最新Session再開の変更 |
+| 更新時の未コミット変更 | inline picker・TUI/Core APIのSession削除・最新Session再開と、この比較の更新を含む。slash候補と共通base.mdはコミット済み |
 | 旧Henji | `/home/agent/projects/henji-harness`。HEAD `2eb586316f80ec8297873a96122568d0088971eb`の現行実装 |
 
 旧Henjiの実行ファイルもCLI上では`hjh`と表示するが、本書の「旧Henji」はDeno版の
@@ -129,8 +129,8 @@ run_js内部にも選択されたtoolだけを公開する。親向けrole catal
 
 | No. | 機能 | 旧Henji | 現在のhjhと不足している点 |
 | ---: | --- | --- | --- |
-| 27 | セッション削除 | CLI、Session picker、Core操作にある | **CLI対応**。`hjh sessions delete 短縮ID`でCore停止後のローカル削除。セッションと子を含む実行履歴・関連記録、他の記録が使わなくなった本文・構成をtransactionで削除する。TUI・Core APIは未実装。[確認結果](cli-session-delete.md) |
-| 28 | 最新セッションへ簡単に再開 | `--continue`、`/resume latest` | **未実装**。現在の再開にはID指定かSession pickerを使う。`history --latest`は実装済み |
+| 27 | セッション削除 | CLI、Session picker、Core操作にある | **実装済み**。CLIのCore停止後ローカル削除に加え、Session pickerのDel→EnterとCore DELETE APIで削除できる。実行中は停止後に削除する。子を含む実行履歴・関連記録、参照されなくなった本文・構成もtransactionで削除する。[CLI確認結果](cli-session-delete.md)・[picker確認結果](inline-pickers.md) |
+| 28 | 最新セッションへ簡単に再開 | `--continue`、`/resume latest` | **実装済み**。`hjh-tui --continue`・`/resume latest`で同じworkspaceの最新Sessionを再開する。実行中なら同runへattach。`history --latest`は読取り表示だけ。[確認結果](latest-session-resume.md) |
 | 29 | 永続Sessionを作らない対話 | `--no-session` | **未実装**。永続Sessionを作らないモードがない。旧側の指定も全実行証拠の非保存を意味するものではない |
 | 30 | 読取り専用の別セッション閲覧 | `/view`、pickerで閲覧と再開を分離 | **意図的に未採用**。以前の利用者指定どおり、hjhには追加していない |
 | 31 | TUI内の会話browser | 項目選択、前後ページ、本文chunk表示 | **未実装**。現在は端末やtmuxのscrollbackと`/history`を使う |
@@ -251,7 +251,7 @@ hjhの方式は[初期製品の採用方針](../design/initial-product.md)、[wo
 - コマンドの途中出力と、大量出力の分割取得。
 - 会話の要約checkpoint保存・再利用（利用者指定により、まだ実装しない）。
 - 設定管理CLI、runの機械向けイベント出力。
-- TUI・Core経由のSession削除、最新Session再開などの人間向け操作。
+- 会話browserなどの人間向け操作。Session削除と最新Session再開は実装済み。
 
 専用toolの不足、一般操作では代替できない機構、意図的に採用していない操作を区別し、
 実際の利用で必要なものから採否を決める。

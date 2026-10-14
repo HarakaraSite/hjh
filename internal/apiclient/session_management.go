@@ -9,6 +9,10 @@ import (
 	"hjh/internal/api"
 )
 
+func (c *Client) DeleteSession(ctx context.Context, id string) error {
+	return c.jsonRequest(ctx, http.MethodDelete, apiPrefix+"/sessions/"+url.PathEscape(id), nil, nil)
+}
+
 func (c *Client) RenameSession(ctx context.Context, id, title string) (api.Session, error) {
 	var session api.Session
 	body := struct {

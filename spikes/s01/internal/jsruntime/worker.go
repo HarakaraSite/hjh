@@ -94,7 +94,7 @@ func RunWithOptions(parent context.Context, moduleDir, body string, input any, h
 		}
 		unfinishedErr := err
 		if unfinishedErr == nil {
-			unfinishedErr = errors.New("Worker ended before the internal call settled")
+			unfinishedErr = errors.New("worker ended before the internal call settled")
 		}
 		rec.Settle(result.Execution, "cancelled", unfinishedErr)
 		rec.End(result.Execution, phase, result.Value, err)

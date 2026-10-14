@@ -7,7 +7,7 @@ import "github.com/charmbracelet/x/ansi"
 // returns to the same visible history without copying it into scrollback again.
 func (w *Writer) renderOverlay(frame Frame) error {
 	if w.overlay == nil {
-		if err := writeAll(w.out, []byte(ansi.SetAltScreenSaveCursorMode)); err != nil {
+		if err := writeAll(w.out, []byte(ansi.SetMode(ansi.ModeAltScreenSaveCursor))); err != nil {
 			return err
 		}
 		w.overlay = New(w.out)
@@ -28,7 +28,7 @@ func (w *Writer) leaveOverlay() error {
 	if w.overlay == nil {
 		return nil
 	}
-	if err := writeAll(w.out, []byte(ansi.ResetAltScreenSaveCursorMode)); err != nil {
+	if err := writeAll(w.out, []byte(ansi.ResetMode(ansi.ModeAltScreenSaveCursor))); err != nil {
 		return err
 	}
 	w.overlay = nil

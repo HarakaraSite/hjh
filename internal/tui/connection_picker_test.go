@@ -258,9 +258,9 @@ func TestProviderAndEffortPickerShowResolvedDetailsAndCatalogValues(t *testing.T
 	m.textarea.SetValue("existing draft")
 	m.openConnectionPicker(providerPicker)
 	loadedConnectionPicker(t, backend, m, messages)
-	rows, _ := m.connectionPickerRows()
+	rows := m.connectionPickerRows(12)
 	providerView := strings.Join(rows, "\n")
-	for _, value := range []string{"OpenAI ChatGPT", "openai-chatgpt", "responses", "chatgpt / account-2", "gpt-6.1-sol"} {
+	for _, value := range []string{"OpenAI ChatGPT", "openai-chatgpt", "responses"} {
 		if !strings.Contains(providerView, value) {
 			t.Fatalf("provider option omitted %q: %s", value, providerView)
 		}
@@ -284,7 +284,7 @@ func TestProviderAndEffortPickerShowResolvedDetailsAndCatalogValues(t *testing.T
 	if strings.Join(ids, ",") != "auto,low,ultra" {
 		t.Fatalf("effort picker did not preserve auto and catalog values: %v", ids)
 	}
-	rows, _ = m.connectionPickerRows()
+	rows = m.connectionPickerRows(12)
 	if !strings.Contains(strings.Join(rows, "\n"), "catalog: catalog") {
 		t.Fatalf("effort source is not visible: %v", rows)
 	}
@@ -356,7 +356,7 @@ func TestProviderPickerCanRecoverFromUndefinedSavedProvider(t *testing.T) {
 	if m.connectionPicker.loading || m.connectionPicker.err != nil || m.connectionPicker.previewErr == nil {
 		t.Fatalf("preview failure blocked provider list: %+v", m.connectionPicker)
 	}
-	rows, _ := m.connectionPickerRows()
+	rows := m.connectionPickerRows(12)
 	view := strings.Join(rows, "\n")
 	if !strings.Contains(view, "saved provider is no longer defined") || !strings.Contains(view, "available-provider") {
 		t.Fatalf("provider picker did not show recovery path: %s", view)
@@ -364,104 +364,6 @@ func TestProviderPickerCanRecoverFromUndefinedSavedProvider(t *testing.T) {
 	update(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.connectionPicker != nil || m.providerID != "available-provider" || m.modelSet {
 		t.Fatalf("selecting a valid provider did not replace the stale route: picker=%v provider=%q modelSet=%v", m.connectionPicker != nil, m.providerID, m.modelSet)
-	}
-}
-
-func TestModelsListingUsesResolvedAuthProfileForRequestedProvider(t *testing.T) {
-	backend := &fakeBackend{
-		core:           api.Core{CoreID: "core-1"},
-		selectionCalls: make(chan api.SelectionRequest, 2),
-		modelsCalls:    make(chan modelsCall, 1),
-		selectionFunc: func(_ context.Context, request api.SelectionRequest) (api.SelectionPreview, error) {
-			preview := api.SelectionPreview{Selection: contracts.ModelSelection{Provider: "current", AuthProfile: "current-account"}}
-			if request.ProviderID == "other" {
-				preview.Selection.Provider = "other"
-				preview.Selection.AuthProfile = "other-default"
-			}
-			return preview, nil
-		},
-		models: []api.ModelInfo{{ID: "other/model", Name: "Other Model"}},
-	}
-	m, messages, cancel := testModel(backend, Options{Core: backend.core})
-	defer func() { cancel(); m.shutdown() }()
-	m.handleCommand("/models other")
-	first := <-backend.selectionCalls
-	if first.ProviderID != "" {
-		t.Fatalf("initial preview should describe current route: %+v", first)
-	}
-	second := <-backend.selectionCalls
-	if second.ProviderID != "other" || second.AuthProfile != "" {
-		t.Fatalf("explicit alternate route preview did not clear unrelated route overrides: %+v", second)
-	}
-	call := <-backend.modelsCalls
-	if call.providerID != "other" || call.authProfile != "other-default" {
-		t.Fatalf("models listing did not use resolved route/profile: %+v", call)
-	}
-	msg := receive(t, messages)
-	update(m, msg)
-	if len(m.entries) == 0 || !strings.Contains(m.entries[len(m.entries)-1].text, "other/model") {
-		t.Fatalf("models listing omitted catalog output: %+v", m.entries)
-	}
-}
-
-func TestModelsExplicitProviderCanRecoverFromUndefinedCurrentProvider(t *testing.T) {
-	requests := make(chan api.SelectionRequest, 2)
-	backend := &fakeBackend{
-		core:           api.Core{CoreID: "core-1"},
-		selectionCalls: requests,
-		modelsCalls:    make(chan modelsCall, 1),
-		selectionFunc: func(_ context.Context, request api.SelectionRequest) (api.SelectionPreview, error) {
-			if request.ProviderID == "available-provider" {
-				return api.SelectionPreview{Selection: contracts.ModelSelection{Provider: "available-provider", AuthProfile: "available-account"}}, nil
-			}
-			return api.SelectionPreview{}, errors.New("saved provider is no longer defined")
-		},
-		models: []api.ModelInfo{{ID: "available/model", Name: "Available Model"}},
-	}
-	m, messages, cancel := testModel(backend, Options{Core: backend.core, ProviderID: "removed-provider"})
-	defer func() { cancel(); m.shutdown() }()
-	m.handleCommand("/models available-provider")
-	if request := <-requests; request.ProviderID != "removed-provider" {
-		t.Fatalf("listing did not first preview the current route: %+v", request)
-	}
-	if request := <-requests; request.ProviderID != "available-provider" || request.ModelID != "" || request.Effort != "" || request.AuthProfile != "" {
-		t.Fatalf("explicit route retry retained unrelated overrides: %+v", request)
-	}
-	call := <-backend.modelsCalls
-	if call.providerID != "available-provider" || call.authProfile != "available-account" {
-		t.Fatalf("explicit provider listing did not resolve its route/profile: %+v", call)
-	}
-	update(m, receive(t, messages))
-	if len(m.entries) == 0 || !strings.Contains(m.entries[len(m.entries)-1].text, "available/model") {
-		t.Fatalf("explicit route listing did not complete: %+v", m.entries)
-	}
-}
-
-func TestModelsWithoutProviderArgumentUsesPreviewRouteInsteadOfLastRun(t *testing.T) {
-	requests := make(chan api.SelectionRequest, 1)
-	backend := &fakeBackend{
-		core:           api.Core{CoreID: "core-1"},
-		selectionCalls: requests,
-		modelsCalls:    make(chan modelsCall, 1),
-		selectionFunc: func(_ context.Context, request api.SelectionRequest) (api.SelectionPreview, error) {
-			return api.SelectionPreview{Selection: contracts.ModelSelection{Provider: "effective-provider", AuthProfile: "effective-account"}}, nil
-		},
-		models: []api.ModelInfo{{ID: "effective/model", Name: "Effective Model"}},
-	}
-	m, messages, cancel := testModel(backend, Options{Core: backend.core})
-	defer func() { cancel(); m.shutdown() }()
-	m.lastSelection = contracts.ModelSelection{Provider: "last-run-provider", AuthProfile: "last-run-account"}
-	m.handleCommand("/models")
-	if request := <-requests; request.ProviderID != "" {
-		t.Fatalf("/models without an ID pinned the prior provider instead of asking for the next-run preview: %+v", request)
-	}
-	call := <-backend.modelsCalls
-	if call.providerID != "effective-provider" || call.authProfile != "effective-account" {
-		t.Fatalf("/models did not use current preview route/profile: %+v", call)
-	}
-	update(m, receive(t, messages))
-	if len(m.entries) == 0 || !strings.Contains(m.entries[len(m.entries)-1].text, "effective/model") {
-		t.Fatalf("effective route listing did not complete: %+v", m.entries)
 	}
 }
 
@@ -512,11 +414,11 @@ func TestPickerKeepsSelectedRowVisibleAtSmallHeight(t *testing.T) {
 	if m.connectionPicker.index != len(models)-1 {
 		t.Fatalf("current model not initially selected: %d", m.connectionPicker.index)
 	}
-	view := m.viewport.View()
+	view := strings.Join(m.pickerRows(6), "\n")
 	compact := strings.NewReplacer(" ", "", "\n", "").Replace(view)
-	want := "▶provider/model-" + strings.Repeat("x", len(models))
+	want := ">✓provider/model-"
 	if !strings.Contains(compact, want) {
-		t.Fatalf("selected wrapped row is outside viewport: %q", view)
+		t.Fatalf("selected row is outside inline menu: %q", view)
 	}
 }
 

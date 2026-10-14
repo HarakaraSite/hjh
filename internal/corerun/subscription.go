@@ -92,6 +92,12 @@ func (s *Subscription) SnapshotContext(ctx context.Context) (api.RunSnapshot, er
 		return api.RunSnapshot{}, ctx.Err()
 	default:
 	}
+	s.manager.mu.Lock()
+	_, err := s.manager.findLocked(s.manager.core.CoreID, s.runID)
+	s.manager.mu.Unlock()
+	if err != nil {
+		return api.RunSnapshot{}, err
+	}
 	s.initialMu.Lock()
 	conversation := s.initial
 	state := cloneRunState(s.initialState)

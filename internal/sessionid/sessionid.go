@@ -40,11 +40,11 @@ func Resolve(selector string, ids []string) (string, error) {
 		return matches[0], nil
 	}
 	if len(matches) == 0 {
-		return "", fmt.Errorf("Session %q not found", Short(selector))
+		return "", fmt.Errorf("session %q not found", Short(selector))
 	}
 	candidates := make([]string, len(matches))
 	for i, id := range matches {
 		candidates[i] = Short(id, ids...)
 	}
-	return "", fmt.Errorf("Session prefix %q is ambiguous; use one of: %s", selector, strings.Join(candidates, ", "))
+	return "", fmt.Errorf("session prefix %q is ambiguous; use one of: %s", selector, strings.Join(candidates, ", "))
 }

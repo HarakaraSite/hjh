@@ -218,7 +218,7 @@ func TestModelFavoriteTabsDuringPutDoNotRecoverAndPickerKeysRemainResponsive(t *
 			if !strings.Contains(m.status, "saving favorite") {
 				t.Fatalf("Tab while PUT was in flight changed status to %q", m.status)
 			}
-			rows, _ := m.connectionPickerRows()
+			rows := m.connectionPickerRows(12)
 			if !strings.Contains(strings.Join(rows, "\n"), "saving favorite…") {
 				t.Fatalf("in-flight save was not shown: %v", rows)
 			}
@@ -416,7 +416,7 @@ func TestUnknownFavoriteWriteSurvivesCloseAndDoesNotUpdateReopenedPicker(t *test
 		return ok && loaded.purpose == modelFavoritesReadOpen
 	})
 	options := m.connectionPickerOptions()
-	rows, _ := m.connectionPickerRows()
+	rows := m.connectionPickerRows(12)
 	if len(options) < 1 || !options[m.connectionPicker.index].favorite || !strings.Contains(strings.Join(rows, "\n"), "★") {
 		t.Fatalf("reopened picker did not show the confirmed favorite: %+v", options)
 	}

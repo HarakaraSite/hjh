@@ -137,7 +137,7 @@ func measure(turns, bodyBytes int) (any, error) {
 		}
 	}
 	if answers != turns {
-		return nil, fmt.Errorf("Session view has %d answers for %d turns", answers, turns)
+		return nil, fmt.Errorf("session view has %d answers for %d turns", answers, turns)
 	}
 	// Attribution runs after all lifetime/latency checkpoints, on a measurement
 	// connection. It does not change the production Store connection policy.

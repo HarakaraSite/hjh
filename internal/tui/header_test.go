@@ -43,7 +43,7 @@ func TestHeaderRecordsOpeningOnceAndFooterTracksSession(t *testing.T) {
 }
 
 func TestSavedHeaderShowsMetadataAndFitsTerminal(t *testing.T) {
-	m := newModel(nil, nil, &fakeBackend{}, Options{Core: api.Core{CoreID: "a1b2c3d4-7552-485d-9922-a1d7ae426706"}, SessionID: "b71a29a6-7552-485d-9922-a1d7ae426706"})
+	m := newModel(t.Context(), nil, &fakeBackend{}, Options{Core: api.Core{CoreID: "a1b2c3d4-7552-485d-9922-a1d7ae426706"}, SessionID: "b71a29a6-7552-485d-9922-a1d7ae426706"})
 	title := strings.Repeat("日本語🙂", 15)
 	m.setSessionMetadata(api.Session{ID: m.sessionID, Title: &title, CreatedAt: "2026-10-12T01:23:00Z", WorkspaceRoot: "/home/agent/projects/hjh"})
 	m.width, m.height = 80, 24

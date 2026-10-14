@@ -77,10 +77,16 @@ func (m *model) footerControls(width int) string {
 	switch {
 	case m.authUI != nil && m.authUI.open:
 		return styleFooterControls(ansi.Truncate(m.authHelp(), width, "…"), "")
+	case m.connectionPicker != nil && m.connectionPicker.kind == modelPicker:
+		return styleFooterControls(ansi.Truncate("↑/↓ select · type search · Enter apply · Tab favorite · Esc close", width, "…"), "")
 	case m.connectionPicker != nil:
 		return styleFooterControls(ansi.Truncate("↑/↓ select · Enter applies to next run · Esc close", width, "…"), "")
+	case m.pickerOpen && m.sessionDeleteJobID != 0:
+		return styleFooterControls(ansi.Truncate("Deleting Session · Esc close", width, "…"), "")
+	case m.pickerOpen && m.sessionDeleteTarget != "":
+		return styleFooterControls(ansi.Truncate("Enter delete Session and history · Esc cancel", width, "…"), "")
 	case m.pickerOpen:
-		return styleFooterControls(ansi.Truncate("↑/↓ select · Enter resumes · Esc close", width, "…"), "")
+		return styleFooterControls(ansi.Truncate("↑/↓ select · Enter resumes · Del delete · Esc close", width, "…"), "")
 	}
 	if !m.shutdownPending && !m.detachPending {
 		if m.commandMenuVisible() {

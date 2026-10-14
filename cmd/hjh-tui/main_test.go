@@ -69,3 +69,13 @@ func TestOptionalRunValuesPreserveAbsentAndExplicitZero(t *testing.T) {
 		t.Fatalf("explicit zero was not retained: maxSteps=%v fromTurn=%v", zero.MaxSteps, zero.FromTurn)
 	}
 }
+
+func TestContinueFlagSelectsLatestWithoutAnExplicitSession(t *testing.T) {
+	_, options, err := parseOptions([]string{"--continue", "--workspace", "/work"}, io.Discard)
+	if err != nil || !options.Continue || options.SessionID != "" || options.Workspace != "/work" {
+		t.Fatalf("continue options = %+v, %v", options, err)
+	}
+	if _, _, err := parseOptions([]string{"--continue", "--session", "12345678"}, io.Discard); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("explicit and latest Session choices conflict: %v", err)
+	}
+}

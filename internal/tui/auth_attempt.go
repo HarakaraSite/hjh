@@ -20,18 +20,6 @@ func authAttemptCancellable(attempt api.AuthAttempt) bool {
 	return !attempt.Terminal() && attempt.Phase != "exchanging" && attempt.Phase != "saving"
 }
 
-func channelClosed(channel <-chan struct{}) bool {
-	if channel == nil {
-		return false
-	}
-	select {
-	case <-channel:
-		return true
-	default:
-		return false
-	}
-}
-
 func (m *model) authContextCurrent(state *authUIState) bool {
 	return state != nil && m.authUI == state && state.coreID == m.core.CoreID
 }

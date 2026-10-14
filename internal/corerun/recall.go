@@ -64,6 +64,10 @@ func (m *Manager) SessionContext(ctx context.Context, coreID, sessionID string) 
 	view.SessionID = sessionID
 
 	m.mu.Lock()
+	if m.deletingSessions[sessionID] {
+		m.mu.Unlock()
+		return api.SessionContext{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
+	}
 	view.RecallRevision = m.recallRevision[sessionID]
 	if runID := m.sessions[sessionID]; runID != "" {
 		if run := m.runs[runID]; run != nil && run.state.Phase != "terminal" && run.state.SessionID == sessionID {
@@ -95,6 +99,12 @@ func (m *Manager) Recall(ctx context.Context, sessionID string, request api.Reca
 	}
 	if err := m.coreError(request.CoreID); err != nil {
 		return api.RecallOperationResult{}, err
+	}
+	m.mu.Lock()
+	deleting := m.deletingSessions[sessionID]
+	m.mu.Unlock()
+	if deleting {
+		return api.RecallOperationResult{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
 	}
 	signature, err := recallSignature(sessionID, request)
 	if err != nil {
@@ -145,6 +155,10 @@ func (m *Manager) Recall(ctx context.Context, sessionID string, request api.Reca
 	if m.closing {
 		m.mu.Unlock()
 		return api.RecallOperationResult{}, &api.Error{Code: "core_closing", Message: "Core is shutting down"}
+	}
+	if m.deletingSessions[sessionID] {
+		m.mu.Unlock()
+		return api.RecallOperationResult{}, sessionBusy("", "Session deletion is in progress; retry after it completes")
 	}
 	if runID := m.sessions[sessionID]; runID != "" {
 		m.mu.Unlock()

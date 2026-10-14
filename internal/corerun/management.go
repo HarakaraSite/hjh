@@ -1,7 +1,11 @@
 package corerun
 
 import (
+	"context"
+	"errors"
+
 	"hjh/internal/api"
+	"hjh/internal/history"
 )
 
 // ActiveSessionRun returns the lightweight nonterminal run state reserved for
@@ -22,6 +26,90 @@ func (m *Manager) ActiveSessionRun(coreID, sessionID string) (*api.RunState, err
 	}
 	state := m.stateLocked(r)
 	return &state, nil
+}
+
+// DeleteSession reserves an idle Session against new runs and input replays
+// while history removes it. An active run owns this reservation through its
+// follow-up saves, so deletion never cancels or races that work.
+func (m *Manager) DeleteSession(ctx context.Context, sessionID string) error {
+	m.mu.Lock()
+	if m.closing {
+		m.mu.Unlock()
+		return &api.Error{Code: "core_closing", Message: "Core is shutting down"}
+	}
+	if m.deletingSessions[sessionID] {
+		m.mu.Unlock()
+		return sessionBusy("", "Session deletion is already in progress; retry after it completes")
+	}
+	if runID := m.sessions[sessionID]; runID != "" {
+		m.mu.Unlock()
+		return sessionBusy(runID, "Session is running. Stop the active run and its follow-up chain before deleting it")
+	}
+	if m.recallBySession[sessionID] != nil {
+		m.mu.Unlock()
+		return sessionBusy("", "A Session recall save is in progress; retry after it completes")
+	}
+	if m.sessionWrites[sessionID] != 0 {
+		m.mu.Unlock()
+		return sessionBusy("", "A Session input save is in progress; retry after it completes")
+	}
+	m.deletingSessions[sessionID] = true
+	m.wg.Add(1)
+	// Invalidate Session view restorations that captured the old state before
+	// deletion acquired the reservation.
+	m.sessionVersions[sessionID]++
+	m.mu.Unlock()
+	defer m.wg.Done()
+
+	err := m.service.DeleteSession(ctx, sessionID)
+
+	var runsToRelease []*managedRun
+	m.mu.Lock()
+	delete(m.deletingSessions, sessionID)
+	if err == nil || errors.Is(err, history.ErrNotFound) {
+		delete(m.sessions, sessionID)
+		delete(m.sessionWrites, sessionID)
+		delete(m.inputSequences, sessionID)
+		delete(m.recallPending, sessionID)
+		delete(m.recallRevision, sessionID)
+		delete(m.recallBySession, sessionID)
+		if flight := m.sessionViews[sessionID]; flight != nil {
+			flight.invalidated = true
+			delete(m.sessionViews, sessionID)
+		}
+		for runID, run := range m.runs {
+			if run.sessionReservation != sessionID {
+				continue
+			}
+			delete(m.runs, runID)
+			run.terminal = nil
+			run.state = api.RunState{CoreID: m.core.CoreID, RunID: runID, Phase: "terminal"}
+			for _, notify := range run.subscribers {
+				select {
+				case notify <- struct{}{}:
+				default:
+				}
+			}
+			run.subscribers = map[*runStateSubscriber]chan struct{}{}
+			runsToRelease = append(runsToRelease, run)
+		}
+		m.sessionVersions[sessionID]++
+	}
+	m.mu.Unlock()
+	for _, run := range runsToRelease {
+		m.releaseView(run)
+	}
+	return err
+}
+
+func (m *Manager) finishSessionWrite(sessionID string) {
+	m.mu.Lock()
+	if m.sessionWrites[sessionID] <= 1 {
+		delete(m.sessionWrites, sessionID)
+	} else {
+		m.sessionWrites[sessionID]--
+	}
+	m.mu.Unlock()
 }
 
 // BeginShutdown closes run admission and cancels active owners without

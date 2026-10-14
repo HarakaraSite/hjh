@@ -40,6 +40,7 @@ go build -o dist/hjh-tui ./cmd/hjh-tui
 
 TUIは必要に応じてローカルのCoreを起動し、起動済みなら再利用します。
 `hjh`と`hjh-tui`は同じディレクトリに置いてください。
+`./dist/hjh-tui --continue`で同じworkspaceの最新セッションを再開できます。
 
 TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモデルを選びます。
 既定の接続先はOpenRouterです。依頼を入力し、Enterで送信します。
@@ -48,6 +49,7 @@ TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモ�
 | コマンド | 操作 |
 | --- | --- |
 | `/sessions` | 保存済みセッションを開く |
+| `/resume latest` | 同じworkspaceの最新セッションを再開する |
 | `/new` | 新しい会話を始める |
 | `/effort` | 推論エフォートを選ぶ |
 | `/detach` | Coreを動かしたままTUIを閉じる |

@@ -89,7 +89,7 @@ func peakRSS() (uint64, error) {
 			return kb * 1024, err
 		}
 	}
-	return 0, errors.New("Linux VmHWM is not available")
+	return 0, errors.New("cannot read Linux VmHWM")
 }
 
 type provider struct {
@@ -397,7 +397,7 @@ func experimentWithBody(updates int, cancelRun, measureCost bool, finalBytes int
 	var closeErr error
 	go func() { closeErr = server.Close(); close(closeDone) }()
 	if err = wait(ctx, closeDone); err != nil {
-		return out, fmt.Errorf("Core shutdown waited for stalled SSE: %w", err)
+		return out, fmt.Errorf("core shutdown waited for stalled SSE: %w", err)
 	}
 	if closeErr != nil {
 		return out, closeErr

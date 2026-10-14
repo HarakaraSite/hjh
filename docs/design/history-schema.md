@@ -107,6 +107,46 @@ Session `72dc9c7b`（subagentテスト）の容量を、子agentの実行履歴�
 保存容量に加え、保存・復元速度、メモリ使用量、WAL・総書込み量も併せて評価する。
 自動削除・履歴の切捨てやschema変更を、このメモによって採用・実装認可したとは扱わない。
 
+## 2026-10-14：モデル送信本文の二重保存を削減
+
+利用者が現在のDB容量の最適化を指定した。読取り専用で確認した44Sessionは、0turnが2、1turnが33、
+2turnが4、3turnが3、4turnが1、6turnが1だった。96実行（親81・子15）、1,290メッセージを保存している。
+DBは191,696,896 bytes（182.82 MiB）。semantic_recordsの領域が113.23 MiB、contentsが59.29 MiB。
+索引を除くmodel_requestのpayloadは62,390,678 bytesで、そのうち物理送信開始のinputが約47.1 MB重複していた。
+
+同じ563回の送信本文を、request準備のcontext記録がcontentsへ保存し、journalの物理送信記録がinputへ
+もう一度埋めていた。全563件で保存済みの送信本文とJSON内容が一致することを確認した。
+まず新しい保存では、この一箇所の重複を除く。
+
+- attribution/context_budget/context_itemは引き続き実際の送信bytesを参照する。
+- 物理model_requestはID・時刻・provider・modelStep等のmetadataをpayloadへ保存し、
+  inputは同じcontentsのcontent_digestで参照する。本文のハッシュや同一実行の対応は既存機構を使用する。
+- Records/Record/inspect/historyの読取り時に物理送信のpayload.inputを復元し、従来と同じ完全なJSONを返す。
+  payload.kind=model_requestと本文参照を持つ物理記録だけを扱い、論理contextのmodel_request.Contentは変更しない。
+- live observerには従来の全文を渡す。会話採用・tool結果・thinking・子agentの記録を切り捨てない。
+- schema、DBメッセージの経路、Session削除の対象範囲は変更しない。自動migrationや圧縮codecは追加しない。
+
+実DBの読取り専用バックアップを別の一時DBへ複製し、重複563件を同じ本文参照へ置き換え、コピーだけをVACUUMした。
+結果は141,078,528 bytes（134.54 MiB）で、48.27 MiB減少。これは二重保存の除去と既存空き領域の整理を含む。
+44Session・96実行・1,290メッセージ・28,453詳細記録・2,127本文の件数を保持した。
+本番Storeの読取りで563件のpayloadが元のSHA-256と一致し、44Sessionのmetadata、採用済み872メッセージ、
+全実行の詳細記録も一致した。SQLiteのintegrity/foreign-key checkも通過した。
+
+この時点では常用DBを変換していない。既存DBへの反映にはCore停止・バックアップ・変換・Core再起動が必要。
+検証では元DBと最適化済みコピーをprivateな一時directoryで比較した。
+圧縮やcontext_item/model_requestのmetadata重複、tool結果の複数の記録経路は次の改善候補とする。
+
+### 同日の利用者指定による新規DBへの切替
+
+利用者は「新しい保存経路の改善だけにする。現DBはバックアップの上、新規作成」と指定した。
+そのため既存履歴の最適化変換は採用せず、Coreを停止した後のDBをそのまま
+`.hjh/backups/history-20261014T011834Z/history.sqlite3`へ退避した。
+バックアップは44Session・96実行、191,696,896 bytesを保持し、integrity checkはok。
+新しい`.hjh/history.sqlite3`は0Session・0実行・249,856 bytes（244 KiB）で作成した。
+同じ起動引数と継承環境で更新済みCoreを起動し、config.json・保存済みモデル選択が変わらないことを確認した。
+新しい保存経路の変更は新規DBで使用する。旧DBは変換せず、バックアップとして保持する。
+
+
 ## DB構造の見直し：議論メモ
 
 2026-10-13、利用者との議論を記録する。現在の保存構造の説明と、変更要望・未決定事項を

@@ -194,17 +194,21 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 		inputRows = nil
 	}
 	childRows := m.childProgressRows()
-	if m.pickerOpen {
+	if m.screenOverlayOpen() {
 		childRows = nil
 	}
-	commandRows := m.commandMenuRows(rows - len(footerRows) - len(inputRows) - len(childRows) - 2)
+	available := rows - len(footerRows) - len(inputRows) - len(childRows) - 2
+	commandRows := m.commandMenuRows(available)
+	if m.pickerOpen && !m.screenOverlayOpen() {
+		commandRows = m.pickerRows(available)
+	}
 	divider := strings.Repeat("─", columns)
 	var committed []string
 	var bodyRows []string
 	committedThrough := doc.startRow
 	bodyStart := doc.startRow
 	bodyHeight := max(1, rows-len(footerRows)-len(inputRows)-len(childRows)-len(commandRows)-1)
-	if m.pickerOpen {
+	if m.screenOverlayOpen() {
 		m.viewport.SetHeight(bodyHeight)
 		m.refreshViewport(false)
 		bodyRows = renderer.WrapText(m.viewport.View(), columns)

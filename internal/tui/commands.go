@@ -21,7 +21,7 @@ func (m *model) handleCommand(line string) {
 		return
 	}
 	switch fields[0] {
-	case "/provider", "/providers", "/models", "/effort", "/auth", "/login":
+	case "/provider", "/effort", "/auth", "/login":
 		m.connectionCommand(fields)
 	case "/help":
 		m.appendEntry("help", helpText)
@@ -48,7 +48,7 @@ func (m *model) handleCommand(line string) {
 		m.changeSession(sessionAction{newSession: true})
 	case "/resume":
 		if len(fields) != 2 {
-			m.status = "usage: /resume SESSION_ID"
+			m.status = "usage: /resume SESSION_ID|latest"
 			return
 		}
 		m.resolveResume(fields[1])

@@ -176,7 +176,6 @@ func (m *Manager) BeginAttempt(ctx context.Context, resolve ResolveTarget, reque
 			result = existing.snapshot()
 			return nil
 		}
-		slotKey := ownerID + "\x00" + request.AccountID
 		if request.AccountID != "" {
 			if existing, exists := m.getSlotAttempt(ownerID, request.AccountID); exists {
 				result = existing.snapshot()
@@ -233,7 +232,7 @@ func (m *Manager) BeginAttempt(ctx context.Context, resolve ResolveTarget, reque
 			result = existing.snapshot()
 			return nil
 		}
-		slotKey = ownerID + "\x00" + accountID
+		slotKey := ownerID + "\x00" + accountID
 		jobCtx, cancel := context.WithCancel(m.lifeCtx)
 		job := &attemptJob{
 			state: api.AuthAttempt{CoreID: request.CoreID, AttemptID: request.AttemptID, ScopeID: scopeID,

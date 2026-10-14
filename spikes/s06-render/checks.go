@@ -88,7 +88,7 @@ func checkJapaneseEditorResizeAndNewlines() error {
 	m.Update(tea.WindowSizeMsg{Width: 72, Height: 24})
 	wideHeight := m.input.Height()
 	if narrowWidth >= m.input.Width() || narrowHeight <= wideHeight {
-		return fmt.Errorf("Japanese textarea did not reflow on resize: widths=%d->%d heights=%d->%d", narrowWidth, m.input.Width(), narrowHeight, wideHeight)
+		return fmt.Errorf("textarea did not reflow Japanese text on resize: widths=%d->%d heights=%d->%d", narrowWidth, m.input.Width(), narrowHeight, wideHeight)
 	}
 
 	m.input.SetValue("日本語")

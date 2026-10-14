@@ -56,6 +56,7 @@ Content-Type: application/json
 | `GET /sessions`、`GET /sessions/{id}` | ID | Session一覧/単体。activeRunIdは既存Managerの予約から得る |
 | `GET /sessions/{id}/active-run` | coreId | Sessionの実行中RunStateまたはnull。本文は取得しない |
 | `POST /sessions/{id}/rename` | title | title/updated_atだけを更新しSessionを返す。会話revisionは不変 |
+| `DELETE /sessions/{id}` | bodyなし | Session・子を含む実行履歴・関連記録・他から参照されない本文/構成を削除し、204を返す。実行中または追加入力保存中は409 `session_busy`（実行中なら`activeRunId`付き、停止後の再試行を案内）。存在しないSessionは404 |
 | `POST /core/shutdown` | coreId | `{ok:true}`を202で受付。join/保存完了後にHTTPとprocessを終了 |
 | `GET /sessions/{id}/view` | ID | 保存済み／進行中rootと子のConversationSnapshot。response直下にscopeId/viewId/revision/throughSequence/rootCuts/order/entities |
 | `GET /sessions/{id}/conversation` | fromTurn/toTurn | 採用会話。省略時0/-1、inclusive範囲は既存操作と同じ |
