@@ -122,6 +122,8 @@ their full instructions are read when needed. Exa search can use `EXA_API_KEY`.
 
 - [Provider configuration and authentication](docs/design/providers.md)
 - [Tools, roles, and hooks](docs/design/extensions.md) (Japanese)
+- [Tool usage policy and per-tool help](docs/design/tool-usage-guidance.md) (Japanese):
+  `tool-usage.md` overrides, `{help:true}`, and updating existing tool configurations without overwriting edits.
 - [Developer notes and implementation history](docs/development.md) (Japanese)
 
 The English README is the source of truth; [README.ja.md](README.ja.md) is its Japanese translation.

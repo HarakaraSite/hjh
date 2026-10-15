@@ -13,6 +13,9 @@ import (
 // prepareWorkspaceContext shares one read with instruction composition, source
 // recording and run metadata. It never inserts these files into the VM loader.
 func prepareWorkspaceContext(ctx context.Context, workspace string, snapshot *extensions.Snapshot) (workspacecontext.Snapshot, contracts.Orientation, error) {
+	if err := extensions.ApplyToolUsagePolicy(snapshot, workspace); err != nil {
+		return workspacecontext.Snapshot{}, contracts.Orientation{}, err
+	}
 	loaded, err := workspacecontext.Discover(ctx, workspace)
 	if err != nil {
 		return loaded, contracts.Orientation{}, err
@@ -60,6 +63,9 @@ func (s *Service) Orientation(ctx context.Context, request RunRequest) (contract
 	}
 	profile, err := extensions.ResolveInstructionProfile(data, path, role)
 	if err != nil {
+		return contracts.Orientation{}, err
+	}
+	if _, err := extensions.SelectToolUsagePolicy(workspace); err != nil {
 		return contracts.Orientation{}, err
 	}
 	loaded, err := workspacecontext.Discover(ctx, workspace)

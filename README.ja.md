@@ -120,6 +120,8 @@ Exa検索には`EXA_API_KEY`を利用できます。
 
 - [provider設定と認証](docs/design/providers.md)（英語）
 - [ツール・role・hook](docs/design/extensions.md)
+- [ツール利用方針と各toolのhelp](docs/design/tool-usage-guidance.md)：
+  `tool-usage.md`の差替え、`{help:true}`、編集済み設定を上書きしない更新手順。
 - [開発者向けメモと実装経緯](docs/development.md)
 
 [英語README](README.md)を正本とし、このファイルはその日本語版として更新します。

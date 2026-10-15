@@ -26,6 +26,7 @@ var defaultAssets embed.FS
 // them to the legacy WorkerConfigurationSnapshot contract stored in history.
 type Config struct {
 	DefaultRole           string            `json:"defaultRole"`
+	RunJSHelpFile         string            `json:"runJSHelpFile,omitempty"`
 	Roles                 map[string]Role   `json:"roles"`
 	SystemInstruction     string            `json:"systemInstruction"`
 	InstructionComponents []json.RawMessage `json:"instructionComponents"`
@@ -61,6 +62,7 @@ type Tool struct {
 	PromptGuidelines []string        `json:"promptGuidelines,omitempty"`
 	Module           string          `json:"module"`
 	Export           string          `json:"export"`
+	HelpFile         string          `json:"helpFile,omitempty"`
 }
 
 type LegacyAgent struct {
@@ -141,6 +143,7 @@ type Snapshot struct {
 	SystemInstruction     string
 	BaseInstruction       contracts.BaseInstruction
 	BaseInstructionSource *Resource
+	ToolUsagePolicySource *Resource
 	InstructionComponents []json.RawMessage
 	ToolPaths             []string
 	Tools                 []Tool
@@ -165,7 +168,8 @@ const runJSPurposeInstruction = "Begin the code with a short one-line // comment
 const runJSRuntimeInstruction = "The async JavaScript body supports Promise and the selected tools, but QuickJS provides no setTimeout, setInterval, or browser timer APIs."
 
 // RunJSDefinition returns the model-facing built-in for generated JavaScript.
-// Delegation is described only when run_agent is part of the selected role.
+// Runtime aliases remain available only for selected tools; their recipes live
+// in the configured help resource rather than the resident guidelines.
 func RunJSDefinition(delegation bool) contracts.ToolDefinition {
 	var selected []string
 	if delegation {
@@ -174,8 +178,8 @@ func RunJSDefinition(delegation bool) contracts.ToolDefinition {
 	return RunJSDefinitionForTools(selected)
 }
 
-// RunJSDefinitionForTools describes only the child operations available to
-// generated JavaScript through the selected external tool composition.
+// RunJSDefinitionForTools returns the built-in contract. The runtime, not this
+// definition, exposes the child aliases from the selected tool composition.
 func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
 	return runJSToolForTools(selected).definition()
 }
@@ -183,30 +187,9 @@ func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
 func runJSToolForTools(selected []string) Tool {
 	description := "Run generated JavaScript that can call selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
 	guidelines := []string{
-		"Use run_js to compose selected tools with JavaScript. Its code input is an async JavaScript function body; selected tools are available as tools.NAME(arguments). Await calls and return useful results.",
+		"Use run_js for composition, independent parallel calls, aggregation, and string/JSON processing; otherwise use the appropriate dedicated tool. Its code input is an async JavaScript function body; only selected tools are available as tools.NAME(arguments). Await calls and return useful results.",
 		runJSPurposeInstruction,
 		runJSRuntimeInstruction,
-	}
-	if containsTool(selected, "run_agent") {
-		guidelines = append(guidelines, "From generated JavaScript, call api.agents.run({task, role?, model?, tools?}) to use the selected run_agent tool. Await results, or use Promise.all for independent delegations.")
-	}
-	if containsTool(selected, "spawn_agent") {
-		guidelines = append(guidelines, "From generated JavaScript, call api.agents.spawn({task, role?, model?, tools?}) to use the selected spawn_agent tool.")
-	}
-	if containsTool(selected, "agent_status") {
-		guidelines = append(guidelines, "From generated JavaScript, call api.agents.status({executionId, after?}) to use the selected agent_status tool. Return the reports you need so they enter your next model input.")
-	}
-	if containsTool(selected, "steer_agent") {
-		guidelines = append(guidelines, "From generated JavaScript, call api.agents.steer({executionId, text}) to use the selected steer_agent tool.")
-	}
-	if containsTool(selected, "collect_agent") {
-		guidelines = append(guidelines, "From generated JavaScript, await api.agents.collect({executionId}) to use the selected collect_agent tool.")
-	}
-	if containsTool(selected, "cancel_agent") {
-		guidelines = append(guidelines, "From generated JavaScript, call api.agents.cancel({executionId}) to use the selected cancel_agent tool.")
-	}
-	if containsTool(selected, "command") {
-		guidelines = append(guidelines, "For an explicit delay from generated JavaScript, await tools.command({program:\"sleep\",args:[\"SECONDS\"]}).")
 	}
 	return Tool{
 		Name:             "run_js",
@@ -219,7 +202,7 @@ func runJSToolForTools(selected []string) Tool {
 
 func (tool Tool) definition() contracts.ToolDefinition {
 	return contracts.ToolDefinition{Name: tool.Name, Description: tool.Description,
-		InputSchema: append(json.RawMessage(nil), tool.InputSchema...)}
+		InputSchema: HelpInputSchema(tool.InputSchema)}
 }
 
 func Capture(configPath string, role ...string) (Snapshot, error) {
@@ -541,7 +524,9 @@ func resolveTools(cfg Config, roleName string, role Role) ([]Tool, error) {
 			if len(external[name]) != 0 {
 				return nil, fmt.Errorf("extension role %q selects built-in tool %q, which is also defined externally", roleName, name)
 			}
-			selected = append(selected, runJSToolForTools(role.Tools))
+			builtin := runJSToolForTools(role.Tools)
+			builtin.HelpFile = cfg.RunJSHelpFile
+			selected = append(selected, builtin)
 			continue
 		}
 		matches := external[name]
@@ -627,7 +612,7 @@ func (s Snapshot) JSON() ([]byte, error) {
 		}
 		tools = append(tools, LegacyTool{
 			Name: tool.Name, Revision: tool.Revision, Source: source, Entry: entry,
-			Contract:         LegacyContract{Name: tool.Name, Description: tool.Description, InputSchema: append(json.RawMessage(nil), tool.InputSchema...)},
+			Contract:         LegacyContract{Name: tool.Name, Description: tool.Description, InputSchema: HelpInputSchema(tool.InputSchema)},
 			PromptGuidelines: append([]string(nil), tool.PromptGuidelines...),
 			FileAccess:       "unmanaged", Paths: LegacyPaths{Allow: []string{}, Deny: []string{}},
 		})
@@ -650,10 +635,7 @@ func (s Snapshot) MarshalJSON() ([]byte, error) { return s.JSON() }
 func (s Snapshot) Definitions() []contracts.ToolDefinition {
 	definitions := make([]contracts.ToolDefinition, 0, len(s.Tools))
 	for _, tool := range s.Tools {
-		definitions = append(definitions, contracts.ToolDefinition{
-			Name: tool.Name, Description: tool.Description,
-			InputSchema: append(json.RawMessage(nil), tool.InputSchema...),
-		})
+		definitions = append(definitions, tool.definition())
 	}
 	return definitions
 }

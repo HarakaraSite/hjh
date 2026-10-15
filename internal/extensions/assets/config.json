@@ -178,6 +178,7 @@
   },
   "systemInstruction": "",
   "instructionComponents": [],
+  "runJSHelpFile": "run-js-help.md",
   "toolPaths": ["index.js"],
   "tools": [
     {
@@ -209,7 +210,8 @@
         ]
       },
       "module": "index.js",
-      "export": "readFile"
+      "export": "readFile",
+      "helpFile": "read-file-help.md"
     },
 
     {
@@ -231,7 +233,8 @@
         ]
       },
       "module": "index.js",
-      "export": "writeFile"
+      "export": "writeFile",
+      "helpFile": "write-file-help.md"
     },
 
     {
@@ -275,7 +278,8 @@
         ]
       },
       "module": "index.js",
-      "export": "editFile"
+      "export": "editFile",
+      "helpFile": "edit-file-help.md"
     },
 
     {
@@ -314,7 +318,8 @@
         "required": []
       },
       "module": "inspect.js",
-      "export": "listDirectory"
+      "export": "listDirectory",
+      "helpFile": "inspecting-help.md"
     },
     {
       "name": "find",
@@ -363,7 +368,8 @@
         "required": []
       },
       "module": "inspect.js",
-      "export": "findFiles"
+      "export": "findFiles",
+      "helpFile": "inspecting-help.md"
     },
     {
       "name": "grep",
@@ -434,7 +440,8 @@
         ]
       },
       "module": "inspect.js",
-      "export": "grep"
+      "export": "grep",
+      "helpFile": "inspecting-help.md"
     },
     {
       "name": "wc",
@@ -458,7 +465,8 @@
         ]
       },
       "module": "inspect.js",
-      "export": "countFiles"
+      "export": "countFiles",
+      "helpFile": "inspecting-help.md"
     },
     {
       "name": "git_inspect",
@@ -519,25 +527,28 @@
         ]
       },
       "module": "inspect.js",
-      "export": "gitInspect"
+      "export": "gitInspect",
+      "helpFile": "inspecting-help.md"
     },
     {
       "name": "command",
       "description": "Execute a program directly with the workspace as its working directory. Waits for exit and returns {exitCode, stdout, stderr}.",
       "promptGuidelines": [
-        "Pass the executable in program and individual arguments in args; shell syntax is not interpreted automatically. For pipes, redirection, variable expansion, or &&, explicitly use a shell, for example {program: \"sh\", args: [\"-c\", \"pwd && ls\"]}.",
-        "Omit unused args and stdin; they default to [] and an empty string. A launched program exiting with a nonzero code returns a normal result, so inspect exitCode and stderr to determine whether it succeeded."
+        "Choose command for needed external operations (for example build/test or git commit/push) after considering run_js composition and dedicated tools. Pass program plus individual args; shell syntax requires an explicit shell such as {program:\"sh\",args:[\"-c\",\"printf hello | wc -c\"]}.",
+        "Omit unused args/stdin. Nonzero exit is a normal result: inspect exitCode and stderr."
       ],
       "inputSchema": {"type":"object","properties":{"program":{"type":"string","description":"Executable name or path, such as rg or sh; not a whole shell command line."},"args":{"type":"array","items":{"type":"string"},"description":"Individual argument strings passed directly to the executable; defaults to []."},"stdin":{"type":"string","description":"Text supplied to standard input; omit when no input is needed."}},"required":["program"]},
       "module": "index.js",
-      "export": "command"
+      "export": "command",
+      "helpFile": "command-help.md"
     },
     {
       "name": "http",
       "description": "Make a raw HTTP GET request and return its status and body. Use web_fetch to read web pages as text.",
       "inputSchema": {"type":"object","properties":{"url":{"type":"string"}},"required":["url"]},
       "module": "index.js",
-      "export": "http"
+      "export": "http",
+      "helpFile": "http-help.md"
     },
     {
       "name": "web_fetch",
@@ -547,17 +558,16 @@
       ],
       "inputSchema": {"type":"object","properties":{"url":{"type":"string"},"save_to":{"type":"string"}},"required":["url"],"additionalProperties":false},
       "module": "index.js",
-      "export": "webFetch"
+      "export": "webFetch",
+      "helpFile": "web-fetch-help.md"
     },
     {
       "name": "web_search",
       "description": "Search the public web with Exa. Return ordered source URLs, titles, short excerpts, metadata, and optional synthesized output. Defaults to auto search with up to 10 results and 1000-character excerpts; use web_fetch to read page bodies.",
       "promptGuidelines": [
-        "Only include optional arguments needed for this search. Omit unused fields rather than filling them with empty strings, nulls, empty arrays, or guessed values. A query alone uses auto search with highlights and up to 10 results. Specify a smaller numResults when fewer sources are sufficient. If a request fails, use the reported provider error to decide what to change instead of retrying unrelated search options.",
-        "Choose the task source before exploring. If the user explicitly identifies the current repository, a local file, or a canonical URL or API, use that source first and do not add web search unless it leaves a current or external question unresolved. If current or external information is requested and the target identity or canonical source is not already established, use web_search as the first source-discovery tool; do not inspect the workspace, sibling repositories, handoff files, or try guessed endpoints with bash or curl merely because a software workspace exists. When external sources alone can answer the task, stay on that route. After discovery, obtain fast-changing lists or precise current values from the direct canonical source with web_fetch and disclose retrieval time or conflicts with search results. Put independent read-only retrievals in distinct tool calls in the same model step when their targets are already known; perform result-dependent retrievals sequentially. Give a specific query describing the information needed.",
-        "Treat results[].highlights as source excerpts; output is synthesized material. Cite direct source URLs near supported claims, do not copy provider-local citation numbers, and do not add facts unsupported by the returned material. Say when sources do not answer the question and label inference.",
-        "Choose type for the search and outputSchema only when synthesized text or structured output is needed. AdditionalQueries apply to deep search modes. Category accepts custom hints; company and people do not support published-date filters or excludeDomains. Dates use ISO 8601. userLocation accepts a two-letter country code or an object with country, latitude, and longitude. Tool results are complete JSON; transport streaming is disabled.",
-        "Use web_search to discover sources, not to fetch known pages. Exa page text is disabled and excerpts are fixed to at most 1000 characters per result. Read selected URLs with web_fetch; use save_to and read_file line ranges for long pages. Do not pass contents options to web_search."
+        "Use only needed options and a specific query; defaults are auto, 10 results, excerpts up to 1000 characters. Read known pages with web_fetch, not search; do not pass contents options.",
+        "Choose the source first: use an explicitly named repository, file, canonical URL or API before searching. Search only for an unresolved external/current question; when its target or canonical source is unknown, start with web_search, not workspace inspection or guessed endpoints. Stay on external sources when sufficient. Fetch precise current values and fast-changing lists from the direct canonical source with web_fetch; disclose retrieval time and conflicts with search excerpts.",
+        "results[].highlights are source excerpts; output is synthesis. Cite direct source URLs near supported claims, retain evidence and identifiers, label inference, and say when sources do not answer. Fetch selected pages for context; preserve source references when aggregating results."
       ],
       "inputSchema": {
         "type": "object",
@@ -591,17 +601,17 @@
         "additionalProperties": true
       },
       "module": "web-search.js",
-      "export": "webSearch"
+      "export": "webSearch",
+      "helpFile": "web-search-help.md"
     },
     {
       "name": "run_agent",
       "revision": "1",
       "description": "Run an independent child task and wait for completion. Returns {executionId, outcome, finalText?, error?}.",
       "promptGuidelines": [
-        "Use run_agent to delegate an independent task. Include the context the child needs in task because its conversation is independent.",
-        "It accepts optional role, model selection (provider, modelId, effort), and tool list values; the result includes executionId and outcome, with optional finalText or error.",
-        "Omit optional settings you do not need. Role omission selects config.defaultRole, not the parent's role. Model selection starts from the parent, applies the child role's model settings, then your explicit model overrides; changing provider uses that provider's defaults for omitted modelId and effort. Tools omission uses the selected role's tools; tools: [] selects no tools.",
-        "This call waits for the child's result. Use spawn_agent when available to start a child and continue your own work before collecting. Inspect outcome and error when receiving a settled result; a child's failed outcome can be returned as a normal tool result."
+        "Use run_agent for independent child work when you want to wait; use spawn_agent to continue parent work before collecting. Include needed context in task: parent conversation is not copied.",
+        "Omit unused settings. Role defaults to config.defaultRole, not the parent role. Model resolves parent selection, child role settings, then explicit overrides; a changed provider supplies omitted modelId/effort defaults. Omitted tools uses role tools; [] selects none.",
+        "Inspect outcome/error in settled results; failed outcomes can be normal tool results."
       ],
       "inputSchema": {
         "type":"object",
@@ -614,17 +624,17 @@
         "required":["task"]
       },
       "module": "run-agent.js",
-      "export": "runAgent"
+      "export": "runAgent",
+      "helpFile": "child-agents-help.md"
     },
     {
       "name": "spawn_agent",
       "revision": "1",
       "description": "Start an independent child task and return {executionId, state} before it finishes. Use collect_agent to wait for its final result.",
       "promptGuidelines": [
-        "Use spawn_agent to start independent child work. Its conversation is independent, so include necessary context in task. It returns an executionId while running and accepts optional role, model selection (provider, modelId, effort), and tools list values.",
-        "Start independent children before collecting when useful, and continue your own work between starting and collecting.",
-        "Omit optional settings you do not need. Role omission selects config.defaultRole, not the parent's role. Model selection starts from the parent, applies the child role's model settings, then your explicit model overrides; changing provider uses that provider's defaults for omitted modelId and effort. Tools omission uses the selected role's tools; tools: [] selects no tools.",
-        "Keep the returned executionId for agent_status, steer_agent, collect_agent, and cancel_agent. The returned state describes startup, not task completion. Collect results needed for your answer before finishing the parent task, since remaining children are cancelled when the parent finishes."
+        "Use spawn_agent for independent child work while the parent continues. Include needed context in task; parent conversation is not copied.",
+        "Omit unused settings. Role defaults to config.defaultRole, not the parent role. Model resolves parent selection, child role settings, then explicit overrides; a changed provider supplies omitted modelId/effort defaults. Omitted tools uses role tools; [] selects none.",
+        "Keep executionId for later child operations. Startup state is not completion. Collect needed results before the parent finishes; remaining children are cancelled then."
       ],
       "inputSchema": {
         "type":"object",
@@ -637,54 +647,57 @@
         "required":["task"]
       },
       "module": "agent-control.js",
-      "export": "spawnAgent"
+      "export": "spawnAgent",
+      "helpFile": "child-agents-help.md"
     },
     {
       "name": "agent_status",
       "revision": "1",
       "description": "Read a spawned child's current state, progress, instruction receipts, and saved assistant reports without waiting for completion. Returns reports and nextCursor.",
       "promptGuidelines": [
-        "Use agent_status after starting independent work to read the child's state, progress, latest instruction receipts, and saved assistant reports. Omit after to receive all reports, then pass nextCursor as after to read newer ones.",
-        "Reports include source executionId and messageOrdinal; repeated reads do not advance a shared cursor. Do not poll status to wait for completion. Use collect_agent when you need the final result.",
-        "Steer receipts can be accepted, applied, or unapplied. Accepted means the guidance was saved; applied means it entered the child's loop. Neither means the model followed it."
+        "Use agent_status for saved progress and reports, not to wait by polling; use collect_agent for completion. Omit after initially, then pass this child's nextCursor as after. Reads do not advance a shared cursor; reports retain executionId/messageOrdinal.",
+        "Receipts are accepted, applied, or unapplied: saved, entered the child loop, or not applied. Neither acceptance nor application proves the model followed guidance."
       ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string","description":"The executionId returned by spawn_agent for a child of this parent; not a Session ID."},"after":{"type":"integer","description":"Pass the previous nextCursor for this same child to read newer reports. Omit on the first read to receive all reports; do not guess a cursor."}},"required":["executionId"]},
       "module": "agent-control.js",
-      "export": "agentStatus"
+      "export": "agentStatus",
+      "helpFile": "child-agents-help.md"
     },
     {
       "name": "steer_agent",
       "revision": "1",
       "description": "Send additional guidance to an active child agent.",
       "promptGuidelines": [
-        "Use steer_agent to save additional guidance for an active child and receive its accepted receipt.",
-        "The child finishes its current model request and tools before receiving the guidance at a loop boundary."
+        "Use steer_agent for useful additional guidance to an active child. Its accepted receipt means saved, not followed; delivery occurs at a loop boundary after the current model request and tools."
       ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"},"text":{"type":"string"}},"required":["executionId","text"]},
       "module": "agent-control.js",
-      "export": "steerAgent"
+      "export": "steerAgent",
+      "helpFile": "child-agents-help.md"
     },
     {
       "name": "collect_agent",
       "revision": "1",
       "description": "Collect a child agent's result.",
       "promptGuidelines": [
-        "Use collect_agent when you need a spawned child's settled result; it waits for that child to finish."
+        "Use collect_agent when you need a spawned child's final result; it waits. Inspect outcome/error, including failed outcomes returned normally."
       ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"}},"required":["executionId"]},
       "module": "agent-control.js",
-      "export": "collectAgent"
+      "export": "collectAgent",
+      "helpFile": "child-agents-help.md"
     },
     {
       "name": "cancel_agent",
       "revision": "1",
       "description": "Cancel a child agent.",
       "promptGuidelines": [
-        "Use cancel_agent when a started child should stop; it waits for and returns the child's settled result."
+        "Use cancel_agent when a started child should stop; it waits for the settled result. Inspect outcome/error."
       ],
       "inputSchema": {"type":"object","properties":{"executionId":{"type":"string"}},"required":["executionId"]},
       "module": "agent-control.js",
-      "export": "cancelAgent"
+      "export": "cancelAgent",
+      "helpFile": "child-agents-help.md"
     }
   ],
   "hooks": "hooks.js",

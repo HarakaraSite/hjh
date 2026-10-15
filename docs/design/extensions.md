@@ -91,27 +91,28 @@ JSON bodyとcredential参照だけを渡し、Go側で認証headerを付ける�
 capture後に元ファイルを編集しても現在のWorkerには反映されない。次Workerで新しいcaptureを作ると反映される。
 Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMとして拡張directoryへ配置する。
 
-## I-21：tool自身の利用指示
+## tool自身の利用指示とhelp（I-21以降）
 
-外部toolは任意の`promptGuidelines: string[]`に利用方針を書く。省略・空配列は指示なし。
-role.toolsと子の明示tools上書きの解決後、有効tool順・配列順に
+外部toolは任意の`promptGuidelines: string[]`に短い用途・選択指針・最小契約を書く。
+省略・空配列は指示なし。role.toolsと子の明示tools上書きの解決後、有効tool順・配列順に
 `## Active tool guidelines`へ集め、各行を`- tool名: 指示`として共通systemInstructionへ加える。
-今後追加するtoolも同じfieldを宣言すれば使える。親・子とも同じcapture経路を使う。
+無効なtoolのguidelinesは加えず、親・子は同じcapture経路を使う。
 
-built-in run_jsもこのfieldを持つ。async本文、英文目的コメント、QuickJSの待機方法と、
-選択された子操作に対応するJS APIを案内する。標準の六つの子操作は外部config側で指示を持つ。
-無効なtoolのguidelinesは加えない。role本文・基本指示・子role catalogは別の指示として扱う。
-組込み基本指示には共通の途中報告指示も含む。[base.mdでの差替え](base-instructions.md)は
-この組込み基本指示全体を置換し、有効toolのguidelinesは引き続き追加する。
-既存workspaceの外部configは自動上書きしないため、既存子toolには配布configのguidelinesを反映する。
-このrepositoryの利用workspaceには反映済み。
+built-in run_jsの常駐指示は、合成・並列・集約・加工を選ぶ場面、async本文、選択済み
+`tools.NAME`、await/return、英文目的コメント、timerなしという最小契約を案内する。
+長い例やAPI一覧はhelpで取得する。共通の選択方針はbaseと別のtool-usage.mdで管理し、
+[base.mdでの差替え](base-instructions.md)でも維持する。通常の単独操作をJSで包む義務はない。
 
-組立済み欄は`instruction:active-tool-guidelines` componentへ保存し、snapshot.toolsの各宣言にも
-optional `promptGuidelines`を保存する。元configは従来どおりexact source bytesを実行時に捕捉するが、
-DBへ全文を自動保存しない。
-provider tool definitionはname/description/inputSchemaのままで、専用fieldをwireへ送らない。
+詳細は[ツール利用方針と各toolのhelp](tool-usage-guidance.md)を参照する。
+同文書にworkspace → user → 組込みの方針選択、`{help:true}`、`helpFile`/
+`runJSHelpFile`、capture・保存、既存configを上書きしない更新手順を定める。
+
+集約欄は`instruction:active-tool-guidelines` componentへ記録する。
+`Snapshot.JSON()`のtool宣言はoptional `promptGuidelines`を持つが、現行appの保存用snapshotは
+`tools`欄を除き、組立済み指示等を保存する。元config・module・help本文全体のDB archiveではない。
+provider定義はname/description/inputSchemaで、guidelines専用fieldはwireへ送らない。
+inputSchemaには通常requiredを維持した共通help分岐を加える。
 集約した指示は通常のcontext budgetとmodel request保存・attributionの対象になる。
-編集は次Workerのcaptureから反映し、現在のWorkerや過去の保存履歴を変更しない。
 
 標準toolのdescription・引数description・guidelinesは実装済みの入力と戻り値を説明する。
 
@@ -131,49 +132,30 @@ modelへ公開する引数の型・required・省略動作と説明を外部宣�
 子は独立会話なのでtaskに必要な文脈を書く。spawnの結果だけでは完了を示さず、
 親終了時に残る子は取消されるため、回答に必要な子の結果は親終了前に回収する。
 
-## 改善候補：子agentの並行実行に関する利用指示
+## 子agentの並行実行に関する利用指示の背景
 
 2026-10-15、利用者指示でメモ。Session `600ce255`では、親が「探索子を2つ起動しつつ、
 自分は設計文書を読む」と述べたが、同じモデル応答で同期型`run_agent`を2件返した。
 実際には最初の子の完了待ちとなり、その間は2件目の起動も親の調査も進まなかった。
 最初の子は調査を続けており、確認時点で回収処理が停止している証拠はなかった。
 
-現行のdescription / promptGuidelinesには、run_agentは完了待ち、spawn_agentは開始後に親も
-作業を続けられることが明記されている。run_jsにはPromise.allによる独立した委譲の並列実行も
-案内されている。一方、通常のツール呼出しを同じモデル応答で複数返しても、現行Agent loopでは
-順次実行される点は明記されていない。モデルが並列実行されると思った可能性はあるが、原因は未確定。
+当時のdescription / promptGuidelinesには、run_agentは完了待ち、spawn_agentは開始後に親も
+作業を続けられることが明記されていたが、同じ応答の通常tool callが順次実行される点は
+明記されていなかった。モデルが並列実行されると思った可能性はあるが、原因は未確定。
 
-利用指示へ短く補う候補：
+現在は独立した共通方針と詳細helpで以下を案内する：
 
 - 通常の複数tool callは順次実行され、run_agentを複数並べるだけでは子は並行しない。
 - 子を動かしながら親も作業する場合は、spawn_agentで必要な子を開始し、後でcollect_agentする。
 - 子どうしを並行させ、親は結果を待つ場合は、run_js内でPromise.allとapi.agents.runを使える。
 
-これは利用指示の改善候補の記録であり、tool説明・設定・実行方式は変更していない。
-通常tool call自体の並列実行への変更を、このメモで採用したものとは扱わない。
+利用指示は更新したが、通常tool call自体の順次実行は変更していない。
+この観測や指示更新だけから、実モデルの選択が改善したとは結論しない。
 
-## 将来の改善候補：ツールの使い方辞書と遅延読込み
+## 詳細利用指示の遅延読込み
 
-2026-10-13、利用者要望。ツール増加に伴うコンテキスト圧迫への対策として、
-詳細な利用指示を必要時に検索・取得する「使い方辞書」を今後の検討に残す。
-現時点の記録は検討用であり、設計の確定や実装開始の指示ではない。
-
-- 常駐する情報と詳細な説明を分ける案。ツール名・短い用途・引数schemaと、
-  省略時の意味・戻り値の判断など正しい呼出しに必要な要点は常に渡す。
-  長い使用例、複数ツールの組合せ、子の並列実行・中間報告・追加指示の手順は必要時に読む。
-- 検索方式の候補。名前が分かる場合は直接取得（仮称tool_help）、目的から探す場合は
-  名前・別名・用途・使用例のキーワード／全文検索（BM25等）を検討する。
-  言い換えや多言語で検索漏れが観測された場合はベクター検索との併用を検討する。
-  ベクター検索や特定の検索実装を先に必須化しない。
-- 段階を分ける案。最初は詳細利用指示の遅延読込みを検討し、schema自体が大きくなった場合は、
-  検索したツールだけをモデルへ公開する機構を別に検討する。
-  現行のskillsの一覧→必要時に本文を読む方式と共通する部分を確認する。
-- 検討時は実際の入力削減、呼出しの正確さ、検索の追加往復を比較する。
-  取得した説明が履歴へ残ること、同じ説明の重複取得、ターンをまたぐ予算選択、
-  capture済みのtool定義と説明の版の一致も扱う。
-
-参考：[AnthropicのTool Searchと段階的なtool読込み](https://www.anthropic.com/engineering/advanced-tool-use)。
-hjhでprovider固有APIを採用することは未決定。
+詳細は各toolの共通helpで取得する。独立した辞書tool・目的検索・検索indexは追加していない。
+登録と利用は[ツール利用方針と各toolのhelp](tool-usage-guidance.md)に従う。
 
 ## 保存snapshot
 
@@ -236,9 +218,10 @@ host／子AgentのGo完了queueをownerが受け取り、Promiseを明示的にs
 ## toolとhookの動作
 
 model向けにはrole.toolsで選んだbuilt-in `run_js` と外部toolを定義する。
-`run_js` の引数は `{ "code": "..." }`。codeはasync JS functionのbodyとして評価され、
+`run_js` の通常引数は `{ "code": "..." }`。codeはasync JS functionのbodyとして評価され、
 外部toolを `tools.read_file(...)` のように呼び出せる。直接のmodel tool callと生成JS内tool callは、
-同じ外部module実装とhook処理を使う。
+同じ外部module実装とhook処理を使う。選択toolの`{help:true}`は両入口で共通処理し、
+通常実装・beforeTool・afterToolを通さず、通常のtool観測と結果保存を残す。
 
 利用者指定によりrun_jsのpromptGuidelinesから組み立てた共通実行instructionは、codeの先頭へ目的を
 短い英文の1行`//`コメントとして書くようモデルへ指示する。親・子roleに共通して適用する。
@@ -246,7 +229,7 @@ model向けにはrole.toolsで選んだbuilt-in `run_js` と外部toolを定義�
 同じ説明を渡す。表示は既存の薄い通常色。コメントなしは説明を付けずtool名だけを表示し、
 JSの実行契約やtool引数・保存原文は変更しない。
 
-`beforeTool({name,args}, api)` が返した値をtool引数として使う。
+通常操作では`beforeTool({name,args}, api)`が返した値をtool引数として使う。
 toolが成功した場合だけ `afterTool({name,args,result}, api)` を呼び、その返却値をtool結果とする。
 hook自体もcallとしてObserverへ記録し、hook内のGo操作・別toolはhook IDを親に持つ。
 toolまたはhookの例外は呼出し元へそのまま伝える。
@@ -351,7 +334,8 @@ checkpoint、要約、追加turnへの文脈再利用は行わない。
 
 生成JSの `api.agents.run({role?,task,model?,tools?})` は選択したrun_agentを呼び、Promiseを返す。
 外部tool／hookの同名APIは実装用のraw AgentRunnerに接続する。
-モデルにはtool definitionで機能と引数を、共通instructionのtool guidelinesで使い方とawait方法を提示する。
+モデルにはtool definitionと短いtool guidelinesで機能・引数・最小契約を提示し、
+詳しい使い方や組合せ例は対象toolの`{help:true}`で取得する。
 
 ```js
 const results = await Promise.all([

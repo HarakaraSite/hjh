@@ -212,6 +212,15 @@ func (o *vmOwner) loadExtensions() error {
 }
 
 func (o *vmOwner) extensionEntry() string {
+	help := make(map[string]any, len(o.options.Snapshot.Tools))
+	for _, tool := range o.options.Snapshot.Tools {
+		result, err := o.options.Snapshot.ToolHelp(tool)
+		if err != nil {
+			help[tool.Name] = map[string]string{"error": err.Error()}
+			continue
+		}
+		help[tool.Name] = result
+	}
 	var builder strings.Builder
 	moduleAliases := map[string]string{}
 	modules := make([]string, 0, len(o.options.Snapshot.Tools))
@@ -252,6 +261,7 @@ func (o *vmOwner) extensionEntry() string {
 		builder.WriteString(jsString(definition.Name))
 	}
 	builder.WriteString("];\n")
+	fmt.Fprintf(&builder, "globalThis.__extensionHelp = %s;\n", contracts.JSON(help))
 	if hookModule != "" {
 		builder.WriteString("globalThis.__extensionHooks = __extension_hooks;\n")
 	} else {

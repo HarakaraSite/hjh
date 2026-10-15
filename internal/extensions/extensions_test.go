@@ -93,31 +93,18 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		t.Fatalf("default hooks.js does not demonstrate the Go-provided start time: %s", hooksSource)
 	}
 	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
-	if !strings.Contains(runJSGuidelines, "api.agents.run") || !strings.Contains(runJSGuidelines, "api.agents.spawn") ||
-		!strings.Contains(runJSGuidelines, "api.agents.status") || !strings.Contains(runJSGuidelines, "api.agents.steer") || !strings.Contains(runJSGuidelines, "api.agents.collect") ||
-		!strings.Contains(runJSGuidelines, "api.agents.cancel") {
-		t.Fatalf("run_js prompt guidelines omit selected child operation guidance: %s", runJSGuidelines)
-	}
-	for _, expected := range []string{"Promise", "setTimeout", "setInterval", "api.agents.collect", "Do not poll status to wait for completion", `tools.command({program:"sleep",args:["SECONDS"]})`} {
-		if !strings.Contains(runJSGuidelines+"\n"+snapshot.SystemInstruction, expected) {
-			t.Errorf("run_js prompt omits selected runtime guidance %q: %s", expected, snapshot.SystemInstruction)
+	for _, expected := range []string{"composition", "independent parallel calls", "aggregation", "string/JSON processing", "only selected tools", "Await calls and return", "Promise", "setTimeout", "setInterval"} {
+		if !strings.Contains(runJSGuidelines, expected) {
+			t.Errorf("run_js prompt omits minimal selection/runtime guidance %q: %s", expected, runJSGuidelines)
 		}
 	}
-	for _, expected := range []string{"setTimeout", "setInterval", "api.agents.collect", "Do not poll status", `tools.command({program:"sleep",args:["SECONDS"]})`} {
-		if !strings.Contains(snapshot.SystemInstruction, expected) {
-			t.Errorf("system instruction omits selected runtime guidance %q: %s", expected, snapshot.SystemInstruction)
-		}
-	}
-	for _, expected := range []string{"optional role", "model selection", "tools list", "nextCursor as after", "accepted, applied, or unapplied",
-		"current model request and tools", "collect_agent when you need", "cancel_agent when a started child should stop"} {
-		if !strings.Contains(snapshot.SystemInstruction, expected) {
-			t.Errorf("system instruction omits declared child tool guidance %q: %s", expected, snapshot.SystemInstruction)
-		}
+	if strings.Contains(runJSGuidelines, "api.agents.") || strings.Contains(runJSGuidelines, "tools.command({") {
+		t.Fatalf("run_js resident guidelines retain the detailed alias/recipe list: %s", runJSGuidelines)
 	}
 	if strings.Contains(snapshot.Tools[0].Description, "one-line // comment in English") || !strings.Contains(snapshot.SystemInstruction, "one-line // comment in English") {
 		t.Fatal("run_js does not instruct the working role to write an English purpose comment")
 	}
-	if !strings.Contains(snapshot.SystemInstruction, "Use steer_agent") || !strings.Contains(snapshot.SystemInstruction, "api.agents.steer") ||
+	if !strings.Contains(snapshot.SystemInstruction, "Use steer_agent") ||
 		!strings.Contains(snapshot.SystemInstruction, "accepted, applied, or unapplied") {
 		t.Fatalf("default instruction omits the selected child steering path: %s", snapshot.SystemInstruction)
 	}
@@ -278,13 +265,13 @@ func TestSpawnOnlyRoleCapturesRoleCatalogAndSelectedJSOperations(t *testing.T) {
 		t.Fatalf("spawn-only role omitted its role catalog: agent=%+v instruction=%s", snapshot.Agent, snapshot.SystemInstruction)
 	}
 	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
-	for _, selected := range []string{"api.agents.spawn", "api.agents.status", "api.agents.collect", "api.agents.cancel", "setTimeout", "setInterval", "await api.agents.collect"} {
-		if !strings.Contains(runJSGuidelines, selected) {
-			t.Errorf("run_js guidelines omitted selected operation %s: %s", selected, runJSGuidelines)
+	for _, expected := range []string{"only selected tools", "tools.NAME(arguments)", "Promise", "setTimeout", "setInterval"} {
+		if !strings.Contains(runJSGuidelines, expected) {
+			t.Errorf("run_js guidelines omitted minimal runtime contract %s: %s", expected, runJSGuidelines)
 		}
 	}
-	if !strings.Contains(snapshot.SystemInstruction, "await api.agents.collect") || !strings.Contains(snapshot.SystemInstruction, "Do not poll status") {
-		t.Errorf("spawn role does not direct JavaScript to collect results and use status for reports: %s", snapshot.SystemInstruction)
+	if strings.Contains(runJSGuidelines, "api.agents.") {
+		t.Fatalf("run_js resident guidelines retain the detailed child alias list: %s", runJSGuidelines)
 	}
 	if strings.Contains(runJSGuidelines, `tools.command({program:"sleep"`) {
 		t.Errorf("run_js guidelines advertise a delay tool that was not selected: %s", runJSGuidelines)

@@ -1,0 +1,9 @@
+## Tool usage policy
+
+First decide whether composition, independent parallel calls, aggregation, or string/JSON processing needs run_js. If so, prefer run_js; otherwise use the appropriate dedicated tool for a single operation. Use command only when external programs, libraries, or OS operations are needed beyond the selected dedicated tools and JavaScript, such as git commit/push, builds, or tests. Wrapping command in run_js does not change this choice. This is not a ban on necessary external programs or a requirement to wrap every operation in JavaScript.
+
+Retrieve only the range needed for the decision. Filter large results with run_js when useful, preserving exact source text, identifiers, and evidence needed for accuracy.
+
+To work while children run, start them with spawn_agent, do independent parent work, and collect_agent when their results are needed. If no independent parent work exists, synchronous execution or immediate collection is fine. Read agent_status and send steer_agent guidance when useful, not mechanically. Do not poll status for completion; use collect_agent. Ordinary tool calls in one model response run sequentially, not in parallel.
+
+Use only selected tools. Choose from their resident purposes and guidelines; when arguments, procedure, or composition are not obvious, call the chosen tool with {"help":true} to read its usage without performing the operation. Help needs no normal operation arguments and returns {name, available, text}; available:false means no detailed help is registered, not that the tool is disabled. Distinguish unresolved questions from known contracts. Reuse help visible in this execution; on a new turn or resume, consult current help when details are uncertain rather than assuming old help is current.

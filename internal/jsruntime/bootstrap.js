@@ -122,6 +122,17 @@ async function invokeTool(name, originalArgs, parent, record) {
   const id = record ? __start(parent, 'tool', name, encode(args)) : parent;
   let ended = false;
   try {
+    if (!globalThis.__selectedToolNames.includes(name)) throw new Error(`unknown extension tool: ${name}`);
+    if (args.help === true) {
+      const help = globalThis.__extensionHelp[name];
+      if (help.error) throw new Error(help.error);
+      const result = { ...help };
+      if (record) {
+        __end(id, 'completed', encode(result), '');
+        ended = true;
+      }
+      return result;
+    }
     if (globalThis.__extensionHooks?.beforeTool) {
       args = await invokeHook(id, 'beforeTool', { name, args });
     }

@@ -237,7 +237,10 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			"role": input.snapshot.Agent.Name, "context": input.orientation})}); err != nil {
 		return result, err
 	}
-	if source := input.snapshot.BaseInstructionSource; source != nil {
+	for _, source := range []*extensions.Resource{input.snapshot.BaseInstructionSource, input.snapshot.ToolUsagePolicySource} {
+		if source == nil {
+			continue
+		}
 		_, e := store.AppendOccurrence(persist, execution.ID, history.OccurrenceInput{Kind: "resource_revision", Payload: contracts.JSON(map[string]any{
 			"configurationId": input.snapshot.ConfigurationID, "logicalIdentity": source.LogicalIdentity, "sourceLocator": source.SourceLocator,
 			"contentDigest": source.ContentDigest}), Content: source.Bytes})
