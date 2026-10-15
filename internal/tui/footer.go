@@ -153,6 +153,12 @@ func (m *model) footerNotice() string {
 		}
 		notice += status
 	}
+	if m.runtimeReceiptError != "" {
+		if notice != "" {
+			notice += " · "
+		}
+		notice += m.runtimeReceiptError
+	}
 	if m.footerSelectionError != nil && m.activeRun == nil {
 		if notice != "" {
 			notice += " · "

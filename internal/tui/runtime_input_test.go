@@ -76,8 +76,9 @@ func TestAcceptedReceiptClearsCapturedDraftAfterOriginalRunEnds(t *testing.T) {
 	receipt := api.InputReceipt{CoreID: "core-1", SessionID: "session-1", RunID: "run-1", InputID: "input-1", Kind: "steering", Status: "accepted"}
 
 	// The old Run may be terminal by the time its durable receipt reaches the UI.
+	m.setRunNoticeTarget(&activeRun{coreID: input.coreID, session: input.sessionID, id: input.runID})
 	update(m, runtimeInputSubmittedMsg{jobID: 1, input: input, receipt: receipt})
-	if m.activeRun != nil || m.textarea.Value() != "" {
+	if m.activeRun != nil || m.textarea.Value() != "" || m.status != "steering accepted · accepted" {
 		t.Fatalf("accepted receipt depended on the old run remaining active: active=%v draft=%q", m.activeRun != nil, m.textarea.Value())
 	}
 }
@@ -219,6 +220,9 @@ func TestFollowUpCapturesSelectionAndAttachesToCoreStartedRun(t *testing.T) {
 	defer attached.handle.finish(api.RunState{CoreID: "core-1", RunID: attached.request.RunID, Phase: "terminal"}, context.Canceled)
 	if strings.Contains(m.footerNotice(), "steering") {
 		t.Fatalf("Core-started follow-up inherited old steering: %q", m.footerNotice())
+	}
+	if !m.showRunNotice("core-1", "session-1", terminal.NextRunID) || m.showRunNotice("core-1", "session-1", first.request.RunID) {
+		t.Fatalf("follow-up did not replace the notice target: %+v", m.runNoticeTarget)
 	}
 	if attached.request.RunID != terminal.NextRunID || attached.request.CoreID != "core-1" || len(backend.runCalls) != 0 {
 		t.Fatalf("TUI replayed queued text instead of attaching to Core's run: attached=%+v starts=%d", attached.request, len(backend.runCalls))
@@ -632,6 +636,9 @@ func TestSteeringFooterOnSessionRestore(t *testing.T) {
 			want := ""
 			if active {
 				want = "steering · accepted"
+			}
+			if m.showRunNotice("core-1", "saved", "current-run") != active {
+				t.Fatalf("restore set the wrong notice target: active=%t target=%+v", active, m.runNoticeTarget)
 			}
 			if m.footerNotice() != want || len(m.runtimeReceipts) != 2 {
 				t.Fatalf("restore mixed current status and history: notice=%q receipts=%+v", m.footerNotice(), m.runtimeReceipts)

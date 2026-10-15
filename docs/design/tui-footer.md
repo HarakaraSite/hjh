@@ -77,3 +77,21 @@ footerがrunを区別せず表示していたこと。`startRun`、`finishRun`�
 稼働Coreへ接続した実端末の目視確認は未実施。
 実装確認時点ではコミット・プッシュ・配置・Core再起動を行わず、後続指示でコミット・プッシュ・
 `dist/hjh`／`dist/hjh-tui`への配置が許可された。Core再起動は利用者が行う。
+
+### 関連通知の残留調査
+
+追加調査で、receipt取得の復旧後も失敗通知が残る経路と、旧runの追加入力失敗・キャンセル結果が
+次runの通知を上書きする経路をTUI modelのhandler実行で確認した。
+利用者の進行指示に従い、[対応計画](../plans/tui-notice-lifecycle.md)に沿って表示寿命を整理した。
+
+- receipt取得失敗はSession単位で一か所に保持し、footerで現在runのreceipt状態とは別に表示する。
+  同じSessionの有効な取得成功で解除する。他の操作通知は上書きせず、未復旧の間は次runでも表示する。
+  新規Session・切替ではclearし、取得失敗の詳細は維持する。
+- 追加入力とキャンセルの結果通知は、TUIが保持する表示対象のCore／Session／run IDへ結び付ける。
+  通常開始・attachで対象を更新し、初回runにCoreがSessionを割り当てたときも同期する。
+  終了後は次runまで対象を維持し、次run開始・attach・Session切替後に旧応答で通知を上書きしない。
+  次runも終了した後に届く旧応答を、待機中という理由で再び現在扱いしない。
+- 表示を抑える場合もreceipt反映、draft照合、queue進行、キャンセル確定・Session切替待機解除は維持する。
+  自動消去timer・再試行・保存状態は追加しない。
+
+[実装・確認結果](../results/tui-notice-lifecycle.md)にfocused test、独立端末確認、コードレビューの範囲を記録する。

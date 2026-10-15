@@ -201,6 +201,7 @@ type model struct {
 	commandMenu            *commandMenuState
 	commandMenuDismissed   string
 	activeRun              *activeRun
+	runNoticeTarget        runNoticeTarget
 	pendingSession         *sessionAction
 	chainCancel            *inputChainCancellation
 	chainCancelJobID       uint64
@@ -911,6 +912,7 @@ func (m *model) startRun(task string) {
 		workspace: m.workspace, entities: make(map[string]api.ConversationEntity),
 	}
 	m.activeRun = run
+	m.setRunNoticeTarget(run)
 	m.clearDraft()
 	m.status = "starting run · F1 cancels and waits for Core"
 	request := api.StartRunRequest{
@@ -976,6 +978,7 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 		m.sessionID = state.SessionID
 		run.session = state.SessionID
 		run.admitted = true
+		m.setRunNoticeTarget(run)
 		if firstAdmission || changedSession {
 			m.nextSelectionChanged()
 			m.loadRuntimeInputs(state.SessionID, true)
@@ -1088,10 +1091,15 @@ func (m *model) finishRun(msg runDoneMsg) tea.Cmd {
 	if msg.value.SessionID != "" {
 		changedSession := m.sessionID != msg.value.SessionID
 		m.sessionID = msg.value.SessionID
+		run.session = msg.value.SessionID
 		if changedSession && m.deferTranscriptUntilHeader && !m.headerPrinted {
 			m.requestHeaderOrientation()
 		}
 	}
+	if msg.value.CoreID != "" {
+		run.coreID = msg.value.CoreID
+	}
+	m.setRunNoticeTarget(run)
 	for id, entity := range run.entities {
 		m.sessionEntities[id] = entity
 	}

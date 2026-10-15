@@ -22,8 +22,9 @@ type runtimeInputOperation struct {
 }
 
 type inputChainCancellation struct {
-	coreID string
-	runID  string
+	coreID    string
+	sessionID string
+	runID     string
 }
 
 func (m *model) noteDraftEdit() {
@@ -167,14 +168,14 @@ func (m *model) acceptRuntimeInput(msg runtimeInputSubmittedMsg) tea.Cmd {
 	m.runtimeInputQueue = m.runtimeInputQueue[1:]
 	m.runtimeInputSending = false
 	if msg.err != nil {
-		if msg.input.sessionID == m.sessionID {
+		if m.showRunNotice(msg.input.coreID, msg.input.sessionID, msg.input.runID) {
 			m.status = msg.input.request.Kind + " unconfirmed · draft kept · " + msg.err.Error()
 		}
 		m.startNextRuntimeInput()
 		return nil
 	}
 	if !receiptMatchesInput(msg.receipt, msg.input) {
-		if msg.input.sessionID == m.sessionID {
+		if m.showRunNotice(msg.input.coreID, msg.input.sessionID, msg.input.runID) {
 			m.status = msg.input.request.Kind + " unconfirmed · receipt did not match the submitted input · draft kept"
 		}
 		m.startNextRuntimeInput()
@@ -184,7 +185,7 @@ func (m *model) acceptRuntimeInput(msg runtimeInputSubmittedMsg) tea.Cmd {
 		m.noteRuntimeInputRevision(msg.receipt.CoreID, msg.receipt.SessionID, msg.receipt.Revision)
 		m.mergeRuntimeReceipt(msg.receipt)
 	}
-	showNotice := msg.input.sessionID == m.sessionID && (m.activeRun == nil || m.runtimeReceiptIsCurrent(msg.receipt))
+	showNotice := m.showRunNotice(msg.input.coreID, msg.input.sessionID, msg.input.runID)
 	if receiptWasAccepted(msg.receipt) {
 		if m.draftRevision == msg.input.draftRevision && m.core.CoreID == msg.input.coreID &&
 			m.sessionID == msg.input.sessionID && m.textarea.Value() == msg.input.draft {
@@ -276,8 +277,7 @@ func (m *model) acceptRuntimeInputs(msg runtimeInputsLoadedMsg) tea.Cmd {
 		return nil
 	}
 	if msg.err != nil {
-		m.runtimeReceiptError = "receipt refresh failed"
-		m.status = "runtime input receipts unavailable · " + msg.err.Error()
+		m.runtimeReceiptError = "Session receipt refresh failed · " + msg.err.Error()
 		return nil
 	}
 	m.runtimeReceiptError = ""
@@ -321,9 +321,6 @@ func (m *model) clearRuntimeInputs() {
 
 // Receipt history belongs to the Session; only the active run belongs in the footer.
 func (m *model) runtimeInputStatus() string {
-	if m.runtimeReceiptError != "" {
-		return m.runtimeReceiptError
-	}
 	var latest *api.InputReceipt
 	for i := range m.runtimeReceipts {
 		receipt := &m.runtimeReceipts[i]
@@ -383,7 +380,7 @@ func formatRuntimeInputs(receipts []api.InputReceipt) string {
 func (m *model) requestInputChainCancel(run *activeRun) {
 	if run != nil {
 		run.chainCancelRequested = true
-		m.chainCancel = &inputChainCancellation{coreID: run.coreID, runID: run.id}
+		m.chainCancel = &inputChainCancellation{coreID: run.coreID, sessionID: run.session, runID: run.id}
 		m.chainCancelSettled = false
 	} else if m.chainCancel == nil || m.chainCancelSettled {
 		return
@@ -445,12 +442,17 @@ func (m *model) acceptInputChainSettlement(msg runtimeInputChainSettledMsg) tea.
 		return nil
 	}
 	m.pendingChainCancel = false
+	showNotice := m.showRunNotice(m.chainCancel.coreID, m.chainCancel.sessionID, m.chainCancel.runID)
 	if msg.err != nil {
-		m.status = "input chain cancellation not confirmed · " + msg.err.Error()
+		if showNotice {
+			m.status = "input chain cancellation not confirmed · " + msg.err.Error()
+		}
 		return nil
 	}
 	m.chainCancelSettled = true
-	m.status = "input chain settled · Core confirmed cancellation and saved statuses"
+	if showNotice {
+		m.status = "input chain settled · Core confirmed cancellation and saved statuses"
+	}
 	m.applyPendingSessionIfSettled()
 	return nil
 }

@@ -317,6 +317,7 @@ func (m *model) applySessionAction(action sessionAction) {
 	m.sessionCreatedAt = ""
 	m.sessionEntities = make(map[string]api.ConversationEntity)
 	m.clearRuntimeInputs()
+	m.runNoticeTarget = runNoticeTarget{}
 	m.runtimeReadPending = false
 	m.runtimeReadJobID = 0
 	m.receiptByPart = make(map[string]int)

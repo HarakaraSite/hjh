@@ -151,6 +151,7 @@ func (m *model) attachRun(state api.RunState) {
 		m.chainCancelSettled = false
 	}
 	m.activeRun = run
+	m.setRunNoticeTarget(run)
 	m.noteRuntimeInputRevision(coreID, run.session, state.InputRevision)
 	m.status = "attaching to run " + run.id
 	run.handle = m.backend.AttachRun(coreID, run.id, func(event apiclient.RunEvent) {
