@@ -1,6 +1,6 @@
 // Summarize new source ranges with the parent model, then select and replace.
 export const policy = {
-  inputTokens: 24000,
+  fallbackInputTokens: 800000,
   triggerRatio: 0.8,
   rawTargetRatio: 0.6,
   keepRecentTurns: 1,
@@ -76,7 +76,8 @@ export async function projectRequest({ runtime }, api) {
   const current = raw.filter(entry => entry.source.kind !== "prefix" && !isCovered(state, entry.source));
   const turns = [];
   let history = [];
-  const budget = { inputTokens: policy.inputTokens };
+  // Use the model's effective budget; supply a limit only when it is unknown.
+  const budget = view.budget.limit == null ? { inputTokens: policy.fallbackInputTokens } : {};
   const compose = () => [
     ...prefix,
     ...state.summaries.map(summary => ({ message: summaryMessage(summary) })),
@@ -99,7 +100,7 @@ export async function projectRequest({ runtime }, api) {
 
   let entries = compose();
   const size = await measure(entries);
-  const inputLimit = size.budget.limit ?? policy.inputTokens;
+  const inputLimit = size.budget.limit ?? policy.fallbackInputTokens;
   if (!size.fits || size.estimatedTokens > inputLimit * policy.triggerRatio) {
     const removed = [];
     const target = Math.floor(inputLimit * policy.rawTargetRatio);

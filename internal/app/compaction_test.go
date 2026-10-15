@@ -175,14 +175,13 @@ func TestRequestModelIncompleteSummaryDoesNotPublishMemory(t *testing.T) {
 	}
 }
 
-func installCompaction(t *testing.T, workspace string) {
+func installCompaction(t *testing.T, workspace string, budget map[string]any) {
 	t.Helper()
 	source, err := os.ReadFile(filepath.Join("..", "..", "examples", "hooks", "compaction.js"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := strings.Replace(string(source), "inputTokens: 24000", "inputTokens: 4000", 1)
-	installLifecycleHooks(t, workspace, script)
+	installLifecycleHooks(t, workspace, string(source))
 	path := filepath.Join(workspace, ".hjh", "extensions", "config.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -193,15 +192,49 @@ func installCompaction(t *testing.T, workspace string) {
 		t.Fatal(err)
 	}
 	config["defaultRole"] = "compaction-test"
+	config["contextBudget"] = map[string]any{"defaults": budget}
 	config["roles"] = map[string]any{"compaction-test": map[string]any{"instruction": "Read files as requested and answer concisely.", "tools": []string{"read_file"}}}
 	if err := os.WriteFile(path, contracts.JSON(config), 0644); err != nil {
 		t.Fatal(err)
 	}
 }
 
+func TestJSCompactionUsesEffectiveBudgetOrUnknownDefault(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		budget map[string]any
+		limit  int64
+	}{
+		{"unknown", map[string]any{}, 800000},
+		{"model-context", map[string]any{"contextTokens": 128000}, 102400},
+		{"large-input", map[string]any{"inputTokens": 1000000}, 1000000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, workspace := delegationStore(t)
+			installCompaction(t, workspace, tc.budget)
+			calls := 0
+			provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+				calls++
+				if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+					t.Error("short request was summarized")
+				}
+				return contracts.ModelResult{Text: "done"}, nil
+			})
+			result, err := Run(t.Context(), store, provider, RunOptions{Workspace: workspace, Task: "short request", ModelID: "test/model"})
+			if err != nil || !result.Result.OK || calls != 1 {
+				t.Fatalf("request: %+v %v; calls %d", result, err, calls)
+			}
+			_, fact := budgetFact(t, store, result.SessionID)
+			if fact.Budget.Limit == nil || *fact.Budget.Limit != tc.limit {
+				t.Fatalf("effective budget: %+v; want limit %d", fact.Budget, tc.limit)
+			}
+		})
+	}
+}
+
 func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T) {
 	store, workspace := delegationStore(t)
-	installCompaction(t, workspace)
+	installCompaction(t, workspace, map[string]any{"inputTokens": 4000})
 	a, b := strings.Repeat("FIRST_A ", 650), strings.Repeat("SECOND_B ", 600)
 	for name, text := range map[string]string{"a.txt": a, "b.txt": b} {
 		if err := os.WriteFile(filepath.Join(workspace, name), []byte(text), 0644); err != nil {

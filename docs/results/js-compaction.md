@@ -86,3 +86,19 @@ turn-{1,2,3}.stdout/stderr、workspace/.hjh/observations/。
 
 これはopt-inの試作拡張で、短い実経路を確認した段階。数時間・数日の継続や閾値の調整は未確認。
 自動の分割要約、永続checkpoint、/compact UI、参照を読む新tool、agent全体の非保存modeは追加していない。
+
+## 追加変更：モデルの予算に連動する発動量
+
+2026-10-15の利用者指示で、JSの固定入力24,000 tokensを廃止した。
+毎要求の`api.context.get().budget.limit`で有効予算の有無を確認し、既知ならその予算を使う。
+不明な場合だけ`fallbackInputTokens: 800000`を入力予算として渡す。
+発動80%・原文目標60%は維持し、不明時はそれぞれ640,000・480,000推定tokensとなる。
+既知の予算が800,000より大きくても既定値で制限しない。
+
+実QuickJSを使うappのfocused testで、不明時800,000、context 128,000の有効入力102,400、
+入力1,000,000の予算維持を確認した。既存のターン内要約・次ターンへの引継ぎ・原文参照確認も成功。
+実プロバイダへの追加呼出しは行っていない。
+
+この追加変更の前に利用者指示で常用workspaceのhookを有効化し、バイナリとCoreを更新済み。
+今回も`.hjh/extensions/compaction.js`へ反映し、既存runtimeStartとprojectRequestの両exportが
+常用設定から読み込めることを確認した。JSのみの変更なので再ビルド・Core再起動は不要で、次の実行から反映される。

@@ -38,5 +38,8 @@ provider/model/effort once per compaction, retains previous notes and exact
 source ranges in Session memory, then selects and replaces the request. Keep
 any existing lifecycle exports when adding it to your configured hook module.
 Edit its `policy` values to tune the trigger and retained input size.
+It follows the selected model's effective input budget. When that budget is
+unknown, `fallbackInputTokens` defaults to 800,000; the trigger is 80% and the
+retained raw input target is 60% of the effective budget.
 It requires the model/memory APIs and does not create child agents.
 See [its contract and storage behavior](../../docs/design/js-compaction.md).

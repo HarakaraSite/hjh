@@ -11,13 +11,17 @@ Policy is an editable object in JS:
 
 | Setting | Initial example | Meaning |
 | --- | ---: | --- |
-| `inputTokens` | 24000 | Input policy passed to the context API. Other configured budget terms still participate in its existing minimum formula. |
+| `fallbackInputTokens` | 800000 | Input budget used only when the model's effective input limit is unknown. Known model/configuration budgets are preserved. |
 | `triggerRatio` | 0.8 | Consider summarizing above this fraction of the resolved input limit, or if the candidate does not fit. |
 | `rawTargetRatio` | 0.6 | Select retained raw input toward this fraction before adding the new summary. |
 | `keepRecentTurns` | 1 | Prefer retaining this many completed turns; summarize them too if needed to reach the raw target. |
 | `summaryCharacters` | 1200 | Soft target in the summarization instruction, not a local truncation limit. |
 
-These are prototype policy values, not model capacity claims. Token counts use
+The hook reads the effective input limit from `api.context.get().budget` on
+each request, so changing models also changes its compaction budget. With the
+unknown-limit default, summarization is considered above 640,000 estimated
+tokens and the retained raw input target is 480,000. A known limit is not
+capped at 800,000. These are policy values, not model capacity claims. Token counts use
 hjh's existing estimate. The extension reads recent history through the first
 overflowing turn. Its in-memory floor prevents reviving earlier history on
 every call. It does not attempt to summarize all remote past turns.
