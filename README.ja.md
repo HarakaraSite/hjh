@@ -13,8 +13,8 @@ hjhはGoで実装し、QuickJS-NGをPure Goで実装した
 JavaScriptのツール・hook・`run_js`スクリプトを実行でき、
 JavaScriptの実行にNode.jsやDenoのインストールは必要ありません。
 
-このプロジェクトは現在開発途中です。バイナリは6種類を提供しており、
-テストでの動作確認はLinux/amd64で行っています。
+このプロジェクトは現在開発途中です。ビルドで得られる実行ファイルは
+`hjh`と`hjh-tui`の2つで、動作確認はLinux/amd64で行っています。
 
 ## 主な機能
 
@@ -22,7 +22,7 @@ JavaScriptの実行にNode.jsやDenoのインストールは必要ありませ�
 - OpenRouter、OpenCode Go、OpenAI API、ChatGPT OAuthへの接続。
 - ファイル・コマンド操作、Webページの読取り、ExaによるWeb検索。
 - 子agentの並列実行、途中報告、追加指示。
-- 編集可能なJavaScriptツール・hook、workspaceの指示ファイル、skills。
+- 編集可能なJavaScriptツール・hook、role、workspaceの指示ファイル、skills。
 
 ## 使い始める
 
@@ -48,10 +48,14 @@ TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモ�
 
 | コマンド | 操作 |
 | --- | --- |
-| `/sessions` | 保存済みセッションを開く |
-| `/resume latest` | 同じworkspaceの最新セッションを再開する |
-| `/new` | 新しい会話を始める |
-| `/effort` | 推論エフォートを選ぶ |
+| `/sessions` `/new` `/rename` | セッションを開く・始める・名前を変える |
+| `/resume` | IDまたは`latest`のセッションを再開、実行中ならその実行に追従する |
+| `/model` `/provider` `/effort` | 次の実行のモデル・接続先・推論エフォートを選ぶ |
+| `/login` `/auth` | 認証を設定する、認証状態を表示する |
+| `/roles` `/role` | roleとツール一覧の表示、次のroleの選択 |
+| `/history` `/executions` `/inspect` | 会話と保存済み実行を確認する |
+| `/inputs` `/tools` `/tool` | 保存済みの追加指示・tool呼び出しを確認する |
+| `/context` `/recall` | contextの構成表示、停止した実行を次回実行で再利用する |
 | `/detach` | Coreを動かしたままTUIを閉じる |
 | `/quit` | Coreを停止してTUIを閉じる |
 | `/help` | コマンドとキー操作を表示する |
@@ -89,7 +93,9 @@ TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモ�
 ```
 
 `run`が表示したセッションIDを指定してください。Coreの既定接続先は
-`http://127.0.0.1:8765`です。CLIの全コマンドは`./dist/hjh --help`で確認できます。
+`http://127.0.0.1:8765`です。`run`・`history`・`sessions`のほか、`auth`・`models`・
+`providers`・`roles`・`inspect`、Core管理の`serve`・`core`があります。
+CLIの全コマンドとオプションは`./dist/hjh --help`で確認できます。
 
 ## 設定
 
@@ -97,7 +103,8 @@ workspaceの設定と編集可能なツールは`.hjh/extensions/`に置きま�
 ツール・hook・role設定の変更は次の実行から反映されます。
 履歴はローカルの`.hjh/history.sqlite3`へ保存します。
 TUIで選んだprovider・モデル・effortは、再起動後も同じworkspaceの新規セッションへ
-引き継ぎます。
+引き継ぎます。お気に入りのモデルは`~/.local/state/hjh/model-favorites/`
+（`XDG_STATE_HOME`指定時は`$XDG_STATE_HOME/hjh/model-favorites/`）に保存します。
 
 認証情報はLinuxでは`~/.config/hjh/credentials/`、`XDG_CONFIG_HOME`の指定時は
 `$XDG_CONFIG_HOME/hjh/credentials/`へ保存します。APIキーはworkspaceの設定や

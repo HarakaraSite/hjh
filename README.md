@@ -12,8 +12,8 @@ Built in Go, hjh embeds [go-quickjs](https://github.com/go-quickjs/go-quickjs),
 a pure Go implementation of QuickJS-NG, to run JavaScript tools, hooks, and
 `run_js` scripts. No Node.js or Deno installation is needed for JavaScript execution.
 
-This project is still under development. Six binary variants are available;
-runtime testing has been performed on Linux/amd64.
+This project is still under development. The build produces two executables,
+`hjh` and `hjh-tui`; runtime testing has been performed on Linux/amd64.
 
 ## Features
 
@@ -21,7 +21,7 @@ runtime testing has been performed on Linux/amd64.
 - OpenRouter, OpenCode Go, OpenAI API, and ChatGPT OAuth connections.
 - File and command tools, web fetching, and Exa web search.
 - Child agents with parallel execution, progress reports, and follow-up instructions.
-- Editable JavaScript tools and hooks, workspace instructions, and skills.
+- Editable JavaScript tools and hooks, roles, workspace instructions, and skills.
 
 ## Get started
 
@@ -48,10 +48,14 @@ Type `/` to browse commands; use arrows to select, Tab to complete, and Enter to
 
 | Command | Action |
 | --- | --- |
-| `/sessions` | Open a saved session |
-| `/resume latest` | Resume the latest session in this workspace |
-| `/new` | Start a new conversation |
-| `/effort` | Choose reasoning effort |
+| `/sessions` `/new` `/rename` | Open, start, or rename a session |
+| `/resume` | Resume a session by ID or `latest`, or attach to its running execution |
+| `/model` `/provider` `/effort` | Choose the model, connection, or reasoning effort for the next run |
+| `/login` `/auth` | Set up credentials or show authentication status |
+| `/roles` `/role` | List roles with their tools or choose the next role |
+| `/history` `/executions` `/inspect` | Review the conversation and saved executions |
+| `/inputs` `/tools` `/tool` | Review saved follow-up input and tool calls |
+| `/context` `/recall` | Show the assembled context or reuse a stopped execution |
 | `/detach` | Close the TUI while the Core keeps running |
 | `/quit` | Stop the Core and close the TUI |
 | `/help` | Show commands and keyboard shortcuts |
@@ -90,7 +94,9 @@ To run through an existing Core and open the same session in the TUI:
 ```
 
 Use the session ID printed by `run`. The default Core endpoint is
-`http://127.0.0.1:8765`. Run `./dist/hjh --help` for the full CLI command list.
+`http://127.0.0.1:8765`. Beyond `run`, `history`, and `sessions`, the CLI provides
+`auth`, `models`, `providers`, `roles`, `inspect`, and Core management with
+`serve` and `core`. Run `./dist/hjh --help` for the full command and option list.
 
 ## Configuration
 
@@ -98,7 +104,9 @@ Workspace configuration and editable tools live in `.hjh/extensions/`.
 Changes to tools, hooks, and role settings take effect on the next run.
 History is stored locally in `.hjh/history.sqlite3`.
 The TUI remembers your provider, model, and effort for new sessions in the same
-workspace, including after a restart.
+workspace, including after a restart. Favorite models are kept in
+`~/.local/state/hjh/model-favorites/`, or `$XDG_STATE_HOME/hjh/model-favorites/`
+when set.
 
 Credentials are stored in `~/.config/hjh/credentials/` on Linux, or under
 `$XDG_CONFIG_HOME/hjh/credentials/` when set. API keys stay outside workspace
