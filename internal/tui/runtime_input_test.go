@@ -93,7 +93,7 @@ func TestLateAcceptedReceiptDoesNotLeakIntoNewSession(t *testing.T) {
 	m.textarea.SetValue("new session draft")
 	m.runtimeReceipts = []api.InputReceipt{current}
 	m.runtimeReceiptIndex = map[string]int{"core-1\x00current-input": 0}
-	m.runtimeLatestStatus = runtimeInputReceiptStatus(current)
+	m.activeRun = &activeRun{coreID: current.CoreID, session: current.SessionID, id: current.RunID}
 	input := runtimeInputOperation{
 		request: api.SubmitInputRequest{CoreID: "core-1", SessionID: "session-old", InputID: "old-input", Kind: "follow-up", Text: "old task"},
 		coreID:  "core-1", sessionID: "session-old", runID: "old-run", draft: "old task",
@@ -105,8 +105,8 @@ func TestLateAcceptedReceiptDoesNotLeakIntoNewSession(t *testing.T) {
 	// The Core committed for the original target, but the visible Session changed before the response arrived.
 	update(m, runtimeInputSubmittedMsg{jobID: 1, input: input, receipt: oldReceipt})
 	if len(m.runtimeReceipts) != 1 || m.runtimeReceipts[0].InputID != "current-input" ||
-		m.runtimeLatestStatus != runtimeInputReceiptStatus(current) || m.textarea.Value() != "new session draft" {
-		t.Fatalf("old Session receipt polluted current UI state: receipts=%+v status=%q draft=%q", m.runtimeReceipts, m.runtimeLatestStatus, m.textarea.Value())
+		m.runtimeInputStatus() != runtimeInputReceiptStatus(current) || m.textarea.Value() != "new session draft" {
+		t.Fatalf("old Session receipt polluted current UI state: receipts=%+v status=%q draft=%q", m.runtimeReceipts, m.runtimeInputStatus(), m.textarea.Value())
 	}
 }
 
@@ -196,6 +196,13 @@ func TestFollowUpCapturesSelectionAndAttachesToCoreStartedRun(t *testing.T) {
 	secondResult := receiveRuntimeInputResult(t, m, messages, secondInput.request.InputID)
 	update(m, secondResult)
 
+	applied := secondResult.receipt
+	applied.Status, applied.Revision = "applied", 2
+	m.mergeRuntimeReceipt(applied)
+	if !strings.Contains(m.footerNotice(), "steering · applied") {
+		t.Fatalf("current steering missing before follow-up: %q", m.footerNotice())
+	}
+
 	terminal := api.RunState{CoreID: "core-1", RunID: first.request.RunID, Seq: 2, Phase: "terminal", SessionID: "session-1",
 		NextRunID: "core-started-follow-up", Result: &api.RunResult{OK: true}}
 	first.handle.finish(terminal, nil)
@@ -210,6 +217,9 @@ func TestFollowUpCapturesSelectionAndAttachesToCoreStartedRun(t *testing.T) {
 		t.Fatalf("Core-started follow-up was not attached: active=%+v status=%q", m.activeRun, m.status)
 	}
 	defer attached.handle.finish(api.RunState{CoreID: "core-1", RunID: attached.request.RunID, Phase: "terminal"}, context.Canceled)
+	if strings.Contains(m.footerNotice(), "steering") {
+		t.Fatalf("Core-started follow-up inherited old steering: %q", m.footerNotice())
+	}
 	if attached.request.RunID != terminal.NextRunID || attached.request.CoreID != "core-1" || len(backend.runCalls) != 0 {
 		t.Fatalf("TUI replayed queued text instead of attaching to Core's run: attached=%+v starts=%d", attached.request, len(backend.runCalls))
 	}
@@ -407,9 +417,9 @@ func TestReceiptReadCatchesUpAfterRunTerminates(t *testing.T) {
 	second := receiveRuntimeInputsLoaded(t, m, messages)
 	update(m, second)
 	if len(m.runtimeReceipts) != 1 || m.runtimeReceipts[0].Status != "applied" || m.runtimeReceipts[0].Revision != 2 ||
-		m.runtimeWatermarks["core-1"] != 2 || m.runtimeLatestStatus != "steering · applied" {
+		m.runtimeWatermarks["core-1"] != 2 || m.runtimeInputStatus() != "" {
 		t.Fatalf("receipt state stopped at the delayed page after run completion: receipts=%+v watermarks=%+v status=%q",
-			m.runtimeReceipts, m.runtimeWatermarks, m.runtimeLatestStatus)
+			m.runtimeReceipts, m.runtimeWatermarks, m.runtimeInputStatus())
 	}
 }
 
@@ -516,5 +526,116 @@ func TestSessionSwitchWaitsForInputChainSettlementAfterRunTerminal(t *testing.T)
 		m.runtimeDesiredRevision != 0 {
 		t.Fatalf("Session switch did not resume after settlement with a reset receipt revision scope: session=%q workspace=%q desired=%q/%q@%d",
 			m.sessionID, m.workspace, m.runtimeDesiredCore, m.runtimeDesiredSession, m.runtimeDesiredRevision)
+	}
+}
+
+func TestSteeringFooterDoesNotCarryIntoNextTurn(t *testing.T) {
+	backend := &fakeBackend{core: api.Core{CoreID: "core-1"}, runCalls: make(chan runCall, 1), submitInputCalls: make(chan runtimeInputCall, 1)}
+	m, messages, cancel := testModel(backend, Options{Core: backend.core, SessionID: "session-1"})
+	defer func() { cancel(); m.shutdown() }()
+	m.startRun("first turn")
+	first := <-backend.runCalls
+	defer first.handle.finish(api.RunState{}, context.Canceled)
+	running := api.RunState{CoreID: "core-1", RunID: first.request.RunID, SessionID: "session-1", Seq: 1, Phase: "running",
+		InputAcceptance: api.InputAcceptance{Steering: true}}
+	deliverRunEvent(t, m, messages, first, apiclient.RunEvent{Kind: "run.snapshot", State: running,
+		Conversation: &api.ConversationSnapshot{ViewID: "first", Entities: map[string]api.ConversationEntity{}}})
+	m.textarea.SetValue("keep the deadline")
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyF3})
+	input := <-backend.submitInputCalls
+	result := receiveRuntimeInputResult(t, m, messages, input.request.InputID)
+	update(m, result)
+	if !strings.Contains(m.footerNotice(), "steering · accepted") {
+		t.Fatalf("current acceptance missing: %q", m.footerNotice())
+	}
+	applied := result.receipt
+	applied.Status, applied.Revision = "applied", 2
+	m.mergeRuntimeReceipt(applied)
+	if !strings.Contains(m.footerNotice(), "steering · applied") {
+		t.Fatalf("current application missing: %q", m.footerNotice())
+	}
+
+	terminal := running
+	terminal.Seq, terminal.Phase, terminal.Result = 2, "terminal", &api.RunResult{OK: true}
+	first.handle.finish(terminal, nil)
+	receiveRunDone(t, m, messages, first.request.RunID)
+	deliverRunEvent(t, m, messages, first, apiclient.RunEvent{Kind: "run.snapshot", State: terminal,
+		Conversation: &api.ConversationSnapshot{ViewID: "first", Revision: 2, Entities: map[string]api.ConversationEntity{}}})
+	deliverRunEvent(t, m, messages, first, apiclient.RunEvent{Kind: "run.terminal", State: terminal})
+	if m.activeRun != nil || strings.Contains(m.footerNotice(), "steering") {
+		t.Fatalf("terminal run still shown as current input: %q", m.footerNotice())
+	}
+	m.startRun("next turn")
+	second := <-backend.runCalls
+	defer second.handle.finish(api.RunState{}, context.Canceled)
+	if strings.Contains(m.footerNotice(), "steering") {
+		t.Fatalf("next turn inherited previous steering: %q", m.footerNotice())
+	}
+
+	// A delayed POST acknowledgement and receipt refresh still belong to the first run.
+	m.runtimeInputQueue = []runtimeInputOperation{result.input}
+	m.runtimeInputSending = true
+	result.receipt = applied
+	update(m, result)
+	m.loadRuntimeInputs("session-1", true)
+	page := receiveRuntimeInputsLoaded(t, m, messages)
+	page.page.Receipts = []api.InputReceipt{applied}
+	update(m, page)
+	if strings.Contains(m.footerNotice(), "steering") {
+		t.Fatalf("delayed old receipt repopulated next turn: %q", m.footerNotice())
+	}
+	if len(m.runtimeReceipts) != 1 || m.runtimeReceipts[0] != applied || input.request.Text != "keep the deadline" ||
+		!strings.Contains(formatRuntimeInputs(m.runtimeReceipts), "applied") {
+		t.Fatalf("display filtering changed the input or receipt history: %+v", m.runtimeReceipts)
+	}
+
+	running.RunID, running.Seq = second.request.RunID, 1
+	deliverRunEvent(t, m, messages, second, apiclient.RunEvent{Kind: "run.snapshot", State: running,
+		Conversation: &api.ConversationSnapshot{ViewID: "second", Entities: map[string]api.ConversationEntity{}}})
+	m.textarea.SetValue("new steering")
+	m.handleKey(tea.KeyPressMsg{Code: tea.KeyF3})
+	newInput := <-backend.submitInputCalls
+	update(m, receiveRuntimeInputResult(t, m, messages, newInput.request.InputID))
+	if !strings.Contains(m.footerNotice(), "steering · accepted") {
+		t.Fatalf("next turn cannot show its own acceptance: %q", m.footerNotice())
+	}
+}
+
+func TestSteeringFooterOnSessionRestore(t *testing.T) {
+	for _, active := range []bool{false, true} {
+		name := "idle"
+		if active {
+			name = "active"
+		}
+		t.Run(name, func(t *testing.T) {
+			current := api.InputReceipt{CoreID: "core-1", SessionID: "saved", RunID: "current-run", InputID: "current-input",
+				Kind: "steering", Status: "accepted", Revision: 1}
+			old := current
+			old.RunID, old.InputID, old.Status, old.Revision = "old-run", "old-input", "applied", 9
+			backend := &fakeBackend{core: api.Core{CoreID: "core-1"}, session: api.Session{ID: "saved"}, attachCalls: make(chan runCall, 1),
+				inputsFunc: func(context.Context, string, string, uint64, bool) (api.InputReceiptPage, error) {
+					return api.InputReceiptPage{CoreID: "core-1", SessionID: "saved", Revision: 9, Receipts: []api.InputReceipt{current, old}}, nil
+				}}
+			if active {
+				backend.activeSessionRun = &api.RunState{CoreID: "core-1", SessionID: "saved", RunID: "current-run", Phase: "running"}
+			}
+			m, messages, cancel := testModel(backend, Options{Core: backend.core, SessionID: "saved"})
+			defer func() { cancel(); m.shutdown() }()
+			m.loadSession("saved", m.sessionGeneration)
+			loaded := receiveUntil(t, m, messages, func(msg tea.Msg) bool { _, ok := msg.(sessionLoadedMsg); return ok })
+			update(m, loaded)
+			if active {
+				call := <-backend.attachCalls
+				defer call.handle.finish(api.RunState{}, context.Canceled)
+			}
+			update(m, receiveRuntimeInputsLoaded(t, m, messages))
+			want := ""
+			if active {
+				want = "steering · accepted"
+			}
+			if m.footerNotice() != want || len(m.runtimeReceipts) != 2 {
+				t.Fatalf("restore mixed current status and history: notice=%q receipts=%+v", m.footerNotice(), m.runtimeReceipts)
+			}
+		})
 	}
 }

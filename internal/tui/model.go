@@ -219,7 +219,7 @@ type model struct {
 	runtimeDesiredCore     string
 	runtimeDesiredSession  string
 	runtimeDesiredRevision uint64
-	runtimeLatestStatus    string
+	runtimeReceiptError    string
 	detachPending          bool
 	detached               bool
 	shutdownPending        bool

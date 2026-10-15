@@ -147,11 +147,11 @@ func (m *model) footerNotice() string {
 		strings.HasPrefix(notice, "cancel accepted"):
 		notice = ""
 	}
-	if m.runtimeLatestStatus != "" && !strings.Contains(notice, m.runtimeLatestStatus) {
+	if status := m.runtimeInputStatus(); status != "" && !strings.Contains(notice, status) {
 		if notice != "" {
 			notice += " · "
 		}
-		notice += m.runtimeLatestStatus
+		notice += status
 	}
 	if m.footerSelectionError != nil && m.activeRun == nil {
 		if notice != "" {

@@ -184,15 +184,16 @@ func (m *model) acceptRuntimeInput(msg runtimeInputSubmittedMsg) tea.Cmd {
 		m.noteRuntimeInputRevision(msg.receipt.CoreID, msg.receipt.SessionID, msg.receipt.Revision)
 		m.mergeRuntimeReceipt(msg.receipt)
 	}
+	showNotice := msg.input.sessionID == m.sessionID && (m.activeRun == nil || m.runtimeReceiptIsCurrent(msg.receipt))
 	if receiptWasAccepted(msg.receipt) {
 		if m.draftRevision == msg.input.draftRevision && m.core.CoreID == msg.input.coreID &&
 			m.sessionID == msg.input.sessionID && m.textarea.Value() == msg.input.draft {
 			m.clearDraft()
 		}
-		if msg.input.sessionID == m.sessionID {
+		if showNotice {
 			m.status = msg.input.request.Kind + " accepted · " + msg.receipt.Status
 		}
-	} else if msg.input.sessionID == m.sessionID {
+	} else if showNotice {
 		m.status = msg.input.request.Kind + " not accepted · draft kept · " + msg.receipt.Status
 	}
 	if msg.input.sessionID == m.sessionID {
@@ -275,10 +276,11 @@ func (m *model) acceptRuntimeInputs(msg runtimeInputsLoadedMsg) tea.Cmd {
 		return nil
 	}
 	if msg.err != nil {
-		m.runtimeLatestStatus = "receipt refresh failed"
+		m.runtimeReceiptError = "receipt refresh failed"
 		m.status = "runtime input receipts unavailable · " + msg.err.Error()
 		return nil
 	}
+	m.runtimeReceiptError = ""
 	for _, receipt := range msg.page.Receipts {
 		m.mergeRuntimeReceipt(receipt)
 	}
@@ -301,12 +303,10 @@ func (m *model) mergeRuntimeReceipt(receipt api.InputReceipt) {
 			return
 		}
 		m.runtimeReceipts[index] = receipt
-		m.runtimeLatestStatus = runtimeInputReceiptStatus(receipt)
 		return
 	}
 	m.runtimeReceiptIndex[key] = len(m.runtimeReceipts)
 	m.runtimeReceipts = append(m.runtimeReceipts, receipt)
-	m.runtimeLatestStatus = runtimeInputReceiptStatus(receipt)
 }
 
 func (m *model) clearRuntimeInputs() {
@@ -316,7 +316,30 @@ func (m *model) clearRuntimeInputs() {
 	m.runtimeDesiredCore = ""
 	m.runtimeDesiredSession = ""
 	m.runtimeDesiredRevision = 0
-	m.runtimeLatestStatus = ""
+	m.runtimeReceiptError = ""
+}
+
+// Receipt history belongs to the Session; only the active run belongs in the footer.
+func (m *model) runtimeInputStatus() string {
+	if m.runtimeReceiptError != "" {
+		return m.runtimeReceiptError
+	}
+	var latest *api.InputReceipt
+	for i := range m.runtimeReceipts {
+		receipt := &m.runtimeReceipts[i]
+		if m.runtimeReceiptIsCurrent(*receipt) && (latest == nil || receipt.Revision >= latest.Revision) {
+			latest = receipt
+		}
+	}
+	if latest == nil {
+		return ""
+	}
+	return runtimeInputReceiptStatus(*latest)
+}
+
+func (m *model) runtimeReceiptIsCurrent(receipt api.InputReceipt) bool {
+	run := m.activeRun
+	return run != nil && receipt.CoreID == run.coreID && receipt.SessionID == run.session && receipt.RunID == run.id
 }
 
 func runtimeInputReceiptStatus(receipt api.InputReceipt) string {

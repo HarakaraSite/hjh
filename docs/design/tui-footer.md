@@ -54,8 +54,26 @@ TUIの時計更新は表示だけを更新し、モデル呼出し・会話保�
 
 ## 改善メモ：前ターンのsteering状態が残る
 
-2026-10-15、利用者報告。TUIの`steering · applied`表示が、次のターンに進んでも残っている。
-過去の追加指示の適用状態が現在の状態表示へ残り続けないようにしたい。
-対応時は表示元とrun/turnの切替経路を確認し、前ターンの状態を引き継がない表示へ整理する。
-適用済み指示の本文や保存receiptは維持し、表示だけの改善として扱う。
-現時点は報告のメモのみで、原因の特定・実装修正は行っていない。
+2026-10-15、利用者報告に対応。TUIの`steering · applied`表示が次のターンに残る不具合を修正した。
+
+原因は、Session全体のreceipt取得・更新で最後にmergeした状態を`runtimeLatestStatus`へ保持し、
+footerがrunを区別せず表示していたこと。`startRun`、`finishRun`、follow-upの`attachRun`では
+この値が残り、Session復元の`sessionLoadedMsg`からの全receipt取得でも過去の状態が設定されていた。
+
+- footerのreceipt状態は、現在の`activeRun`とCore ID・Session ID・run IDが一致するreceiptのうち、
+  最新revisionから導出する。現在runの受付・適用は表示し、終了後・次run・待機Session復元では
+  過去のreceipt状態を現在状態として表示しない。実行中Sessionの復元では接続したrunの状態だけを表示する。
+- 前runのPOST応答が次runに遅れて届いても、その受付通知で次runの通知を上書きしない。
+  receiptのmergeと送信済みdraftの照合処理は維持する。
+- Session内のreceipt保持・差分取得・終了後の追いつき取得・`/inputs`一覧は維持する。
+  指示本文、保存receipt、モデルcontext、DB・Coreの仕様は変更していない。
+
+確認：`go test ./internal/tui -run 'Test(SteeringFooter|RuntimeInput|AcceptedReceipt|LateAcceptedReceipt|LostSubmitResponse|FollowUpCapturesSelection|F1AfterTerminal|ResumeLoadsHistoricalReceipts|ReceiptReadCatchesUp|SessionSwitchWaitsForInputChain|Footer)' -count=1` 成功。
+実際のTUI modelの開始・終了・follow-up接続・Session復元経路をfake Backendで駆動し、
+現在runの受付・適用表示、次ターンでの非表示、遅延receiptによる再表示防止、履歴保持を確認した。
+終了後のreceipt追いつきtestも、保存状態の反映は維持しつつ現在表示を出さない期待へ更新した。
+作業再開後にも同じfocused testを再実行して成功。担当agentが表示元・開始・終了・復元経路と
+差分をレビューし、今回の要件に対する追加の問題は見つからなかった。子agentのレビューはキャンセルにより未完了。
+稼働Coreへ接続した実端末の目視確認は未実施。
+実装確認時点ではコミット・プッシュ・配置・Core再起動を行わず、後続指示でコミット・プッシュ・
+`dist/hjh`／`dist/hjh-tui`への配置が許可された。Core再起動は利用者が行う。
