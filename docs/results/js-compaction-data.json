@@ -1,0 +1,208 @@
+{
+  "provider": "opencode-go-chat",
+  "model": "deepseek-v4.1-flash",
+  "effort": "auto",
+  "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+  "executions": 3,
+  "childExecutions": 0,
+  "summaryRequestBodiesArchived": 0,
+  "allReferencesResolve": true,
+  "restartedBeforeTurn": 3,
+  "schema": 4,
+  "integrity": "ok",
+  "runs": [
+    {
+      "turn": 1,
+      "exitCode": 0,
+      "seconds": 9.502
+    },
+    {
+      "turn": 2,
+      "exitCode": 0,
+      "seconds": 8.12
+    },
+    {
+      "turn": 3,
+      "exitCode": 0,
+      "seconds": 8.585
+    }
+  ],
+  "requests": [
+    {
+      "turn": 1,
+      "step": 1,
+      "estimatedTokens": 689,
+      "messageCount": 1,
+      "summaryCount": 0,
+      "summaryCallsThisExecution": 0,
+      "references": []
+    },
+    {
+      "turn": 1,
+      "step": 2,
+      "estimatedTokens": 2777,
+      "messageCount": 3,
+      "summaryCount": 0,
+      "summaryCallsThisExecution": 0,
+      "references": []
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "estimatedTokens": 3239,
+      "messageCount": 4,
+      "summaryCount": 1,
+      "summaryCallsThisExecution": 1,
+      "references": [
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 1,
+          "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+          "messageRanges": [
+            [
+              1,
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "step": 1,
+      "estimatedTokens": 1174,
+      "messageCount": 3,
+      "summaryCount": 2,
+      "summaryCallsThisExecution": 1,
+      "references": [
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 1,
+          "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+          "messageRanges": [
+            [
+              1,
+              2
+            ]
+          ]
+        },
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 1,
+          "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+          "messageRanges": [
+            [
+              0,
+              0
+            ],
+            [
+              3,
+              5
+            ]
+          ],
+          "finalMessage": 5
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "step": 2,
+      "estimatedTokens": 3301,
+      "messageCount": 5,
+      "summaryCount": 2,
+      "summaryCallsThisExecution": 1,
+      "references": [
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 1,
+          "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+          "messageRanges": [
+            [
+              1,
+              2
+            ]
+          ]
+        },
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 1,
+          "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+          "messageRanges": [
+            [
+              0,
+              0
+            ],
+            [
+              3,
+              5
+            ]
+          ],
+          "finalMessage": 5
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "step": 1,
+      "estimatedTokens": 933,
+      "messageCount": 2,
+      "summaryCount": 1,
+      "summaryCallsThisExecution": 1,
+      "references": [
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 1,
+          "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+          "messageRanges": [
+            [
+              0,
+              5
+            ]
+          ],
+          "finalMessage": 5
+        },
+        {
+          "sessionId": "070c2bd7-031b-4494-8165-4a4be59c334c",
+          "turnNumber": 2,
+          "executionId": "3a975622-c744-4be5-adff-ae9a02508a00",
+          "messageRanges": [
+            [
+              0,
+              3
+            ]
+          ],
+          "finalMessage": 3
+        }
+      ]
+    }
+  ],
+  "summaryUsage": [
+    {
+      "executionId": "42a47d08-4589-47ab-be5a-0d1542eb6def",
+      "modelStep": 1,
+      "characters": 333,
+      "promptTokens": 4891,
+      "completionTokens": 1037,
+      "reasoningTokens": 862
+    },
+    {
+      "executionId": "3a975622-c744-4be5-adff-ae9a02508a00",
+      "modelStep": 1,
+      "characters": 363,
+      "promptTokens": 2106,
+      "completionTokens": 804,
+      "reasoningTokens": 600
+    },
+    {
+      "executionId": "d263154a-df14-4f55-9f0e-3c3658d6d586",
+      "modelStep": 3,
+      "characters": 310,
+      "promptTokens": 1555,
+      "completionTokens": 591,
+      "reasoningTokens": 436
+    }
+  ],
+  "summaryModelRequests": 3,
+  "parentModelRequests": 6,
+  "canonicalOriginalsPreserved": true
+}

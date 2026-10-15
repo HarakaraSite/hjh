@@ -42,6 +42,7 @@ type RunOptions struct {
 	Progress             contracts.Observer
 	ExecutionDataOwner   *executiondata.Owner
 	SnapshotOwner        *SnapshotOwner
+	ContextMemory        *ContextMemory
 	Steering             contracts.SteeringSource
 	TaskContentDigest    string
 }
@@ -157,6 +158,9 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	if options.SnapshotOwner == nil {
 		options.SnapshotOwner = NewSnapshotOwner()
 	}
+	if options.ContextMemory == nil {
+		options.ContextMemory = NewContextMemory()
+	}
 	workCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	control := &executionControl{cancel: cancel}
@@ -167,6 +171,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 		rootSessionID: session.ID, rootExecutionID: execution.ID, session: &session, previousModel: active, fromTurn: options.FromTurn,
 		connections: factory, injectedProvider: injected, executionDataOwner: options.ExecutionDataOwner,
 		snapshotOwner: options.SnapshotOwner,
+		contextMemory: options.ContextMemory,
 		steering:      options.Steering}, control, progress)
 	output.SnapshotSave = options.SnapshotOwner.status(execution.ID)
 	output.FailedChildSnapshotExecutionIDs = options.SnapshotOwner.failedExecutionIDs(execution.ID)

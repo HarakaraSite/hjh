@@ -1,0 +1,71 @@
+{
+  "provider": "opencode-go-chat",
+  "model": "deepseek-v4.1-flash",
+  "effort": "auto",
+  "sessionId": "584bced6-dc45-49a4-95b9-be556b3a436a",
+  "sample": "examples/hooks/context-metrics.js",
+  "inputFileBytes": [
+    1361,
+    4153
+  ],
+  "contextReplacements": 0,
+  "measurementFileBytes": 2690,
+  "measurements": [
+    {
+      "turn": 1,
+      "step": 1,
+      "currentMessages": 1,
+      "tools": 1,
+      "hookWireBytes": 2210,
+      "hookEstimatedTokens": 761,
+      "sentWireBytes": 2210,
+      "sentEstimatedTokens": 761,
+      "sentMessageCount": 1,
+      "historyStatus": "none",
+      "providerPromptTokens": 715,
+      "providerCompletionTokens": 47
+    },
+    {
+      "turn": 1,
+      "step": 2,
+      "currentMessages": 3,
+      "tools": 1,
+      "hookWireBytes": 4023,
+      "hookEstimatedTokens": 1381,
+      "sentWireBytes": 4023,
+      "sentEstimatedTokens": 1381,
+      "sentMessageCount": 3,
+      "historyStatus": "none",
+      "providerPromptTokens": 1074,
+      "providerCompletionTokens": 43
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "currentMessages": 5,
+      "tools": 1,
+      "hookWireBytes": 8711,
+      "hookEstimatedTokens": 2960,
+      "sentWireBytes": 8711,
+      "sentEstimatedTokens": 2960,
+      "sentMessageCount": 5,
+      "historyStatus": "none",
+      "providerPromptTokens": 2322,
+      "providerCompletionTokens": 29
+    },
+    {
+      "turn": 2,
+      "step": 1,
+      "currentMessages": 1,
+      "tools": 1,
+      "hookWireBytes": 1998,
+      "hookEstimatedTokens": 690,
+      "sentWireBytes": 9040,
+      "sentEstimatedTokens": 3086,
+      "sentMessageCount": 7,
+      "historyStatus": "full",
+      "providerPromptTokens": 2405,
+      "providerCompletionTokens": 29
+    }
+  ]
+}

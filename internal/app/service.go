@@ -15,7 +15,7 @@ import (
 
 // Service supplies the same execution and query operations to product surfaces.
 // The caller owns the store's lifetime; Service owns credentials, pending
-// browser login lifetimes, and in-process request/budget snapshots.
+// browser login lifetimes, in-process request/budget snapshots, and extension memory.
 type Service struct {
 	store         *history.Store
 	provider      contracts.Provider
@@ -31,6 +31,9 @@ type Service struct {
 func NewService(store *history.Store, provider contracts.Provider, options RunOptions) *Service {
 	if options.SnapshotOwner == nil {
 		options.SnapshotOwner = NewSnapshotOwner()
+	}
+	if options.ContextMemory == nil {
+		options.ContextMemory = NewContextMemory()
 	}
 	return &Service{store: store, provider: provider, options: options, connections: newConnectionFactory(options),
 		favorites: modelfavorites.New(options.ModelFavoritesDir), snapshotOwner: options.SnapshotOwner}
@@ -241,6 +244,7 @@ func (s *Service) DeleteSession(ctx context.Context, id string) error {
 	err := s.store.DeleteSession(ctx, id)
 	if err == nil || errors.Is(err, history.ErrNotFound) {
 		s.snapshotOwner.deleteSession(id)
+		s.options.ContextMemory.deleteSession(id)
 	}
 	return err
 }

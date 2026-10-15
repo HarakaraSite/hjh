@@ -12,6 +12,7 @@ type HookRuntime struct {
 	ParentExecutionID string         `json:"parentExecutionId,omitempty"`
 	SpawnCallID       string         `json:"spawnCallId,omitempty"`
 	TurnNumber        int64          `json:"turnNumber"`
+	FromTurn          int64          `json:"fromTurn"`
 	Model             ModelSelection `json:"model"`
 	StartedAt         string         `json:"startedAt"`
 	TimeZone          string         `json:"timeZone"`

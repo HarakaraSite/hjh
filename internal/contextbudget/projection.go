@@ -97,6 +97,7 @@ type Projector struct {
 
 	omittedCurrentIndices  map[int]struct{}
 	currentTrimmingStarted bool
+	candidateObserver      func(evaluation)
 }
 
 func New(budget Budget, history HistoryReader, prefix []Entry) *Projector {
@@ -266,6 +267,9 @@ func (p *Projector) evaluate(
 		}
 	}
 	result.request.WireBody = append([]byte(nil), wire...)
+	if p.candidateObserver != nil {
+		p.candidateObserver(result)
+	}
 	return result, nil
 }
 

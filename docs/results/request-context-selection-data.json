@@ -1,0 +1,80 @@
+{
+  "provider": "opencode-go-chat",
+  "model": "deepseek-v4.1-flash",
+  "effort": "auto",
+  "sessionId": "b2221321-acc1-49ff-931a-845efd8bab2e",
+  "measurements": [
+    {
+      "turn": 1,
+      "step": 1,
+      "currentMessages": 1,
+      "candidateMessages": 1,
+      "hookWireBytes": 2221,
+      "hookEstimatedTokens": 765,
+      "selectedWireBytes": 2221,
+      "sentWireBytes": 2221,
+      "sentEstimatedTokens": 765,
+      "providerPromptTokens": 718,
+      "providerCompletionTokens": 46
+    },
+    {
+      "turn": 1,
+      "step": 2,
+      "currentMessages": 3,
+      "candidateMessages": 3,
+      "hookWireBytes": 4028,
+      "hookEstimatedTokens": 1383,
+      "selectedWireBytes": 4028,
+      "sentWireBytes": 4028,
+      "sentEstimatedTokens": 1383,
+      "providerPromptTokens": 1076,
+      "providerCompletionTokens": 49
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "currentMessages": 5,
+      "candidateMessages": 5,
+      "hookWireBytes": 8731,
+      "hookEstimatedTokens": 2967,
+      "selectedWireBytes": 8731,
+      "sentWireBytes": 8731,
+      "sentEstimatedTokens": 2967,
+      "providerPromptTokens": 2330,
+      "providerCompletionTokens": 29
+    },
+    {
+      "turn": 2,
+      "step": 1,
+      "currentMessages": 1,
+      "candidateMessages": 7,
+      "hookWireBytes": 9058,
+      "hookEstimatedTokens": 3092,
+      "selectedWireBytes": 9058,
+      "sentWireBytes": 9058,
+      "sentEstimatedTokens": 3092,
+      "providerPromptTokens": 2412,
+      "providerCompletionTokens": 29
+    }
+  ],
+  "contextReplacements": 0,
+  "allWireMeasurementsMatch": true,
+  "measurementFileBytes": 3666,
+  "localCLISelection": {
+    "selectedBudgetTokens": 12000,
+    "historyIncludedInMeasure": true,
+    "compiledCLI": true,
+    "connectedCLI": true,
+    "sameSessionResumedInNewProcess": true,
+    "localHTTPRequests": 4,
+    "retrySameWire": true,
+    "initialAndAfterToolHooks": true,
+    "canonicalOriginalPreserved": true,
+    "hookAPIBodyCopies": 0,
+    "externalProviderCalls": 0,
+    "schema": 4,
+    "journal": "wal",
+    "integrity": "ok",
+    "sessionId": "fa1b83b1-e4c9-4541-a39a-c4c852a2c9b3"
+  }
+}

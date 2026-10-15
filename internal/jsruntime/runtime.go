@@ -57,12 +57,13 @@ type vmOwner struct {
 	completions  []jobCompletion
 	jobs         sync.WaitGroup
 
-	callCtx      context.Context
-	agentCtx     context.Context
-	agentCancel  context.CancelFunc
-	agentClosed  bool
-	agentPending map[string]*quickjs.Promise
-	agentJobs    map[string]*agentJob
+	callCtx        context.Context
+	requestContext contracts.RequestContext
+	agentCtx       context.Context
+	agentCancel    context.CancelFunc
+	agentClosed    bool
+	agentPending   map[string]*quickjs.Promise
+	agentJobs      map[string]*agentJob
 }
 
 func newVMOwner(ctx context.Context, options Options, defs []contracts.ToolDefinition) *vmOwner {
@@ -154,6 +155,11 @@ func (o *vmOwner) installBindings() error {
 	}
 	if err := o.rt.Set("__agent", func(parent, input string) quickjs.Value {
 		return o.startAgentValue(parent, input)
+	}); err != nil {
+		return err
+	}
+	if err := o.rt.Set("__context", func(operation, parent, input string) quickjs.Value {
+		return o.startContextValue(operation, parent, input)
 	}); err != nil {
 		return err
 	}
@@ -251,7 +257,7 @@ func (o *vmOwner) extensionEntry() string {
 	} else {
 		builder.WriteString("globalThis.__extensionHooks = {};\n")
 	}
-	builder.WriteString("globalThis.__getExtensionHookHandlers = () => JSON.stringify(['runtimeStart', 'beforeTurn', 'beforeTool', 'afterTool', 'afterTurn', 'runtimeStop'].filter(name => typeof globalThis.__extensionHooks?.[name] === 'function'));\n")
+	builder.WriteString("globalThis.__getExtensionHookHandlers = () => JSON.stringify(['runtimeStart', 'beforeTurn', 'projectRequest', 'beforeTool', 'afterTool', 'afterTurn', 'runtimeStop'].filter(name => typeof globalThis.__extensionHooks?.[name] === 'function'));\n")
 	return builder.String()
 }
 

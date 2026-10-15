@@ -760,7 +760,7 @@ func legacyHooksFromConfig(value json.RawMessage) ([]LegacyHook, string, error) 
 }
 
 func defaultHookHandlers() []string {
-	return []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
+	return []string{"runtimeStart", "beforeTurn", "projectRequest", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
 }
 
 func cleanRelativePath(value string) string {

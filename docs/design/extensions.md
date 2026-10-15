@@ -33,7 +33,7 @@
      "inputSchema":{"type":"object","properties":{"task":{"type":"string"},"role":{"type":"string"}},"required":["task"]},
      "module":"run-agent.js","export":"runAgent"}
   ],
-  "hooks": {"module":"hooks.js","handlers":["runtimeStart","beforeTurn","beforeTool","afterTool","afterTurn","runtimeStop"]},
+  "hooks": {"module":"hooks.js","handlers":["runtimeStart","beforeTurn","projectRequest","beforeTool","afterTool","afterTurn","runtimeStop"]},
   "rejections": []
 }
 ```
@@ -290,12 +290,15 @@ Observerのsinkが保存形式を所有し、runtimeとhostはDBへ直接依存�
 | --- | --- | --- |
 | `runtimeStart` | Worker作成後、最初のmodel入力前に一回 | 返した文脈をexecutionの指示へ追加 |
 | `beforeTurn` | taskのturn処理を始める前に一回 | 返した文脈を今回のturnの指示へ追加 |
+| `projectRequest` | 各model要求の予算選択前 | `api.context`で原文を読み、今回の送信内容を差し替える。返却値は使用しない |
 | `beforeTool` | modelまたは生成JSからのtool実行前 | 既存契約どおり、返却値でtool引数を置換 |
 | `afterTool` | toolが成功した後だけ | 既存契約どおり、返却値でtool結果を置換 |
 | `afterTurn` | terminal保存とrootの採用判断後 | 保存済みoutcome・settlementを使う後処理 |
 | `runtimeStop` | `afterTurn`後、Workerを閉じる前 | settlementがあれば参照し、停止理由を使う後処理 |
 
 lifecycle hookの`input`は通常JSON値で、`api`にはhook内host操作・登録tool呼出しと同じ実行APIを渡す。
+`projectRequest`の入力は`{runtime, modelStep}`である。要求scopeの
+`api.context.get/history/measure/select/replace`、保存と次stepの扱いは[コンテキストAPI](request-context.md)を参照する。
 `runtime`にはworkspace root、agent名、root/child role、Session/execution/parent/spawnの識別子、
 turn番号、解決済みmodel selection、Worker開始時刻`startedAt`と`timeZone`を含む。
 開始時刻はGo側で作ったRFC3339Nano値であり、timezoneは設定された`TZ`名、またはGoのzone名を使う。

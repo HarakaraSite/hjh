@@ -82,6 +82,7 @@ type executionInput struct {
 	injectedProvider                     bool
 	executionDataOwner                   *executiondata.Owner
 	snapshotOwner                        *SnapshotOwner
+	contextMemory                        *ContextMemory
 	steering                             contracts.SteeringSource
 	childInstructions                    *childInstructionOwner
 	childObserve                         contracts.Observer
@@ -148,6 +149,12 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 	var worker *jsruntime.Worker
 	var lifecycle *executionLifecycle
 	var runner *delegation
+	var memory *contextMemoryScope
+	if execution.ParentExecutionID == "" {
+		memory = input.contextMemory.begin(input.rootSessionID)
+	} else {
+		memory = (*ContextMemory)(nil).begin("")
+	}
 	stopWatcher, watched := make(chan struct{}), make(chan struct{})
 	go func() {
 		defer close(watched)
@@ -197,6 +204,9 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		if outcome == history.OutcomeCompleted && settleErr == nil && execution.ParentExecutionID == "" {
 			adoptionErr = control.storage(store.AdoptCanonical(persist, execution.ID, ""))
 			err = errors.Join(err, adoptionErr)
+			if adoptionErr == nil {
+				memory.publish()
+			}
 		}
 		if err != nil {
 			result.OK = false
@@ -309,7 +319,8 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		prefix = append(prefix, contextbudget.Entry{Message: message, Source: contextbudget.Source{
 			Kind: "prefix", ExecutionID: execution.ID, Turn: execution.Turn, MessageOrdinal: int64(i)}})
 	}
-	projector := contextbudget.New(budget, budgetHistoryReader(store, input), prefix)
+	historyReader := budgetHistoryReader(store, input)
+	projector := contextbudget.New(budget, historyReader, prefix)
 	notices := map[string]bool{}
 	var additionalInput agent.AdditionalInput
 	if additional != nil {
@@ -326,7 +337,21 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 					Kind: "current", ExecutionID: execution.ID, Turn: execution.Turn, MessageOrdinal: int64(i + len(prefix))}})
 			}
 			request.Messages = nil
-			projection, projectErr := projector.Project(projectCtx, request, current, provider.Prepare)
+			var projection contextbudget.Projection
+			var projectErr error
+			changed := false
+			if lifecycle.handlers["projectRequest"] {
+				candidate := newRequestContext(request, prefix, current, budget, historyReader, provider.Prepare, projector, execution.ID, execution.Turn)
+				candidate.memory = memory
+				candidate.generate = requestModelGenerator(provider, input.model)
+				if err := lifecycle.projectRequest(projectCtx, step, candidate); err != nil {
+					return request, err
+				}
+				projection, changed, projectErr = candidate.projection(projectCtx)
+			}
+			if !changed {
+				projection, projectErr = projector.Project(projectCtx, request, current, provider.Prepare)
+			}
 			var exceeded *contextbudget.ExceededError
 			if projectErr != nil && !errors.As(projectErr, &exceeded) {
 				return request, projectErr

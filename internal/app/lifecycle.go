@@ -46,7 +46,7 @@ func newExecutionLifecycle(input executionInput, worker *jsruntime.Worker, journ
 			WorkspaceRoot: input.workspace, AgentName: input.snapshot.Agent.Name, Role: role,
 			SessionID: input.rootSessionID, ExecutionID: input.execution.ID,
 			ParentExecutionID: input.execution.ParentExecutionID, SpawnCallID: input.execution.SpawnCallID,
-			TurnNumber: input.execution.Turn, Model: input.model, StartedAt: now.Format(time.RFC3339Nano), TimeZone: zone}}
+			TurnNumber: input.execution.Turn, FromTurn: input.fromTurn, Model: input.model, StartedAt: now.Format(time.RFC3339Nano), TimeZone: zone}}
 	for _, name := range worker.HookHandlers() {
 		l.handlers[name] = true
 	}
@@ -108,6 +108,16 @@ func (l *executionLifecycle) addContext(ctx context.Context, name string, task *
 func (l *executionLifecycle) notice(name, phase, message string) error {
 	return l.journal.observe(contracts.Observation{Kind: "context", Name: "hook/" + name, Phase: phase,
 		Preview: "Hook " + name + ": " + message, Error: message})
+}
+
+func (l *executionLifecycle) projectRequest(ctx context.Context, step int, owner contracts.RequestContext) error {
+	if !l.handlers["projectRequest"] {
+		return nil
+	}
+	if err := l.worker.ProjectRequest(ctx, contracts.ProjectRequestHookInput{Runtime: l.runtime, ModelStep: step}, owner); err != nil {
+		return errors.Join(fmt.Errorf("projectRequest hook: %w", err), l.notice("projectRequest", "failed", err.Error()))
+	}
+	return nil
 }
 
 // finish preserves the settled model result. JavaScript cleanup failures are

@@ -40,6 +40,7 @@ func (o *vmOwner) runCall(request callRequest, root string, lifecycleHook bool) 
 	agentCtx, agentCancel := context.WithCancel(callCtx)
 	stopRequest := context.AfterFunc(request.ctx, cancel)
 	o.callCtx = callCtx
+	o.requestContext = request.requestContext
 	o.agentCtx = agentCtx
 	o.agentCancel = agentCancel
 	o.agentClosed = false
@@ -124,6 +125,7 @@ func (o *vmOwner) failCall(root string, err error, stop bool, cancel, agentCance
 
 func (o *vmOwner) clearCallScope() {
 	o.callCtx = nil
+	o.requestContext = nil
 	o.agentCtx = nil
 	o.agentCancel = nil
 	o.agentClosed = false

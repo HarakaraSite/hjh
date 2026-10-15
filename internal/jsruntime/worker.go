@@ -34,11 +34,12 @@ type Worker struct {
 }
 
 type callRequest struct {
-	ctx    context.Context
-	name   string
-	args   json.RawMessage
-	hook   bool
-	result chan callResult
+	ctx            context.Context
+	name           string
+	args           json.RawMessage
+	hook           bool
+	requestContext contracts.RequestContext
+	result         chan callResult
 }
 
 type callResult struct {
@@ -177,6 +178,17 @@ func (w *Worker) Call(ctx context.Context, name string, args json.RawMessage) (j
 // Hook invokes one lifecycle hook on the Worker owner goroutine. Tool hooks
 // remain part of Call and are not callable through this method.
 func (w *Worker) Hook(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
+	return w.invokeHook(ctx, name, input, nil)
+}
+
+// ProjectRequest invokes the external request hook without archiving its
+// returned value. Context changes are staged through the supplied owner.
+func (w *Worker) ProjectRequest(ctx context.Context, input contracts.ProjectRequestHookInput, owner contracts.RequestContext) error {
+	_, err := w.invokeHook(ctx, "projectRequest", contracts.JSON(input), owner)
+	return err
+}
+
+func (w *Worker) invokeHook(ctx context.Context, name string, input json.RawMessage, owner contracts.RequestContext) (json.RawMessage, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -204,11 +216,12 @@ func (w *Worker) Hook(ctx context.Context, name string, input json.RawMessage) (
 		return json.RawMessage("null"), nil
 	}
 	request := callRequest{
-		ctx:    ctx,
-		name:   name,
-		args:   append(json.RawMessage(nil), input...),
-		hook:   true,
-		result: make(chan callResult, 1),
+		ctx:            ctx,
+		name:           name,
+		args:           append(json.RawMessage(nil), input...),
+		hook:           true,
+		requestContext: owner,
+		result:         make(chan callResult, 1),
 	}
 	select {
 	case w.requests <- request:
@@ -294,7 +307,7 @@ func containsHandler(handlers []string, name string) bool {
 
 func isLifecycleHook(name string) bool {
 	switch name {
-	case "runtimeStart", "beforeTurn", "afterTurn", "runtimeStop":
+	case "runtimeStart", "beforeTurn", "projectRequest", "afterTurn", "runtimeStop":
 		return true
 	default:
 		return false

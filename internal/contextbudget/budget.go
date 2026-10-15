@@ -92,6 +92,22 @@ func Resolve(config Configuration, selection contracts.ModelSelection, capacity 
 		budget.Sources.InputTokens = capacitySource(capacity.InputSource, capacity.Source)
 	}
 
+	return resolveLimit(budget)
+}
+
+// Override applies a request-local policy using the same terms and formula as
+// configuration resolution. It does not mutate the configured budget.
+func Override(base Budget, policy Values) Budget {
+	values := Values{ContextTokens: base.ContextTokens, InputTokens: base.InputTokens,
+		OutputReserve: base.OutputReserve, InputRatio: base.InputRatio, HistoryTokens: base.HistoryTokens}
+	sources := base.Sources
+	mergeValues(&values, &sources, policy, "hook")
+	return resolveLimit(cloneBudget(Budget{ContextTokens: values.ContextTokens, InputTokens: values.InputTokens,
+		OutputReserve: values.OutputReserve, InputRatio: values.InputRatio, HistoryTokens: values.HistoryTokens, Sources: sources}))
+}
+
+func resolveLimit(budget Budget) Budget {
+	budget.Limit = nil
 	var limits []int64
 	if budget.ContextTokens != nil {
 		limits = append(limits, int64(math.Floor(float64(*budget.ContextTokens)*(*budget.InputRatio))))

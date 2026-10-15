@@ -23,7 +23,23 @@ function implementationApiFor(parent) {
       throw error instanceof Error ? error : new Error(String(error));
     }
   };
+  const contextCall = async (operation, input) => {
+    const encoded = await __context(operation, parent, JSON.stringify(input ?? {}));
+    return JSON.parse(encoded);
+  };
   return {
+    model: { generate: input => contextCall('model.generate', input) },
+    context: {
+      get: () => contextCall('get'),
+      history: input => contextCall('history', input),
+      measure: input => contextCall('measure', input),
+      select: input => contextCall('select', input),
+      replace: input => contextCall('replace', input),
+      memory: {
+        get: input => contextCall('memory.get', input),
+        set: input => contextCall('memory.set', input),
+      },
+    },
     http: input => hostCall('http', input),
     requestProvider: input => hostCall('requestProvider', input),
     webFetch: input => hostCall('webFetch', input),
@@ -87,6 +103,12 @@ async function invokeLifecycleHook(name, input, id) {
   if (typeof hook !== 'function') return 'null';
   try {
     const value = await hook(JSON.parse(input), implementationApiFor(id));
+    // A request hook changes its candidate through api.context. Its return
+    // value may contain a transcript; do not duplicate that in hook history.
+    if (name === 'projectRequest') {
+      __end(id, 'completed', 'null', '');
+      return 'null';
+    }
     __end(id, 'completed', encode(value), '');
     return encode(value);
   } catch (error) {

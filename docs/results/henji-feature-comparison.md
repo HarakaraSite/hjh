@@ -79,9 +79,9 @@ I-22で外部toolから非モデルサービスを呼ぶ認証付きHTTP共通�
 | 18 | 子のtool指定 | spawn時にtool一覧を指定 | **完了（I-19）**。呼出しごとのtools指定を実装・確認済み。省略はroleの一覧、空配列はtoolなし |
 | 19 | 子の中間報告・最終回答と差分取得 | statusの拡張候補として検討されていた | **完了（I-19）**。保存済みassistant本文を`agent_status`のreportsで返し、after/nextCursorで差分を取得する。取得結果は親のtool結果・履歴・次requestへ残る |
 | 20 | 親から実行中の子へ追加指示 | 子への制御操作 | **完了（I-19）**。`steer_agent`と対応JS API、受付・適用・未適用理由の保存、子の続行を実装・確認済み。人間による子直接操作は対象外 |
-| 21 | ライフサイクルhook | runtime開始と終了、turn前後、tool前後の六種類 | **完了（I-20）**。親子共通の六hook、保存・採用後のafterTurn、終了記録とnoticeを実装・確認済み。afterToolは現行の成功時だけの契約を維持し、旧側のエラー結果加工は追加していない |
+| 21 | ライフサイクルhook | runtime開始と終了、turn前後、tool前後の六種類 | **完了（I-20）**。親子共通の六hook、保存・採用後のafterTurn、終了記録とnoticeを実装・確認済み。加えて毎model要求前のprojectRequestと[コンテキストAPI](../design/request-context.md)を追加。afterToolは現行の成功時だけの契約を維持し、旧側のエラー結果加工は追加していない |
 | 22 | hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **完了（I-20）**。runtimeStart/beforeTurnの追加文脈、予算管理、hook結果と実requestのattributionを実装・確認済み。次turnへ累積しない |
-| 23 | 要約checkpointの保存と再利用 | `after_turn`から要約と対象turn境界を返し、後続会話へ渡せる | **未実装**。現在は予算内に収まる履歴を選んで送る方式 |
+| 23 | 要約checkpointの保存と再利用 | `after_turn`から要約と対象turn境界を返し、後続会話へ渡せる | **メモリ方式で実装**。[opt-inのJS拡張](../design/js-compaction.md)が親modelで要約し、原文参照とcoverageをSessionメモリへ保持して後続入力へ使う。DB永続checkpointは追加せず、Core再起動後は原文から必要時に再要約する |
 | 24 | tool自身が持つ利用指示 | `promptGuidelines`を有効toolから集めて共通指示へ追加 | **完了（I-21）**。任意外部toolの宣言から親・子の有効tool分だけ収集し、run_js・子操作も同じ経路を使う。snapshot・実requestへ保存。[確認結果](i21-tool-guidelines.md) |
 | 25 | 基本指示全体の差替え | ユーザーの`instruction.md`で組込み基本指示を置換 | **実装済み**。`~/.config/hjh/instructions/base.md`（XDG対応）で組込み基本指示を置換。親・子・再開に適用し、role/tool/AGENTS/skillsは別に追加。原文・出典を保存し、headerと/contextに出典を表示。[確認結果](base-instructions.md) |
 | 26 | 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **完了（I-20）**。標準runtimeStart例がGo由来の開始日時・UTC offset・timezone表示名を文脈へ渡す。編集済みhookを自動上書きしない |
@@ -113,7 +113,9 @@ run_js内部にも選択されたtoolだけを公開する。親向けrole catal
 保存した原文を維持し、送信する履歴を予算に応じて選ぶ。
 最新部分やtool交換のまとまりを保ち、選択した内容と理由を記録する。
 
-不足しているのは、過去の会話を要約してcheckpointとして保存し、その要約を後続会話へ入れる方式である。
+hjhには[opt-inのJS要約拡張](../design/js-compaction.md)を追加した。
+親と同じmodelで新しい範囲だけを要約し、参照を付け、Sessionメモリから後続入力へ使う。
+DBの永続checkpoint保存と標準での自動有効化は行わない。
 ただし旧Henjiも、標準の自動要約処理が完成しているわけではない。
 `after_turn`とcheckpointの保存、後続contextへの反映までがあり、
 実際に要約モデルを呼ぶ外部定義や圧縮閾値は未実装である。
@@ -121,7 +123,7 @@ run_js内部にも選択されたtoolだけを公開する。親向けrole catal
 参照先：
 
 - 旧Henji：[六種類のhook契約](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/hook_api.ts)、[turn終了後のcheckpoint処理](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/worker/worker_runtime.ts)、[Increment 189の完成範囲](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/docs/increments/increment-189.md)。
-- hjh：[Web読取りとCoreコンテキスト管理](../design/i14-web-context-contract.md)、[六hookの契約](../design/extensions.md#i-20execution-lifecycle-hooks)、[I-20の完了結果](i20-lifecycle-hooks.md)。
+- hjh：[Web読取りとCoreコンテキスト管理](../design/i14-web-context-contract.md)、[hookの契約](../design/extensions.md#i-20execution-lifecycle-hooks)、[JSコンパクション](../design/js-compaction.md)、[I-20の完了結果](i20-lifecycle-hooks.md)。
 
 インストラクションの比較元は、旧Henjiの[組立処理](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/instructions/compose.ts)と[基本指示の差替え](https://forge.harakara.site/littleisland/henji-harness/src/commit/2eb586316f80ec8297873a96122568d0088971eb/v0/agent/instructions/base_instruction.ts)、hjhの[指示組立](../../internal/extensions/extensions.go)と[workspace指示とskills](../design/workspace-instructions-skills.md)である。
 
@@ -200,7 +202,7 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 57 | Web検索 | Exa auto、既定10件・抜粋1,000文字、本文はweb_fetch、各option、直接/生成JS/子の利用、認証付きHTTPと保存 | [I-22の完了結果](i22-exa-web-search.md) |
 | 58 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
 | 59 | 子agent | 非同期開始・並列実行・状態確認・回収・取消、model/provider/effort/tools指定、報告差分、親からの追加指示 | [I-19の完了結果](i19-child-agent-control.md) |
-| 60 | 外部拡張 | role、tool、六種類のhook、開始文脈、実行開始時のメモリ上のsource固定、次実行への編集反映。実装ソース一式のDB自動保存は停止 | [外部拡張](../design/extensions.md)、[hookの完了結果](i20-lifecycle-hooks.md)、[ソース保存停止](initial-run.md#2026-10-13追補実装ソースの自動保存を停止) |
+| 60 | 外部拡張 | role、tool、七種類のhook、要求コンテキストAPI、開始文脈、実行開始時のメモリ上のsource固定、次実行への編集反映。実装ソース一式のDB自動保存は停止 | [外部拡張](../design/extensions.md)、[コンテキストAPI](../design/request-context.md)、[hookの完了結果](i20-lifecycle-hooks.md)、[ソース保存停止](initial-run.md#2026-10-13追補実装ソースの自動保存を停止) |
 | 61 | 表示 | ヘッダー、三行フッター、Markdown、途中のassistant本文、配色、run_js目的コメントと内側のtoolの階層表示。子の詳細は通常の親画面から省き、保存履歴は保持 | [ヘッダー](../design/tui-header.md)、[フッター](../design/tui-footer.md)、[Markdownと色](../design/tui-rendering.md)、[run_js目的表示](run-js-purpose.md) |
 
 認証の複数account機構は実装済みであるが、今回の比較で追加accountのブラウザ認証を

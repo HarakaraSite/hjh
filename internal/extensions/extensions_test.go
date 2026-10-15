@@ -227,14 +227,14 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	if err = json.Unmarshal(legacy.Hooks, &hooks); err != nil {
 		t.Fatalf("hooks were not stored as structured definitions: %v", err)
 	}
-	wantHandlers := []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
+	wantHandlers := []string{"runtimeStart", "beforeTurn", "projectRequest", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
 	if len(hooks) != 1 || strings.Join(hooks[0].Handlers, ",") != strings.Join(wantHandlers, ",") {
 		t.Fatalf("default hook declaration handlers = %+v, want %v", hooks, wantHandlers)
 	}
 }
 
 func TestDefaultHookHandlersForPathAndObjectDeclarations(t *testing.T) {
-	want := []string{"runtimeStart", "beforeTurn", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
+	want := []string{"runtimeStart", "beforeTurn", "projectRequest", "beforeTool", "afterTool", "afterTurn", "runtimeStop"}
 	for _, raw := range []string{`"hooks.js"`, `{"module":"hooks.js"}`} {
 		hooks, module, err := legacyHooksFromConfig(json.RawMessage(raw))
 		if err != nil {
