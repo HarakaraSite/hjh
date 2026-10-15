@@ -176,7 +176,15 @@ JSON escape・索引等を含む削減可能量ではない。両fieldは用途�
 
 次の検討では、生成・保存・読戻し経路を追い、本文を一度保存して既存ID・locatorで参照する等により、
 会話再開、provider継続情報、thinking表示、履歴調査を維持して重複を減らせるか確認する。
-全詳細記録の容量をそのまま削減可能量と扱わない。現時点は改善メモのみで、実装・schema・実DBは変更しない。
+全詳細記録の容量をそのまま削減可能量と扱わない。この追記時点は改善メモのみで、実装・schema・実DBは変更しなかった。
+その後、利用者が[assistant/thinking保存整理計画](../plans/assistant-thinking-storage.md)の独立レビュー・訂正後に
+第一段S-1＋S-2の実装・test・code reviewを指示した。新規保存ではMessage由来mirrorのcontent/providerStateを
+既存Message FKから復元し、thinking本文を先行record IDで参照する。
+第一段では継続Message・model_resultの所有を維持した。その後のS-3追加承認で、model_resultのresultを
+既存content_digestで所有し、MessageのproviderStateをその先行record IDへ参照する。
+公開読取りでは完全state/resultを復元する。schema v4・table/indexは維持する。
+[通常履歴の保存契約](normal-history-storage.md#assistantthinking-mirrorの本文参照2026-10-16)、
+[実装・確認結果](../results/assistant-thinking-storage.md)を参照する。既存DBの変換・削除は行わない。
 
 ### 2026-10-15追記：usage詳細の二重保存と調査用記録への分離
 

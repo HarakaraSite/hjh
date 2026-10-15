@@ -34,6 +34,11 @@ type AssistantResultInput struct {
 	ObservedAt      string
 }
 
+type AssistantResult struct {
+	Record Record
+	Facts  []contracts.ExecutionFact
+}
+
 type ConversationMessageInput struct {
 	RootExecutionID string
 	ExecutionID     string
@@ -45,7 +50,14 @@ type ConversationMessageInput struct {
 	// committed entity positions, keyed by entityKind + "/" + localKey. It is
 	// read only during this call; absent entities first appear at Sequence.
 	// Direct Store callers can leave it nil to resolve positions from the DB.
-	FirstSequences          map[string]uint64
+	FirstSequences map[string]uint64
+	// ProviderStateRecordID is the prior result for this physical request.
+	// Empty means this independent Store entry keeps providerState inline.
+	ProviderStateRecordID string
+	// ThinkingRecords explicitly hands off immutable SaveAssistantResult locators,
+	// keyed by the complete request identity and conversation localKey. Without
+	// a source, independent Store callers save the supplied Thinking text inline.
+	ThinkingRecords         map[contracts.RequestIdentity]map[string]contracts.ExecutionLocator
 	SteeringReceipt         *contracts.InputReceipt
 	ChildInstructionReceipt *contracts.ChildInstructionReceipt
 	FinalizeRequest         *contracts.RequestIdentity
@@ -75,6 +87,10 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 	if err != nil {
 		return 0, nil, err
 	}
+	storedMessage, compactedAssistantMessage, err := compactAssistantMessage(storedMessage, input.ProviderStateRecordID)
+	if err != nil {
+		return 0, nil, err
+	}
 	var lifecycle string
 	if err := tx.QueryRowContext(ctx, "SELECT lifecycle FROM executions WHERE execution_id=?", input.ExecutionID).Scan(&lifecycle); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -94,7 +110,7 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		return 0, nil, fmt.Errorf("history allocate conversation message ordinal: %w", err)
 	}
 	digest := input.ContentDigest
-	if digest == "" || compactedToolMessage {
+	if digest == "" || compactedToolMessage || compactedAssistantMessage {
 		digest, err = putContent(ctx, tx, storedMessage)
 		if err != nil {
 			return 0, nil, err
@@ -250,6 +266,14 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		if err != nil {
 			return 0, nil, err
 		}
+		thinkingRecordID := ""
+		if fact.Conversation.EntityKind == "thinking" {
+			thinkingRecordID = input.ThinkingRecords[fact.Request][fact.Conversation.LocalKey].RecordID
+		}
+		payload, err = compactAssistantMirrorPayload(fact.Kind, payload, thinkingRecordID)
+		if err != nil {
+			return 0, nil, err
+		}
 		if factTextRef != "" {
 			payload, err = addSemanticToolFactTextRef(payload, factTextRef)
 			if err != nil {
@@ -280,7 +304,11 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 		if compactedToolMessage {
 			recordDigest = ""
 		}
-		if _, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, kind, storedMessage, observedAt, recordDigest); err != nil {
+		payload, err := compactAssistantMirrorPayload(kind, storedMessage, "")
+		if err != nil {
+			return 0, nil, err
+		}
+		if _, err := appendSemanticRecordTxWithContent(ctx, tx, input.ExecutionID, kind, payload, observedAt, recordDigest); err != nil {
 			return 0, nil, err
 		}
 	}
@@ -348,13 +376,14 @@ func firstConversationSequenceTx(ctx context.Context, tx *sql.Tx, executionID, e
 // SaveAssistantResult records a provider result, its final visible answer and
 // thinking items, and removal of the matching active state in one transaction.
 // This makes the result itself sufficient for replay if the later agent message
-// append or run terminal write does not happen.
-func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultInput) ([]contracts.ExecutionFact, error) {
+// append or run terminal write does not happen. Returned thinking Facts carry
+// immutable record locators for explicit handoff to AppendConversationMessage.
+func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultInput) (AssistantResult, error) {
 	if !validJSON(input.Payload) {
-		return nil, ErrInvalidJSON
+		return AssistantResult{}, ErrInvalidJSON
 	}
 	if input.Sequence == 0 {
-		return nil, fmt.Errorf("history save assistant result: missing sequence")
+		return AssistantResult{}, fmt.Errorf("history save assistant result: missing sequence")
 	}
 	observedAt := input.ObservedAt
 	if observedAt == "" {
@@ -374,35 +403,35 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("history begin assistant result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history begin assistant result: %w", err)
 	}
 	defer tx.Rollback()
 	var lifecycle string
 	if err := tx.QueryRowContext(ctx, "SELECT lifecycle FROM executions WHERE execution_id=?", input.ExecutionID).Scan(&lifecycle); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return AssistantResult{}, ErrNotFound
 		}
-		return nil, fmt.Errorf("history read execution for assistant result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history read execution for assistant result: %w", err)
 	}
 	if lifecycle != "active" {
-		return nil, ErrExecutionClosed
+		return AssistantResult{}, ErrExecutionClosed
 	}
 	rootOrdinal, err := executionDisplayOrdinalTx(ctx, tx, input.RootExecutionID)
 	if err != nil {
-		return nil, err
+		return AssistantResult{}, err
 	}
 	firstByLocalKey := map[string]uint64{}
 	rows, err := tx.QueryContext(ctx, `SELECT event_json FROM assistant_text_states
 		WHERE execution_id=? AND model_step=? AND request_ordinal=?`,
 		input.ExecutionID, request.ModelStep, request.RequestOrdinal)
 	if err != nil {
-		return nil, fmt.Errorf("history read assistant state for result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history read assistant state for result: %w", err)
 	}
 	for rows.Next() {
 		var event []byte
 		if err := rows.Scan(&event); err != nil {
 			_ = rows.Close()
-			return nil, fmt.Errorf("history scan assistant state for result: %w", err)
+			return AssistantResult{}, fmt.Errorf("history scan assistant state for result: %w", err)
 		}
 		if metadata := conversationMetadata(event); metadata != nil && metadata.LocalKey != "" && metadata.FirstSequence != 0 {
 			firstByLocalKey[metadata.LocalKey] = metadata.FirstSequence
@@ -410,10 +439,10 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 	}
 	if err := rows.Err(); err != nil {
 		_ = rows.Close()
-		return nil, fmt.Errorf("history read assistant state for result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history read assistant state for result: %w", err)
 	}
 	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("history close assistant state for result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history close assistant state for result: %w", err)
 	}
 	answerKey := request.AssistantKey("answer")
 	answerFirst := firstByLocalKey[answerKey]
@@ -429,14 +458,18 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 	}
 	payload, err := assistantResultPayload(input.Payload, input.Text, request)
 	if err != nil {
-		return nil, err
+		return AssistantResult{}, err
+	}
+	payload, resultContent, err := compactAssistantResult(payload)
+	if err != nil {
+		return AssistantResult{}, err
 	}
 	record, err := appendOccurrenceTx(ctx, tx, input.ExecutionID, OccurrenceInput{
-		Kind: "model_result", Payload: payload, Relations: input.Relations,
+		Kind: "model_result", Payload: payload, Content: resultContent, Relations: input.Relations,
 		ObservedAt: observedAt, Conversation: &resultMetadata,
 	})
 	if err != nil {
-		return nil, err
+		return AssistantResult{}, err
 	}
 	facts := make([]contracts.ExecutionFact, 0, 1+len(input.Thinking))
 	if input.Text != "" {
@@ -465,7 +498,7 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 			"text": item.Text, "thinkingKind": item.Kind, "request": request, "conversation": metadata, "observedAt": observedAt})
 		thinkingRecord, err := appendSemanticRecordTx(ctx, tx, input.ExecutionID, "assistant_message", payload, observedAt)
 		if err != nil {
-			return nil, err
+			return AssistantResult{}, err
 		}
 		facts = append(facts, contracts.ExecutionFact{RootExecutionID: input.RootExecutionID, ExecutionID: input.ExecutionID,
 			RootExecutionOrdinal: rootOrdinal, Kind: "assistant_message", Phase: phase, Role: "assistant", Text: item.Text,
@@ -475,12 +508,17 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM assistant_text_states
 		WHERE execution_id=? AND model_step=? AND request_ordinal=?`, input.ExecutionID, request.ModelStep, request.RequestOrdinal); err != nil {
-		return nil, fmt.Errorf("history clear assistant state for result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history clear assistant state for result: %w", err)
 	}
+	record.Payload, _, err = expandStoredAssistantResultPayload(record.Kind, record.Payload, record.Content)
+	if err != nil {
+		return AssistantResult{}, err
+	}
+	record.Content = nil
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("history commit assistant result: %w", err)
+		return AssistantResult{}, fmt.Errorf("history commit assistant result: %w", err)
 	}
-	return facts, nil
+	return AssistantResult{Record: record, Facts: facts}, nil
 }
 
 func assistantResultPayload(payload json.RawMessage, text string, request contracts.RequestIdentity) (json.RawMessage, error) {

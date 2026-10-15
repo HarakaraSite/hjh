@@ -267,19 +267,19 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 		rows, err := s.db.QueryContext(ctx, `
 			SELECT r.record_id, r.ordinal, r.kind, r.observed_at,
 				COALESCE(json_extract(r.payload_json,'$.kind'),''),
-				COALESCE(json_extract(r.payload_json,'$.content.kind'),''),
+				COALESCE(json_extract(r.payload_json,'$.content.kind'),json_extract(assistant_body.content_bytes,'$.content.kind'),''),
 				COALESCE(json_extract(r.payload_json,'$.executionId'),''),
 				COALESCE(json_extract(r.payload_json,'$.parentExecutionId'),''),
 				COALESCE(json_extract(r.payload_json,'$.phase'),''),
-				COALESCE(json_extract(r.payload_json,'$.result.finishReason'),''),
+				COALESCE(json_extract(r.payload_json,'$.result.finishReason'),json_extract(result_body.content_bytes,'$.finishReason'),''),
 				COALESCE(json_extract(r.payload_json,'$.role'),''),
-				COALESCE(json_extract(r.payload_json,'$.name'),json_extract(r.payload_json,'$.content[0].name'),''),
+				COALESCE(json_extract(r.payload_json,'$.name'),json_extract(r.payload_json,'$.content[0].name'),json_extract(assistant_body.content_bytes,'$.content[0].name'),''),
 			CASE WHEN r.kind IN ('tool_call','tool_result') THEN COALESCE(json_extract(r.payload_json,'$.callId'),json_extract(r.payload_json,'$.content[0].callId'),json_extract(r.payload_json,'$.id'),'') ELSE COALESCE(json_extract(r.payload_json,'$.callId'),'') END,
 			COALESCE(json_extract(r.payload_json,'$.parentCallId'),json_extract(r.payload_json,'$.parent'),''),
-				COALESCE(json_extract(r.payload_json,'$.outcome'),json_extract(r.payload_json,'$.content[0].outcome'),''),
+				COALESCE(json_extract(r.payload_json,'$.outcome'),json_extract(r.payload_json,'$.content[0].outcome'),json_extract(assistant_body.content_bytes,'$.content[0].outcome'),''),
 				COALESCE(json_extract(r.payload_json,'$.error'),''),
 				CASE WHEN r.kind IN ('tool_call','tool_result') THEN '' ELSE
-				COALESCE(json_extract(r.payload_json,'$.text'),json_extract(r.payload_json,'$.payload.text'),json_extract(r.payload_json,'$.result.text'),json_extract(r.payload_json,'$.content.text'),'') END,
+				COALESCE(json_extract(thinking_source.payload_json,'$.text'),json_extract(r.payload_json,'$.text'),json_extract(r.payload_json,'$.payload.text'),json_extract(r.payload_json,'$.result.text'),json_extract(result_body.content_bytes,'$.text'),json_extract(r.payload_json,'$.content.text'),json_extract(assistant_body.content_bytes,'$.content.text'),'') END,
 				COALESCE(json_extract(r.payload_json,'$.preview'),''),
 				CASE WHEN r.kind='tool_call' AND json_extract(r.payload_json,'$.preview') IS NULL THEN json_object(
 					'path',COALESCE(json_extract(r.payload_json,'$.input.path'),json_extract(r.payload_json,'$.arguments.path'),json_extract(r.payload_json,'$.content[0].arguments.path')),
@@ -304,6 +304,13 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
                 COALESCE(json_extract(r.payload_json,'$.diagnostic'),''),
 				json_extract(r.payload_json,'$.request.retryAttempt')
 			FROM semantic_records r
+			LEFT JOIN semantic_records thinking_source
+				ON thinking_source.record_id=json_extract(r.payload_json,'$.thinkingRecordId')
+				AND thinking_source.execution_id=r.execution_id AND thinking_source.ordinal<r.ordinal
+			LEFT JOIN contents result_body ON result_body.content_digest=r.content_digest
+				AND r.kind='model_result' AND json_type(r.payload_json,'$.resultRef')='text'
+			LEFT JOIN contents assistant_body ON assistant_body.content_digest=r.content_digest
+				AND r.kind='assistant_message' AND json_extract(r.payload_json,'$.role')='assistant'
 			WHERE r.execution_id=? AND r.ordinal>? AND r.ordinal<=?
 				AND (r.kind IN ('user_message','assistant_message','model_result','tool_call','tool_result','execution_admission','host_decision')
 					OR (r.kind='context_update' AND json_extract(r.payload_json,'$.conversation.entityKind')='notice'))

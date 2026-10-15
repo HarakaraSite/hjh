@@ -290,3 +290,67 @@ JSローカル変数のsnapshotはない。read_file全文を取得してreturn�
 親モデルへはその一部だけが渡るが、元のread_file結果は内側toolの証跡に残る。
 read_fileのoffset/limit等を呼出し時に使えば、内側の保存結果もその範囲となる。
 今回の変更はrun_js経由にも適用され、schema変更・既存DB変換はない。
+
+## assistant・thinking mirrorの本文参照（2026-10-16）
+
+利用者が[保存整理計画](../plans/assistant-thinking-storage.md)の第一段S-1＋S-2の実装を指示した。
+[結果](../results/assistant-thinking-storage.md)に確認状況を記録する。schema v4・table/indexは維持し、
+既存DBの変換・削除、旧形式用の互換読取りは追加しない。usage・送信内容・compaction・cache設定は変更しない。
+
+- 継続用assistant Messageのcontent/text/providerStateは従来のままmessages→contentsへ保存する。
+  model_result、先行thinking record、未完了active stateの独立した確定点も維持する。
+- Message由来のassistant/thinking semantic mirrorは、元Messageのcontent/providerStateをpayloadへ再埋込みしない。
+  既存semantic_records.content_digestが完全Message envelopeを参照し、公開Records/Recordでは
+  content/providerStateだけを復元する。mirror自身のtext・phase・request・conversation・locatorは上書きしない。
+  Record.Contentは元Message envelopeを従来どおり返す。
+- SaveAssistantResultで確定したthinkingのlocatorは、当該journalが完全なRequestIdentityとlocalKey別に保持し、
+  ConversationMessageInput.ThinkingRecordsへ明示的に渡す。Message保存成功後は当該requestのmapを解放する。
+  firstSequencesは初出位置専用であり、本文所有やsource推定には使わない。
+- 通常経路のthinking mirrorはtextに代えてthinkingRecordIdを持ち、同executionの先行thinking recordを参照する。
+  先行recordのtextだけを公開読取りで復元し、内部参照fieldは公開payloadから外す。
+  source側のphase/request/表示metadataでmirrorを上書きしない。sourceとmirrorのrecord ID/ordinalは両方維持する。
+- 元resultを持たない独立Store呼出しは、渡されたThinkingをinlineに保存する契約。
+  app通常経路と別の入口契約であり、過去DB用fallbackやstep/本文一致によるsource推定は追加しない。
+- Records/Recordは同じSQLでMessageと先行thinking本文を捕捉し、単体ordinalだけでも解決できる。
+  RecallEvidenceの独立JOINも同じ参照を展開し、providerState除去とRecord.Content非公開を維持する。
+  walkは64件/pageのSQLで必要な本文・content由来metadataだけを取り、provider全文をGoへ転送しない。
+  rowsを開いたまま追加queryを行わず、固定cutとlive接続、初出位置、retry別identityを維持する。
+- 正常・lengthのMessage、result後Message前停止、失敗/取消のincomplete、retry前supersededの証拠を保持する。
+  immutableな先行recordだけを参照し、上書きされるactive行を永続参照先にしない。
+  親子はexecution別。canonical採用、AssistantReportsの可視本文/cursor、Session削除の既存FK回収経路は変更しない。
+
+この第一段後、利用者が以下のS-3を追加承認した。terminal/runtimeOutcome/afterTurnの本文整理は引き続き別判断。
+
+## provider継続情報のresult所有とMessage参照（S-3、2026-10-16）
+
+[計画](../plans/assistant-thinking-storage.md)S-3の追加承認により、新規保存は次の内部形式とする。
+schema v4・table/index、公開Message/Observation、provider encoder・送信内容・cache設定・usage粒度は変更しない。
+
+- SaveAssistantResult専用codecが、保存用projection済みpayload.resultを取り出しcontentsへ一度保存する。
+  同transactionのmodel_result.content_digestが所有FKで、payloadにはresultRef（同digest）を置く。
+  resultは本文/calls/finishReason/providerState等の値・構造を保つ。model_retryのようにresultがない記録は
+  自立したまま保存し、空resultや未来Message参照を作らない。汎用OccurrenceInput.Contentの用途は変えない。
+- SaveAssistantResultはAssistantResult{Record, Facts}を返す。Recordは公開result復元済みでContentなし。
+  空本文・Thinkingなしでもrecord IDを返し、表示Factを捏造しない。先行thinkingの確定点も維持する。
+- journalは成功した通常model_resultのrecord IDを完全RequestIdentity別に保持し、
+  ConversationMessageInput.ProviderStateRecordIDへ明示handoffする。Message保存成功後に該当requestを解放する。
+  retry前superseded/最後のpartialや親子同stepを、step一致・本文一致・DB検索で結び直さない。
+- assistant Messageのcontent/textはinlineのまま保持し、providerStateがある場合だけ省略して
+  providerStateRecordId（先行model_result ID）を保存する。元resultを持たない独立Store入口はinline stateを保持する。
+  compactされたMessageは新bytesでdigestを求め、指定ContentDigestの元bytesを誤って再利用しない。
+- Messages/Conversationはrowsを閉じてから同executionのresultを参照して完全providerStateを復元し、
+  providerStateRecordIdを除く。ReasoningDetails/ReplayItems等のopaque構造・配列順序もそのまま返す。
+  Messageの可視本文は残るためAssistantReportsのSQL・cursorと、tool本文をGoへ転送しない性質は維持する。
+- Records/単体RecordはresultRefをpayload.resultへ復元し、新しいresult blobをRecord.Contentへ追加しない。
+  Message由来mirrorは完全Messageを復元した上でPayloadのcontent/providerStateとRecord.Contentを返す。
+  thinkingの本文・phase・request・表示metadataは従来の所有のままで、内部参照fieldを公開しない。
+- RecallEvidenceの独立JOINもresult/Messageを復元し、従来どおりproviderStateと添付Contentを公開証拠から外す。
+  Message未到達のresult-only本文やlengthのpartialがrecallできることを維持する。
+  walkはresult所有contentsから必要なtext/finishReasonだけをSQLで取得し、64件/page・固定cutを保つ。
+- result本文の所有は後続Messageに依存しない。同execution内の参照なので、Session削除時は既存cascadeと
+  semantic_records.content_digestの候補収集・残存所有確認で回収する。他Sessionが所有する同digestは保持する。
+
+新規内部形式の識別は、SaveAssistantResultのresultRef、およびassistant MessageのproviderStateRecordId。
+旧形式用のmigration・converter・互換補完分岐は追加せず、既存DBを書換え・削除しない。
+モデル送信・compaction・cache ID/設定、terminal/runtimeOutcome/afterTurnは変更しない。
+確認・容量/I/O/読戻しの結果と限界は[実装結果のS-3続報](../results/assistant-thinking-storage.md#s-3続報result所有のprovider継続情報をmessageから参照)を参照する。

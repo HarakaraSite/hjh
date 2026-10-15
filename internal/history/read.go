@@ -52,6 +52,10 @@ func (s *Store) Messages(ctx context.Context, executionID string, fromOrdinal, t
 		return nil, fmt.Errorf("history close messages: %w", err)
 	}
 	for index := range result {
+		result[index].JSON, err = s.expandStoredAssistantMessage(ctx, result[index].ExecutionID, result[index].JSON)
+		if err != nil {
+			return nil, err
+		}
 		result[index].JSON, _, err = s.expandStoredToolMessage(ctx, executionID, result[index].JSON)
 		if err != nil {
 			return nil, err
@@ -103,6 +107,10 @@ func (s *Store) Conversation(ctx context.Context, sessionID string, fromTurn, to
 		return nil, fmt.Errorf("history close conversation: %w", err)
 	}
 	for index := range result {
+		result[index].JSON, err = s.expandStoredAssistantMessage(ctx, result[index].ExecutionID, result[index].JSON)
+		if err != nil {
+			return nil, err
+		}
 		result[index].JSON, _, err = s.expandStoredToolMessage(ctx, result[index].ExecutionID, result[index].JSON)
 		if err != nil {
 			return nil, err
@@ -118,6 +126,7 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		SELECT semantic_records.record_id, semantic_records.execution_id, semantic_records.ordinal,
 			semantic_records.kind, semantic_records.observed_at, semantic_records.payload_json,
 			semantic_records.content_digest, contents.content_digest, contents.content_bytes,
+			json_extract(thinking_source.payload_json,'$.text'),
 			latest_requests.record_id, latest_requests.wire_body,
 			latest_budgets.record_id, latest_budgets.fact_json,
 			EXISTS(SELECT 1 FROM semantic_records latest_request
@@ -135,6 +144,10 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 				AND latest_budget.ordinal=(SELECT MAX(r.ordinal) FROM semantic_records r
 					WHERE r.execution_id=semantic_records.execution_id AND r.kind='context_budget'))
 		FROM semantic_records
+		LEFT JOIN semantic_records thinking_source
+			ON thinking_source.record_id=json_extract(semantic_records.payload_json,'$.thinkingRecordId')
+			AND thinking_source.execution_id=semantic_records.execution_id
+			AND thinking_source.ordinal<semantic_records.ordinal
 		LEFT JOIN contents ON contents.content_digest=semantic_records.content_digest
 		LEFT JOIN execution_latest_requests latest_requests
 			ON latest_requests.execution_id=semantic_records.execution_id
@@ -160,6 +173,7 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		digest           sql.NullString
 		storedDigest     sql.NullString
 		content          []byte
+		thinkingText     sql.NullString
 		latestID         sql.NullString
 		latestBody       []byte
 		latestBudgetID   sql.NullString
@@ -174,7 +188,7 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 		if err := rows.Scan(
 			&item.record.ID, &item.record.ExecutionID, &item.record.Ordinal,
 			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest,
-			&item.storedDigest, &item.content, &item.latestID, &item.latestBody,
+			&item.storedDigest, &item.content, &item.thinkingText, &item.latestID, &item.latestBody,
 			&item.latestBudgetID, &item.latestBudgetFact, &item.latestRequest, &item.latestBudget,
 		); err != nil {
 			_ = rows.Close()
@@ -193,6 +207,10 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 	}
 	result := make([]Record, 0, len(stored))
 	for _, item := range stored {
+		item.record.Payload, err = expandThinkingMirrorPayload(item.record.Kind, item.record.Payload, item.thinkingText)
+		if err != nil {
+			return nil, err
+		}
 		if item.digest.Valid {
 			if !item.storedDigest.Valid {
 				return nil, ErrNotFound
@@ -202,10 +220,26 @@ func (s *Store) Records(ctx context.Context, executionID string, fromOrdinal, to
 			if err != nil {
 				return nil, err
 			}
+			if !expanded {
+				payload, expanded, err = expandStoredAssistantResultPayload(item.record.Kind, item.record.Payload, item.content)
+				if err != nil {
+					return nil, err
+				}
+			}
 			if expanded {
 				item.record.Payload = payload
 			} else if item.record.Kind != "tool_body" {
+				if item.record.Kind == "assistant_message" {
+					item.content, err = s.expandStoredAssistantMessage(ctx, executionID, item.content)
+					if err != nil {
+						return nil, err
+					}
+				}
 				item.record.Content = append([]byte(nil), item.content...)
+			}
+			item.record.Payload, err = expandAssistantMirrorPayload(item.record.Kind, item.record.Payload, item.content)
+			if err != nil {
+				return nil, err
 			}
 		}
 		if item.latestID.Valid {

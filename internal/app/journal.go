@@ -30,6 +30,8 @@ type journal struct {
 	progress             contracts.Observer
 	starts               map[string]string
 	firstSequences       map[string]uint64
+	resultRecords        map[contracts.RequestIdentity]string
+	thinkingRecords      map[contracts.RequestIdentity]map[string]contracts.ExecutionLocator
 	previews             map[string]string
 	postSettlement       bool
 	hookResults          map[string]string
@@ -37,7 +39,9 @@ type journal struct {
 
 func newJournal(ctx context.Context, store *history.Store, id, rootID, task string, owner *executiondata.Owner, progress contracts.Observer) *journal {
 	return &journal{ctx: ctx, store: store, owner: owner, executionID: id, rootExecutionID: rootID, task: task, progress: progress,
-		links: map[string][]history.Relation{}, starts: map[string]string{}, firstSequences: map[string]uint64{}, previews: map[string]string{}, hookResults: map[string]string{}}
+		links: map[string][]history.Relation{}, starts: map[string]string{}, firstSequences: map[string]uint64{}, previews: map[string]string{}, hookResults: map[string]string{},
+		thinkingRecords: map[contracts.RequestIdentity]map[string]contracts.ExecutionLocator{},
+		resultRecords:   map[contracts.RequestIdentity]string{}}
 }
 
 func (j *journal) observe(o contracts.Observation) error {
@@ -122,12 +126,27 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 			phase = "incomplete"
 		}
 		payload := contracts.JSON(o)
-		facts, err := j.store.SaveAssistantResult(j.ctx, history.AssistantResultInput{
+		result, err := j.store.SaveAssistantResult(j.ctx, history.AssistantResultInput{
 			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
 			Request: request, Payload: payload, Relations: relations,
 			Text: o.Text, Thinking: o.Thinking, Phase: phase,
 			ObservedAt: o.Time.UTC().Format(time.RFC3339Nano),
 		})
+		facts := result.Facts
+		if err == nil {
+			if o.Kind == "model_result" {
+				j.resultRecords[request] = result.Record.ID
+			}
+			for _, fact := range facts {
+				if fact.Conversation.EntityKind != "thinking" {
+					continue
+				}
+				if j.thinkingRecords[fact.Request] == nil {
+					j.thinkingRecords[fact.Request] = map[string]contracts.ExecutionLocator{}
+				}
+				j.thinkingRecords[fact.Request][fact.Conversation.LocalKey] = fact.Locator
+			}
+		}
 		for index := range facts {
 			if facts[index].Conversation.EntityKind == "assistant" {
 				facts[index].Name = o.Name
@@ -423,13 +442,21 @@ func (j *journal) appendMessageContent(message contracts.Message, encoded []byte
 			}
 			facts = append(facts, fact)
 		}
+		resultRecordID := ""
+		if finalize != nil {
+			resultRecordID = j.resultRecords[*finalize]
+		}
 		ordinal, savedFacts, err := j.store.AppendConversationMessage(j.ctx, history.ConversationMessageInput{
 			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
-			Message: encoded, Facts: facts, FirstSequences: j.firstSequences,
-			SteeringReceipt: steeringReceipt, FinalizeRequest: finalize,
+			Message: encoded, Facts: facts, FirstSequences: j.firstSequences, ThinkingRecords: j.thinkingRecords,
+			SteeringReceipt: steeringReceipt, FinalizeRequest: finalize, ProviderStateRecordID: resultRecordID,
 		})
 		if err != nil {
 			return contracts.ExecutionCommit{}, err
+		}
+		if finalize != nil {
+			delete(j.thinkingRecords, *finalize)
+			delete(j.resultRecords, *finalize)
 		}
 		messageOrdinal = ordinal
 		saved = savedFacts

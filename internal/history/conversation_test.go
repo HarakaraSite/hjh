@@ -435,7 +435,7 @@ func TestAssistantResultCommitsFinalAnswerThinkingAndStateClearTogether(t *testi
 		"phase": "end", "modelStep": 2,
 		"result": map[string]any{"text": "settled answer", "finishReason": "stop", "calls": []any{}},
 	})
-	facts, err := store.SaveAssistantResult(ctx, AssistantResultInput{
+	result, err := store.SaveAssistantResult(ctx, AssistantResultInput{
 		RootExecutionID: execution.ID, ExecutionID: execution.ID, Sequence: 3, Request: request,
 		Payload: resultPayload, Text: "settled answer",
 		Thinking: []contracts.ThinkingItem{
@@ -446,6 +446,7 @@ func TestAssistantResultCommitsFinalAnswerThinkingAndStateClearTogether(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
+	facts := result.Facts
 	if len(facts) != 3 || facts[0].Text != "settled answer" || facts[0].Phase != "completed" ||
 		facts[0].Conversation.LocalKey != "parent/2/answer" || facts[0].Conversation.FirstSequence != 1 || facts[0].Conversation.Sequence != 3 {
 		t.Fatalf("saved result facts = %#v", facts)

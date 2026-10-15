@@ -339,10 +339,14 @@ func (s *Store) RecallEvidence(ctx context.Context, executionID string) (RecallE
 		}
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT r.record_id,r.execution_id,r.ordinal,r.kind,r.observed_at,
-		r.payload_json,r.content_digest,body.content_digest,body.content_bytes
+		r.payload_json,r.content_digest,body.content_digest,body.content_bytes,
+		json_extract(thinking_source.payload_json,'$.text')
 		FROM semantic_records r LEFT JOIN contents body ON body.content_digest=r.content_digest
+		LEFT JOIN semantic_records thinking_source
+			ON thinking_source.record_id=json_extract(r.payload_json,'$.thinkingRecordId')
+			AND thinking_source.execution_id=r.execution_id AND thinking_source.ordinal<r.ordinal
 		WHERE r.execution_id=? AND (
-			kind IN ('assistant_message','model_result','tool_call','tool_result','execution_admission',
+			r.kind IN ('assistant_message','model_result','tool_call','tool_result','execution_admission',
 				'host_decision','effect_observation','context_update','control_decision','recall_relation') OR
 			(r.kind='user_message' AND json_extract(r.payload_json,'$.conversation.entityKind') IN ('steering','recall'))
 		) ORDER BY r.ordinal`, executionID)
@@ -354,13 +358,14 @@ func (s *Store) RecallEvidence(ctx context.Context, executionID string) (RecallE
 		digest       sql.NullString
 		storedDigest sql.NullString
 		content      []byte
+		thinkingText sql.NullString
 	}
 	var stored []storedRecord
 	for rows.Next() {
 		var item storedRecord
 		var payload string
 		if err := rows.Scan(&item.record.ID, &item.record.ExecutionID, &item.record.Ordinal,
-			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest, &item.storedDigest, &item.content); err != nil {
+			&item.record.Kind, &item.record.ObservedAt, &payload, &item.digest, &item.storedDigest, &item.content, &item.thinkingText); err != nil {
 			_ = rows.Close()
 			return RecallEvidence{}, fmt.Errorf("history scan recall evidence record: %w", err)
 		}
@@ -378,9 +383,27 @@ func (s *Store) RecallEvidence(ctx context.Context, executionID string) (RecallE
 	records := make([]Record, 0, len(stored))
 	for _, item := range stored {
 		record := item.record
+		record.Payload, err = expandThinkingMirrorPayload(record.Kind, record.Payload, item.thinkingText)
+		if err != nil {
+			return RecallEvidence{}, err
+		}
 		if item.digest.Valid {
 			if !item.storedDigest.Valid {
 				return RecallEvidence{}, ErrNotFound
+			}
+			if record.Kind == "assistant_message" {
+				item.content, err = s.expandStoredAssistantMessage(ctx, executionID, item.content)
+				if err != nil {
+					return RecallEvidence{}, err
+				}
+			}
+			record.Payload, _, err = expandStoredAssistantResultPayload(record.Kind, record.Payload, item.content)
+			if err != nil {
+				return RecallEvidence{}, err
+			}
+			record.Payload, err = expandAssistantMirrorPayload(record.Kind, record.Payload, item.content)
+			if err != nil {
+				return RecallEvidence{}, err
 			}
 			record.Payload, _, err = expandStoredToolResultPayload(record.Kind, record.Payload,
 				item.digest.String, item.content)

@@ -209,3 +209,40 @@ terminal record、runtime outcome、execution outcome/adoption、messages、Sess
 hook成功・失敗・skipとhook内処理の詳細は`inspect`および履歴detailから確認できる。
 失敗・skipは既存context noticeにも保存され、CLIではstderr、TUIでは表示・復元可能なnoticeとして示す。
 noticeは最終回答stdoutや親のmodel inputには混ぜない。
+
+## assistant/thinking Message mirrorの重複削減（2026-10-16）
+
+[通常履歴の保存契約](normal-history-storage.md#assistantthinking-mirrorの本文参照2026-10-16)と
+[計画](../plans/assistant-thinking-storage.md)の第一段を適用する。schema v4・table/indexは変更しない。
+
+Message由来assistant_messageのpayloadからcontent/providerStateを省き、既存content_digestで
+元Message envelopeを参照する。通常経路のthinking mirrorではtextも省き、
+先行thinking semantic recordのIDをthinkingRecordIdへ保存する。
+phase/request/conversation/locator/thinkingKind等はmirror自身のmetadataとして保持する。
+
+公開Records/Recordではcontent/providerStateとtextを元のfieldへ復元し、thinkingRecordIdを返さない。
+Record.Contentは元Message。RecallEvidenceは同じ公開本文を復元してproviderStateと添付Contentを除く。
+walkは先行recordのtextと必要なMessage由来fieldだけをSQLで読む。
+完全RequestIdentity＋localKeyに基づくjournalの明示handoffでsourceを選び、retryや親子の同stepを混ぜない。
+独立Store入口は先行sourceを渡さなければThinkingをinline保存する。旧形式用の補完分岐は追加しない。
+
+第一段では継続Message・model_result・先行thinkingの所有、失敗/取消/supersededの保存、usage・送信内容は変更しなかった。
+その後、利用者が以下のS-3を追加承認した。既存DBの変換・削除は引き続き行わない。
+実装・利用確認・測定の到達点は[結果](../results/assistant-thinking-storage.md)を参照する。
+
+## providerStateの先行result参照（S-3、2026-10-16）
+
+SaveAssistantResultの通常result objectはcontentsへ移し、model_result.content_digestが所有する。
+payloadはresultに代えてresultRef（同digest）を持つ。公開Records/Record/RecallEvidenceと返却Recordでは
+resultへ戻し、resultRefと新result blobのContent二重返却はしない。resultなしretry記録はそのまま自立する。
+汎用OccurrenceInput.Contentの添付は対象外。
+
+継続assistant Messageはcontent/textを保持し、providerStateだけをproviderStateRecordId（元result ID）で参照する。
+journalは完全RequestIdentityで成功済みの先行resultを明示handoffし、空本文/Thinkingなしでも対応を維持する。
+同executionの元resultを解決してMessages/Conversationとmirror Payload/Contentを完全復元し、内部参照を外す。
+独立Store入口で元resultを渡さないMessageはinline stateを持つ。旧DB用fallbackではない。
+
+walkはresult ownerからtext/finishReasonだけをSQLで読む。RecallEvidenceは復元後に従来のproviderState除去を適用。
+AssistantReportsの本文/cursor、先行thinking、失敗・取消・retry、canonical採用は維持する。
+既存所有FKでSession削除と共有contents残存確認を行い、table/index/schema v4は変更しない。
+詳細は[保存契約](normal-history-storage.md#provider継続情報のresult所有とmessage参照s-32026-10-16)を参照する。
