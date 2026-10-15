@@ -73,3 +73,48 @@ func TestResolveUsesCapacityOnlyWhenConfigurationDoesNotSetField(t *testing.T) {
 func int64Pointer(value int64) *int64 { return &value }
 
 func float64Pointer(value float64) *float64 { return &value }
+
+func TestResolveLimitSourceNamesTheGoverningTerm(t *testing.T) {
+	selection := contracts.ModelSelection{Provider: "demo", ModelID: "model"}
+	// The capacity window with the default ratio governs the limit.
+	window := Resolve(Configuration{}, selection, Capacity{ContextTokens: int64Pointer(1000), Source: "models.dev"})
+	if window.Limit == nil || *window.Limit != 800 || window.LimitSource != "models.dev" {
+		t.Fatalf("window-governed limit source: %+v", window)
+	}
+	// A smaller configured input cap governs and keeps its own origin.
+	capped := Resolve(Configuration{Defaults: Values{InputTokens: int64Pointer(100)}}, selection,
+		Capacity{ContextTokens: int64Pointer(1000), Source: "models.dev"})
+	if capped.Limit == nil || *capped.Limit != 100 || capped.LimitSource != "config/defaults" {
+		t.Fatalf("input-governed limit source: %+v", capped)
+	}
+	// A hook policy override marks the limit as hook policy, never model capacity.
+	hooked := Override(Resolve(Configuration{}, selection, Capacity{}), Values{InputTokens: int64Pointer(800000)})
+	if hooked.Limit == nil || *hooked.Limit != 800000 || hooked.LimitSource != "hook" {
+		t.Fatalf("hook-governed limit source: %+v", hooked)
+	}
+	// No known term means no limit and no origin to display.
+	unknown := Resolve(Configuration{}, selection, Capacity{})
+	if unknown.Limit != nil || unknown.LimitSource != "" {
+		t.Fatalf("unknown limit source: %+v", unknown)
+	}
+}
+
+func TestOverrideKeepsUnchangedBudgetOriginsAndTracksDerivedHookLimits(t *testing.T) {
+	base := Resolve(Configuration{Defaults: Values{OutputReserve: int64Pointer(100)}},
+		contracts.ModelSelection{}, Capacity{ContextTokens: int64Pointer(1000), Source: "models.dev"})
+	// The full resolved object returned by select() can be passed to replace().
+	echo := Override(base, Values{ContextTokens: base.ContextTokens, InputTokens: base.InputTokens,
+		OutputReserve: base.OutputReserve, InputRatio: base.InputRatio, HistoryTokens: base.HistoryTokens})
+	if echo.Sources != base.Sources || echo.LimitSource != "models.dev" || *echo.Limit != 800 {
+		t.Fatalf("unchanged selection acquired hook provenance: %+v", echo)
+	}
+	for _, policy := range []Values{
+		{InputRatio: float64Pointer(0.5)},
+		{OutputReserve: int64Pointer(600)},
+	} {
+		changed := Override(base, policy)
+		if changed.LimitSource != "hook" || *changed.Limit >= *base.Limit {
+			t.Fatalf("derived hook limit lost its policy origin: %+v", changed)
+		}
+	}
+}

@@ -1,8 +1,6 @@
 package app
 
 import (
-	"encoding/json"
-
 	"hjh/internal/contextbudget"
 	"hjh/internal/contracts"
 )
@@ -17,7 +15,7 @@ type contextBudgetRecordPayload struct {
 }
 
 func contextBudgetRecord(step int, selection contracts.ModelSelection, metadataError string,
-	exceeded bool, fact contextbudget.Fact) json.RawMessage {
+	exceeded bool, fact contextbudget.Fact) contextBudgetRecordPayload {
 	summary := contracts.ContextBudgetSummary{
 		Budget: contracts.ContextBudgetValues{
 			ContextTokens: fact.Budget.ContextTokens,
@@ -26,6 +24,7 @@ func contextBudgetRecord(step int, selection contracts.ModelSelection, metadataE
 			InputRatio:    fact.Budget.InputRatio,
 			HistoryTokens: fact.Budget.HistoryTokens,
 			Limit:         fact.Budget.Limit,
+			LimitSource:   fact.Budget.LimitSource,
 			Sources: map[string]string{
 				"contextTokens": fact.Budget.Sources.ContextTokens,
 				"inputTokens":   fact.Budget.Sources.InputTokens,
@@ -48,5 +47,5 @@ func contextBudgetRecord(step int, selection contracts.ModelSelection, metadataE
 		ModelStep: step, ModelSelection: selection, MetadataError: metadataError,
 		Exceeded: exceeded, Summary: summary, DetailAvailable: false,
 	}
-	return contracts.JSON(payload)
+	return payload
 }

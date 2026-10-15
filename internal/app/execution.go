@@ -86,6 +86,7 @@ type executionInput struct {
 	steering                             contracts.SteeringSource
 	childInstructions                    *childInstructionOwner
 	childObserve                         contracts.Observer
+	onContextBudget                      func(contracts.ContextBudgetStatus)
 }
 
 type guardedExecutor struct {
@@ -357,7 +358,7 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 				return request, projectErr
 			}
 			payload := contextBudgetRecord(step, input.model, metadataError, exceeded != nil, projection.Fact)
-			record, e := store.AppendBudgetSummary(persist, execution.ID, payload)
+			record, e := store.AppendBudgetSummary(persist, execution.ID, contracts.JSON(payload))
 			if e != nil {
 				return request, control.storage(e)
 			}
@@ -366,6 +367,12 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 			}
 			if e := contextBudgetNotice(j, step, projection.Fact, notices); e != nil {
 				return request, e
+			}
+			if input.onContextBudget != nil {
+				input.onContextBudget(contracts.ContextBudgetStatus{
+					RecordID: record.ID, ExecutionID: execution.ID, RecordOrdinal: record.Ordinal,
+					ModelStep: step, Selection: input.model, Summary: payload.Summary,
+					MetadataError: metadataError, Exceeded: exceeded != nil})
 			}
 			return projection.Request, projectErr
 		}}, provider, guardedExecutor{worker, control},

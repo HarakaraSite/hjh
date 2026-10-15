@@ -52,6 +52,7 @@ type RunRequest struct {
 	Steering                                  contracts.SteeringSource
 	OnSession                                 func(string)
 	OnAdmission                               func(contracts.ExecutionAdmission)
+	OnContextBudget                           func(contracts.ContextBudgetStatus)
 	Progress                                  contracts.Observer
 	ExecutionDataOwner                        *executiondata.Owner
 }
@@ -115,6 +116,7 @@ func (s *Service) runOptions(request RunRequest) RunOptions {
 	options.Recall = request.Recall
 	options.OnSession = request.OnSession
 	options.OnAdmission = request.OnAdmission
+	options.OnContextBudget = request.OnContextBudget
 	if request.MaxSteps != nil {
 		options.MaxSteps = *request.MaxSteps
 	}

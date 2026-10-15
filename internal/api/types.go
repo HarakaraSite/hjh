@@ -32,20 +32,21 @@ type StartRunRequest struct {
 }
 
 type RunState struct {
-	CoreID          string                    `json:"coreId"`
-	RunID           string                    `json:"runId"`
-	Seq             uint64                    `json:"seq"`
-	Phase           string                    `json:"phase"`
-	StartedAt       string                    `json:"startedAt,omitempty"`
-	SessionID       string                    `json:"sessionId,omitempty"`
-	ExecutionID     string                    `json:"executionId,omitempty"`
-	ActualSelection *contracts.ModelSelection `json:"actualSelection,omitempty"`
-	ActualRole      string                    `json:"actualRole,omitempty"`
-	ActualContext   *contracts.Orientation    `json:"actualContext,omitempty"`
-	NextRunID       string                    `json:"nextRunId,omitempty"`
-	InputRevision   uint64                    `json:"inputRevision"`
-	InputAcceptance InputAcceptance           `json:"inputAcceptance"`
-	Result          *RunResult                `json:"result,omitempty"`
+	CoreID          string                         `json:"coreId"`
+	RunID           string                         `json:"runId"`
+	Seq             uint64                         `json:"seq"`
+	Phase           string                         `json:"phase"`
+	StartedAt       string                         `json:"startedAt,omitempty"`
+	SessionID       string                         `json:"sessionId,omitempty"`
+	ExecutionID     string                         `json:"executionId,omitempty"`
+	ActualSelection *contracts.ModelSelection      `json:"actualSelection,omitempty"`
+	ActualRole      string                         `json:"actualRole,omitempty"`
+	ActualContext   *contracts.Orientation         `json:"actualContext,omitempty"`
+	ContextBudget   *contracts.ContextBudgetStatus `json:"contextBudget,omitempty"`
+	NextRunID       string                         `json:"nextRunId,omitempty"`
+	InputRevision   uint64                         `json:"inputRevision"`
+	InputAcceptance InputAcceptance                `json:"inputAcceptance"`
+	Result          *RunResult                     `json:"result,omitempty"`
 }
 
 // RunSnapshot and RunUpdate use the same wire key for different conversation

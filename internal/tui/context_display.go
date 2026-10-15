@@ -23,7 +23,7 @@ func formatCoreBudget(status contracts.ContextBudgetStatus) string {
 			state = contracts.SnapshotSaveUnavailable
 		}
 		return fmt.Sprintf("\nCore context budget · execution %s · step %d · %d estimated tokens · %d wire bytes · snapshot %s · detailed Fact unavailable",
-			status.ExecutionID, status.ModelStep, status.Summary.EstimatedTokens, status.Summary.WireBytes, state)
+			status.ExecutionID, status.ModelStep, status.Summary.EstimatedTokens, status.Summary.WireBytes, state) + formatBudgetOrigin(status)
 	}
 	var fact struct {
 		Budget struct {
@@ -57,6 +57,7 @@ func formatCoreBudget(status contracts.ContextBudgetStatus) string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "\nCore context budget · execution %s · step %d\nEstimated input · %d tokens · %d wire bytes · limit %s", status.ExecutionID, status.ModelStep, fact.EstimatedTokens, fact.WireBytes, formatBudgetValue(fact.Budget.Limit))
+	b.WriteString(formatBudgetOrigin(status))
 	for _, term := range []struct {
 		name, key string
 		value     *int64
@@ -106,6 +107,18 @@ func formatCoreBudget(status contracts.ContextBudgetStatus) string {
 		fmt.Fprintf(&b, "\nSnapshot · %s", status.SnapshotSave.State)
 	}
 	return b.String()
+}
+
+func formatBudgetOrigin(status contracts.ContextBudgetStatus) string {
+	source := status.Summary.Budget.LimitSource
+	if source == "" {
+		return ""
+	}
+	text := "\nInput budget source · " + source
+	if source == "hook" {
+		text += " · footer * means hook policy, not model context capacity"
+	}
+	return text
 }
 
 func formatBudgetValue(value *int64) string {

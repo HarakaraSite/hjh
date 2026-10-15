@@ -36,9 +36,14 @@ func TestRequestModelUsesParentSelectionWithoutPersistingItsTranscript(t *testin
 	})
 	service := NewService(store, provider, RunOptions{Workspace: workspace})
 	defer service.Close()
-	result, err := service.Run(t.Context(), RunRequest{Task: "normal task", ModelID: "test/model", Effort: "high"})
+	var notified []contracts.ContextBudgetStatus
+	result, err := service.Run(t.Context(), RunRequest{Task: "normal task", ModelID: "test/model", Effort: "high",
+		OnContextBudget: func(status contracts.ContextBudgetStatus) { notified = append(notified, status) }})
 	if err != nil || !result.Result.OK || calls != 2 {
 		t.Fatalf("model API: %+v %v calls %d", result, err, calls)
+	}
+	if len(notified) != 1 || notified[0].ExecutionID != result.ExecutionID || notified[0].ModelStep != 1 {
+		t.Fatalf("summary call mixed into budget notifications: %+v", notified)
 	}
 	children, err := store.Children(t.Context(), result.ExecutionID)
 	if err != nil || len(children) != 0 {
@@ -204,10 +209,11 @@ func TestJSCompactionUsesEffectiveBudgetOrUnknownDefault(t *testing.T) {
 		name   string
 		budget map[string]any
 		limit  int64
+		source string
 	}{
-		{"unknown", map[string]any{}, 800000},
-		{"model-context", map[string]any{"contextTokens": 128000}, 102400},
-		{"large-input", map[string]any{"inputTokens": 1000000}, 1000000},
+		{"unknown", map[string]any{}, 800000, "hook"},
+		{"model-context", map[string]any{"contextTokens": 128000}, 102400, "config/defaults"},
+		{"large-input", map[string]any{"inputTokens": 1000000}, 1000000, "config/defaults"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store, workspace := delegationStore(t)
@@ -225,8 +231,8 @@ func TestJSCompactionUsesEffectiveBudgetOrUnknownDefault(t *testing.T) {
 				t.Fatalf("request: %+v %v; calls %d", result, err, calls)
 			}
 			_, fact := budgetFact(t, store, result.SessionID)
-			if fact.Budget.Limit == nil || *fact.Budget.Limit != tc.limit {
-				t.Fatalf("effective budget: %+v; want limit %d", fact.Budget, tc.limit)
+			if fact.Budget.Limit == nil || *fact.Budget.Limit != tc.limit || fact.Budget.LimitSource != tc.source {
+				t.Fatalf("effective budget: %+v; want limit %d source %s", fact.Budget, tc.limit, tc.source)
 			}
 		})
 	}

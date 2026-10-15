@@ -49,6 +49,7 @@ type Budget struct {
 	InputRatio    *float64     `json:"inputRatio"`
 	HistoryTokens *int64       `json:"historyTokens,omitempty"`
 	Limit         *int64       `json:"limit,omitempty"`
+	LimitSource   string       `json:"limitSource,omitempty"`
 	Sources       FieldSources `json:"sources"`
 }
 
@@ -102,32 +103,64 @@ func Override(base Budget, policy Values) Budget {
 		OutputReserve: base.OutputReserve, InputRatio: base.InputRatio, HistoryTokens: base.HistoryTokens}
 	sources := base.Sources
 	mergeValues(&values, &sources, policy, "hook")
+	// select() returns resolved budget values which callers can pass directly
+	// to replace(). Echoing an unchanged term does not make it hook policy.
+	if policy.ContextTokens != nil && base.ContextTokens != nil && *policy.ContextTokens == *base.ContextTokens {
+		sources.ContextTokens = base.Sources.ContextTokens
+	}
+	if policy.InputTokens != nil && base.InputTokens != nil && *policy.InputTokens == *base.InputTokens {
+		sources.InputTokens = base.Sources.InputTokens
+	}
+	if policy.OutputReserve != nil && base.OutputReserve != nil && *policy.OutputReserve == *base.OutputReserve {
+		sources.OutputReserve = base.Sources.OutputReserve
+	}
+	if policy.InputRatio != nil && base.InputRatio != nil && *policy.InputRatio == *base.InputRatio {
+		sources.InputRatio = base.Sources.InputRatio
+	}
+	if policy.HistoryTokens != nil && base.HistoryTokens != nil && *policy.HistoryTokens == *base.HistoryTokens {
+		sources.HistoryTokens = base.Sources.HistoryTokens
+	}
 	return resolveLimit(cloneBudget(Budget{ContextTokens: values.ContextTokens, InputTokens: values.InputTokens,
 		OutputReserve: values.OutputReserve, InputRatio: values.InputRatio, HistoryTokens: values.HistoryTokens, Sources: sources}))
 }
 
+type limitTerm struct {
+	value  int64
+	source string
+}
+
 func resolveLimit(budget Budget) Budget {
 	budget.Limit = nil
-	var limits []int64
+	budget.LimitSource = ""
+	var limits []limitTerm
 	if budget.ContextTokens != nil {
-		limits = append(limits, int64(math.Floor(float64(*budget.ContextTokens)*(*budget.InputRatio))))
+		limits = append(limits, limitTerm{int64(math.Floor(float64(*budget.ContextTokens) * (*budget.InputRatio))), termSource(budget.Sources.ContextTokens, budget.Sources.InputRatio)})
 	}
 	if budget.InputTokens != nil {
-		limits = append(limits, *budget.InputTokens)
+		limits = append(limits, limitTerm{*budget.InputTokens, budget.Sources.InputTokens})
 	}
 	if budget.ContextTokens != nil && budget.OutputReserve != nil {
-		limits = append(limits, *budget.ContextTokens-*budget.OutputReserve)
+		limits = append(limits, limitTerm{*budget.ContextTokens - *budget.OutputReserve, termSource(budget.Sources.ContextTokens, budget.Sources.OutputReserve)})
 	}
 	if len(limits) != 0 {
 		minimum := limits[0]
 		for _, limit := range limits[1:] {
-			if limit < minimum {
+			if limit.value < minimum.value {
 				minimum = limit
 			}
 		}
-		budget.Limit = &minimum
+		budget.Limit = &minimum.value
+		budget.LimitSource = minimum.source
 	}
 	return budget
+}
+
+// A derived limit is hook policy when either operand comes from the hook.
+func termSource(capacity, policy string) string {
+	if policy == "hook" {
+		return "hook"
+	}
+	return capacity
 }
 
 func mergeValues(target *Values, sources *FieldSources, source Values, origin string) {

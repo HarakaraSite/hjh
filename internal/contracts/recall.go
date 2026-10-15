@@ -149,5 +149,6 @@ type ContextBudgetValues struct {
 	InputRatio    *float64          `json:"inputRatio"`
 	HistoryTokens *int64            `json:"historyTokens,omitempty"`
 	Limit         *int64            `json:"limit,omitempty"`
+	LimitSource   string            `json:"limitSource,omitempty"`
 	Sources       map[string]string `json:"sources"`
 }

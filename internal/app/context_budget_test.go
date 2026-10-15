@@ -65,6 +65,70 @@ func budgetFact(t *testing.T, store *history.Store, session string) (contracts.S
 	return state, fact
 }
 
+func TestRunNotifiesContextBudgetPerModelStep(t *testing.T) {
+	ctx := context.Background()
+	workspace := t.TempDir()
+	path := budgetConfig(t, workspace, 17000)
+	if err := os.WriteFile(filepath.Join(workspace, "a.txt"), []byte("alpha"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := history.Open(filepath.Join(workspace, "history.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	step := 0
+	provider := budgetTestProvider{adapter: chatFixtureProvider("http://unused", "", "budget-fixture", protocol.Options{}), generate: func(contracts.ModelRequest) contracts.ModelResult {
+		step++
+		if step == 1 {
+			return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "a", Name: "read_file", Arguments: contracts.JSON(map[string]string{"path": "a.txt"})}}}
+		}
+		return contracts.ModelResult{Text: "completed"}
+	}}
+	var notified []contracts.ContextBudgetStatus
+	result, err := Run(ctx, store, provider, RunOptions{Workspace: workspace, ConfigPath: path, ModelID: "test/small", Task: "read one file",
+		OnContextBudget: func(status contracts.ContextBudgetStatus) { notified = append(notified, status) }})
+	if err != nil || !result.Result.OK {
+		t.Fatalf("run: %+v %v", result, err)
+	}
+	if len(notified) != 2 {
+		t.Fatalf("budget notifications: %d", len(notified))
+	}
+	records, err := store.Records(ctx, result.ExecutionID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := 0
+	for _, record := range records {
+		if record.Kind != "context_budget" {
+			continue
+		}
+		var payload contextBudgetRecordPayload
+		if err := json.Unmarshal(record.Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		status := notified[saved]
+		if payload.ModelStep != status.ModelStep || string(contracts.JSON(payload.Summary)) != string(contracts.JSON(status.Summary)) {
+			t.Fatalf("notification differs from saved record: %+v %+v", payload, status)
+		}
+		saved++
+	}
+	if saved != len(notified) {
+		t.Fatalf("saved records %d notifications %d", saved, len(notified))
+	}
+	for index, status := range notified {
+		if status.ExecutionID != result.ExecutionID || status.ModelStep != index+1 || status.RecordID == "" || status.RecordOrdinal == 0 {
+			t.Fatalf("notification identity: %+v", status)
+		}
+		if status.DetailAvailable || status.Summary.EstimatedTokens <= 0 {
+			t.Fatalf("notification summary: %+v", status)
+		}
+		if status.Summary.Budget.Limit == nil || *status.Summary.Budget.Limit != 17000 || status.Summary.Budget.LimitSource != "config/defaults" {
+			t.Fatalf("notification budget: %+v", status.Summary.Budget)
+		}
+	}
+}
+
 func TestCoreBudgetPreservesFullTurnAndReloadsItAfterModelChange(t *testing.T) {
 	ctx := context.Background()
 	workspace := t.TempDir()

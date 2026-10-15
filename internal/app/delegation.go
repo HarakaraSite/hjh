@@ -101,6 +101,7 @@ func (d *delegation) prepareChild(ctx context.Context, request contracts.AgentRu
 	childInput.workspaceContext, childInput.orientation = workspaceContext, orientation
 	childInput.recall = nil
 	childInput.steering, childInput.childInstructions, childInput.childObserve = nil, nil, nil
+	childInput.onContextBudget = nil
 	childInput.model = model
 	childInput.spawnRecordID = d.journal.startReference(request.CallID)
 	return preparedChild{input: childInput, provider: provider}, nil

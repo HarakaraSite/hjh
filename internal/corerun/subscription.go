@@ -176,6 +176,10 @@ func cloneRunState(state api.RunState) api.RunState {
 		orientation := state.ActualContext.Clone()
 		copy.ActualContext = &orientation
 	}
+	if state.ContextBudget != nil {
+		budget := *state.ContextBudget
+		copy.ContextBudget = &budget
+	}
 	if state.Result != nil {
 		result := *state.Result
 		copy.Result = &result

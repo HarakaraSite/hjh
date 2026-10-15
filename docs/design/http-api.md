@@ -104,6 +104,11 @@ previewはconfig metadataとSession metadataだけを読み、tool／hook本文�
 runは開始時に改めて同じ規則で解決するため、preview後の設定編集を固定しない。
 
 GET runは軽い状態と必要なterminal resultを返し、会話entityを含まない。
+RunStateの任意`contextBudget`は直近の通常rootモデル入力の計測要約で、各stepの入力準備時に
+既存SSEへ載せる。`contracts.ContextBudgetStatus`を使い、詳細Factや送信本文は含めない。
+`summary.budget.limitSource`は有効予算を決めた由来で、hook policyが決めた場合は`hook`。
+子・要約専用呼出しの計測は親のrun状態へ混ぜない。再接続時はrun snapshot、
+保存済みSessionでは既存SessionContext.LatestBudgetから取得できる。
 保存済み結果はtaskとruntime outcomeの限定読取で取得し、採用error等のCore最終状態を合成する。
 GET、同ID POST、terminal cancel、SSE terminalは同じresult resolverを使う。
 会話はSSE snapshotまたはSession viewから読む。terminal GETで既表示の本文を消さない。

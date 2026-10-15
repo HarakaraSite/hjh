@@ -171,6 +171,40 @@ func TestChildRunsCloseJoinsBeforeParentTerminal(t *testing.T) {
 	}
 }
 
+func TestChildRunsDoNotNotifyParentContextBudget(t *testing.T) {
+	provider := delegationProvider(func(context.Context, contracts.ModelRequest, contracts.Observer) (contracts.ModelResult, error) {
+		return contracts.ModelResult{Text: "completed"}, nil
+	})
+	scope, store, _ := childScopeTest(t, provider)
+	notified := 0
+	scope.delegation.input.onContextBudget = func(contracts.ContextBudgetStatus) { notified++ }
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	spawn, err := scope.SpawnAgent(ctx, contracts.AgentRunRequest{Task: "quick child"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scope.CollectAgent(ctx, contracts.AgentQuery{ExecutionID: spawn.ExecutionID}); err != nil {
+		t.Fatal(err)
+	}
+	records, err := store.Records(ctx, spawn.ExecutionID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	measured := 0
+	for _, record := range records {
+		if record.Kind == "context_budget" {
+			measured++
+		}
+	}
+	if measured == 0 {
+		t.Fatal("child projection did not run")
+	}
+	if notified != 0 {
+		t.Fatalf("child execution notified %d context budget facts", notified)
+	}
+}
+
 func TestChildRunsCollectCancellationDoesNotBecomeStorageFailure(t *testing.T) {
 	provider := delegationProvider(func(context.Context, contracts.ModelRequest, contracts.Observer) (contracts.ModelResult, error) {
 		return contracts.ModelResult{Text: "completed"}, nil

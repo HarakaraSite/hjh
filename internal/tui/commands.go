@@ -312,6 +312,7 @@ func (m *model) applySessionAction(action sessionAction) {
 	m.selectionGeneration++
 	m.resetHeaderOrientation()
 	m.resetFooterSelection()
+	m.clearContextBudget()
 	m.sessionTitle = ""
 	m.sessionCreatedAt = ""
 	m.sessionEntities = make(map[string]api.ConversationEntity)

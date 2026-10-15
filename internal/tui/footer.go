@@ -231,6 +231,19 @@ func (m *model) sessionFooter() string {
 }
 
 func (m *model) footerModel(width int) string {
+	// The usage fragment is reserved first on the right edge; the selection
+	// keeps at least half the row and drops the fragment on very narrow rows.
+	if fragment := m.footerContextUsage(); fragment != "" {
+		fragmentWidth := ansi.StringWidth(fragment)
+		if selectionWidth := width - fragmentWidth - 3; selectionWidth >= width/2 {
+			left := m.footerModelSelection(selectionWidth)
+			return left + strings.Repeat(" ", width-ansi.StringWidth(left)-fragmentWidth) + fragment
+		}
+	}
+	return m.footerModelSelection(width)
+}
+
+func (m *model) footerModelSelection(width int) string {
 	var selection contracts.ModelSelection
 	if run := m.activeRun; run != nil {
 		if !run.hasActualSelection {

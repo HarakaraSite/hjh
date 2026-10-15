@@ -1,0 +1,116 @@
+[
+  {
+    "scenario": "real-known-compaction",
+    "provider": "opencode-go-chat",
+    "model": "deepseek-v4.1-flash",
+    "sessionId": "d33db0c5-f840-4c5b-b86d-7148177ae5d5",
+    "expectedFooter": "ctx 68%",
+    "seen": [],
+    "restored": true,
+    "outcome": "completed",
+    "compactionReducedInput": true,
+    "metrics": [
+      {
+        "step": 1,
+        "before": 683,
+        "after": 683,
+        "budget": {
+          "inputTokens": 6000,
+          "inputRatio": 0.8,
+          "limit": 6000,
+          "limitSource": "config/defaults",
+          "sources": {
+            "contextTokens": "unknown",
+            "inputTokens": "config/defaults",
+            "outputReserve": "unknown",
+            "inputRatio": "default",
+            "historyTokens": "unknown"
+          }
+        }
+      },
+      {
+        "step": 2,
+        "before": 3509,
+        "after": 3509,
+        "budget": {
+          "inputTokens": 6000,
+          "inputRatio": 0.8,
+          "limit": 6000,
+          "limitSource": "config/defaults",
+          "sources": {
+            "contextTokens": "unknown",
+            "inputTokens": "config/defaults",
+            "outputReserve": "unknown",
+            "inputRatio": "default",
+            "historyTokens": "unknown"
+          }
+        }
+      },
+      {
+        "step": 3,
+        "before": 6348,
+        "after": 4119,
+        "budget": {
+          "inputTokens": 6000,
+          "inputRatio": 0.8,
+          "limit": 6000,
+          "limitSource": "config/defaults",
+          "sources": {
+            "contextTokens": "unknown",
+            "inputTokens": "config/defaults",
+            "outputReserve": "unknown",
+            "inputRatio": "default",
+            "historyTokens": "unknown"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "scenario": "local-hook-default",
+    "provider": "local fixture",
+    "model": "fixture-model",
+    "sessionId": "8fffedd8-0edd-49f8-9d38-d7e7b2d996ad",
+    "expectedFooter": "ctx 0%*",
+    "seen": [
+      "ctx 0%*"
+    ],
+    "restored": true,
+    "outcome": "completed",
+    "compactionReducedInput": false,
+    "metrics": [
+      {
+        "step": 1,
+        "before": 297,
+        "after": 297,
+        "budget": {
+          "inputTokens": 800000,
+          "inputRatio": 0.8,
+          "limit": 800000,
+          "limitSource": "hook",
+          "sources": {
+            "contextTokens": "unknown",
+            "inputTokens": "hook",
+            "outputReserve": "unknown",
+            "inputRatio": "default",
+            "historyTokens": "unknown"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "scenario": "local-unknown",
+    "provider": "local fixture",
+    "model": "fixture-model",
+    "sessionId": "6db6bba5-d180-4339-988c-dbe5794c6e2e",
+    "expectedFooter": "ctx 296 tok",
+    "seen": [
+      "ctx 296 tok"
+    ],
+    "restored": true,
+    "outcome": "completed",
+    "compactionReducedInput": false,
+    "metrics": []
+  }
+]

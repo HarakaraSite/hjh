@@ -39,6 +39,7 @@ type RunOptions struct {
 	Recall               *contracts.RecallReference
 	OnSession            func(string)
 	OnAdmission          func(contracts.ExecutionAdmission)
+	OnContextBudget      func(contracts.ContextBudgetStatus)
 	Progress             contracts.Observer
 	ExecutionDataOwner   *executiondata.Owner
 	SnapshotOwner        *SnapshotOwner
@@ -167,6 +168,7 @@ func Run(ctx context.Context, store *history.Store, provider contracts.Provider,
 	progress := &progressSink{observer: options.Progress}
 	output.Result, err = execute(workCtx, store, provider, executionInput{execution: execution, snapshot: snapshot,
 		workspace: workspace, configPath: configPath, model: model, maxSteps: options.MaxSteps, recall: options.Recall,
+		onContextBudget:  options.OnContextBudget,
 		workspaceContext: workspaceContext, orientation: orientation,
 		rootSessionID: session.ID, rootExecutionID: execution.ID, session: &session, previousModel: active, fromTurn: options.FromTurn,
 		connections: factory, injectedProvider: injected, executionDataOwner: options.ExecutionDataOwner,

@@ -171,6 +171,8 @@ type model struct {
 	footerSelection          api.SelectionPreview
 	footerSelectionSet       bool
 	footerSelectionError     error
+	contextBudget            contracts.ContextBudgetStatus
+	contextBudgetSet         bool
 	footerClockJobID         uint64
 	footerClockFrame         uint64
 	workspace                string
@@ -242,12 +244,13 @@ type runDoneMsg struct {
 }
 
 type sessionLoadedMsg struct {
-	jobID      uint64
-	generation uint64
-	session    api.Session
-	view       api.ConversationSnapshot
-	run        *api.RunState
-	err        error
+	jobID        uint64
+	generation   uint64
+	session      api.Session
+	view         api.ConversationSnapshot
+	run          *api.RunState
+	latestBudget *contracts.ContextBudgetStatus
+	err          error
 }
 
 type sessionsLoadedMsg struct {
@@ -529,6 +532,10 @@ func (m *model) updateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.setSessionMetadata(msg.session)
 				m.lastRunRole = msg.session.Agent
 				_ = json.Unmarshal(msg.session.ActiveModel, &m.lastSelection)
+				m.clearContextBudget()
+				if msg.latestBudget != nil {
+					m.setContextBudget(*msg.latestBudget)
+				}
 				m.applySessionSnapshot(msg.view)
 				m.entries = nil
 				m.invalidateTranscript()
@@ -954,6 +961,9 @@ func (m *model) acceptRunEvent(event apiclient.RunEvent) tea.Cmd {
 			run.actualContext = &actual
 			m.adoptActualOrientation(actual)
 		}
+		if state.ContextBudget != nil {
+			m.setContextBudget(*state.ContextBudget)
+		}
 	}
 	if state.SessionID != "" {
 		firstAdmission := !run.admitted
@@ -1363,7 +1373,16 @@ func (m *model) loadSession(id string, generation uint64) {
 			return sessionLoadedMsg{jobID: job.id, generation: generation, err: err}
 		}
 		view, err := m.backend.SessionView(ctx, session.ID)
-		return sessionLoadedMsg{jobID: job.id, generation: generation, session: session, view: view, run: run, err: err}
+		loaded := sessionLoadedMsg{jobID: job.id, generation: generation, session: session, view: view, run: run, err: err}
+		if err == nil {
+			// Seed the footer fragment from the existing SessionContext
+			// endpoint. No record means no fragment.
+			state, contextErr := m.backend.SessionContext(ctx, m.core.CoreID, session.ID)
+			if contextErr == nil {
+				loaded.latestBudget = state.LatestBudget
+			}
+		}
+		return loaded
 	})
 }
 

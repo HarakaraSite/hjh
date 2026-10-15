@@ -246,6 +246,13 @@ func (m *Manager) execute(ctx context.Context, r *managedRun, input runInput) {
 			m.changedLocked(r)
 			m.mu.Unlock()
 		},
+		OnContextBudget: func(status contracts.ContextBudgetStatus) {
+			m.mu.Lock()
+			budget := status
+			r.state.ContextBudget = &budget
+			m.changedLocked(r)
+			m.mu.Unlock()
+		},
 		Progress: func(observation contracts.Observation) error {
 			m.progress(r, observation)
 			if input.followUpReceipt != nil && observation.Kind == "execution" && observation.Name == "run" &&
@@ -488,6 +495,10 @@ func (m *Manager) stateLocked(r *managedRun) api.RunState {
 	if s.ActualSelection != nil {
 		v := *s.ActualSelection
 		s.ActualSelection = &v
+	}
+	if s.ContextBudget != nil {
+		v := *s.ContextBudget
+		s.ContextBudget = &v
 	}
 	if s.Result != nil {
 		v := *s.Result
