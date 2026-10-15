@@ -117,6 +117,7 @@
       "defaultModel": "gpt-6.1-sol",
       "defaultEffort": "auto",
       "catalog": {"kind": "openai-account", "path": "/models"},
+      "sessionHeader": "session_id",
       "adapter": {"store": false, "namespaceTools": true, "reasoningReplay": true}
     }
   },

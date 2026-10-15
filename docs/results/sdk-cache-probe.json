@@ -1,0 +1,760 @@
+{
+  "measured_at_utc": "2026-10-15T13:15:09.046613+00:00",
+  "sdk": "github.com/openai/openai-go/v3@v3.78.0",
+  "go": "go1.27.2",
+  "endpoint": "https://api.openai.com/v1/responses",
+  "auth": "same existing hjh-chatgpt OAuth token for both clients; resolved using normal credential manager",
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "service_tier_requested": "default",
+  "groups": [
+    {
+      "group": 1,
+      "order": [
+        "sdk",
+        "http",
+        "http",
+        "sdk"
+      ],
+      "same_json_content": true,
+      "canonical_json_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "wire_sha256_by_client": {
+        "sdk": [
+          "42584daa4048aec27c56649847482285d0eee87cfdc404bc70c1946280171d6e"
+        ],
+        "http": [
+          "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0"
+        ]
+      }
+    },
+    {
+      "group": 2,
+      "order": [
+        "http",
+        "sdk",
+        "sdk",
+        "http"
+      ],
+      "same_json_content": true,
+      "canonical_json_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "wire_sha256_by_client": {
+        "sdk": [
+          "4e7d03784ad01c0b86f4d32c231c1bc49a8a465190d9798e3d5c74f9318d65e8"
+        ],
+        "http": [
+          "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe"
+        ]
+      }
+    }
+  ],
+  "clients": {
+    "sdk": {
+      "requests": 4,
+      "input_tokens": 63768,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "output_tokens": 20,
+      "elapsed_seconds": [
+        4.876,
+        3.121,
+        3.062,
+        3.227
+      ]
+    },
+    "http": {
+      "requests": 4,
+      "input_tokens": 63768,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "output_tokens": 20,
+      "elapsed_seconds": [
+        3.217,
+        3.33,
+        4.426,
+        3.026
+      ]
+    }
+  },
+  "confirmed": {
+    "relay_used": false,
+    "same_http_client_and_transport": true,
+    "all_http2": true,
+    "requests_2_through_8_reused_connection": true,
+    "all_outputs_OK": true,
+    "returned_models": [
+      "gpt-6.1-sol"
+    ],
+    "returned_service_tiers": [
+      "default"
+    ]
+  },
+  "artifacts_root": "/tmp/hjh-sdk-probe-yk0yp11v",
+  "limitations": [
+    "Eight requests across two balanced groups; not a general cache benchmark.",
+    "No tools or growing conversation: repeated static long input only.",
+    "This tests official Go SDK vs direct Go HTTP, not the Codex implementation or its backend.",
+    "SDK and direct HTTP intentionally retain their normal different request headers and JSON property order. Same parsed JSON content is verified."
+  ],
+  "preliminary_attempts": {
+    "http_400_requests": 3,
+    "http_400_reason": "Input must be a list (confirmed on third capture)",
+    "http_200_requests": 1,
+    "http_200_input_tokens": 15944,
+    "http_200_output_tokens": 5,
+    "http_200_reason_excluded": "Probe initially read text only from response.completed.output; this endpoint sends it in output_text.delta. Corrected before final comparison."
+  },
+  "header_differences": {
+    "accept": {
+      "sdk": [
+        "application/json"
+      ],
+      "http": [
+        "text/event-stream"
+      ]
+    },
+    "user-agent": {
+      "sdk": [
+        "OpenAI/Go 3.78.0"
+      ],
+      "http": [
+        "Go-http-client/2.0"
+      ]
+    },
+    "x-stainless-arch": {
+      "sdk": [
+        "x64"
+      ],
+      "http": null
+    },
+    "x-stainless-lang": {
+      "sdk": [
+        "go"
+      ],
+      "http": null
+    },
+    "x-stainless-os": {
+      "sdk": [
+        "Linux"
+      ],
+      "http": null
+    },
+    "x-stainless-package-version": {
+      "sdk": [
+        "3.78.0"
+      ],
+      "http": null
+    },
+    "x-stainless-retry-count": {
+      "sdk": [
+        "0"
+      ],
+      "http": null
+    },
+    "x-stainless-runtime": {
+      "sdk": [
+        "go"
+      ],
+      "http": null
+    },
+    "x-stainless-runtime-version": {
+      "sdk": [
+        "go1.27.2"
+      ],
+      "http": null
+    }
+  },
+  "wire_fields": [
+    "input",
+    "instructions",
+    "model",
+    "reasoning",
+    "service_tier",
+    "store",
+    "stream"
+  ],
+  "total_http_requests_including_setup": 12,
+  "total_reported_input_tokens_including_setup": 143480,
+  "total_reported_output_tokens_including_setup": 45,
+  "requests": [
+    {
+      "number": 1,
+      "group": 1,
+      "client": "sdk",
+      "started_at": "2026-10-15T13:13:28.73146385Z",
+      "seconds": 4.876200244,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "42584daa4048aec27c56649847482285d0eee87cfdc404bc70c1946280171d6e",
+      "canonical_json_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "application/json"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "OpenAI/Go 3.78.0"
+        ],
+        "x-stainless-arch": [
+          "x64"
+        ],
+        "x-stainless-lang": [
+          "go"
+        ],
+        "x-stainless-os": [
+          "Linux"
+        ],
+        "x-stainless-package-version": [
+          "3.78.0"
+        ],
+        "x-stainless-retry-count": [
+          "0"
+        ],
+        "x-stainless-runtime": [
+          "go"
+        ],
+        "x-stainless-runtime-version": [
+          "go1.27.2"
+        ]
+      },
+      "reused_connection": false,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0b01cfac5ca6c37f016ad0d18c234887d0a6d358994c41d52d",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 2,
+      "group": 1,
+      "client": "http",
+      "started_at": "2026-10-15T13:13:35.609298089Z",
+      "seconds": 3.217305616,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "canonical_json_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_05920346b33090b7016ad0d191740487d0ad26b877beeb6052",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 3,
+      "group": 1,
+      "client": "http",
+      "started_at": "2026-10-15T13:13:40.828198671Z",
+      "seconds": 3.33041104,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "canonical_json_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0c3dff14c4b63d0b016ad0d196b4c887d08da6d94bae1e7c6e",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 4,
+      "group": 1,
+      "client": "sdk",
+      "started_at": "2026-10-15T13:13:46.158982467Z",
+      "seconds": 3.120669612,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "42584daa4048aec27c56649847482285d0eee87cfdc404bc70c1946280171d6e",
+      "canonical_json_sha256": "bdd4882cd4d4fc8cd2ea02c07f016184b84e79d22df05e6ebf41c603bd250ba0",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "application/json"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "OpenAI/Go 3.78.0"
+        ],
+        "x-stainless-arch": [
+          "x64"
+        ],
+        "x-stainless-lang": [
+          "go"
+        ],
+        "x-stainless-os": [
+          "Linux"
+        ],
+        "x-stainless-package-version": [
+          "3.78.0"
+        ],
+        "x-stainless-retry-count": [
+          "0"
+        ],
+        "x-stainless-runtime": [
+          "go"
+        ],
+        "x-stainless-runtime-version": [
+          "go1.27.2"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_061baca6e7fa21a0016ad0d19c024887d0804623ab8ff9a71d",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 5,
+      "group": 2,
+      "client": "http",
+      "started_at": "2026-10-15T13:13:51.281562901Z",
+      "seconds": 4.426261105,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "canonical_json_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0ba3468aab00f670016ad0d1a1819887d0b461e011d98d45e0",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 6,
+      "group": 2,
+      "client": "sdk",
+      "started_at": "2026-10-15T13:13:57.709534914Z",
+      "seconds": 3.061722459,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "4e7d03784ad01c0b86f4d32c231c1bc49a8a465190d9798e3d5c74f9318d65e8",
+      "canonical_json_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "application/json"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "OpenAI/Go 3.78.0"
+        ],
+        "x-stainless-arch": [
+          "x64"
+        ],
+        "x-stainless-lang": [
+          "go"
+        ],
+        "x-stainless-os": [
+          "Linux"
+        ],
+        "x-stainless-package-version": [
+          "3.78.0"
+        ],
+        "x-stainless-retry-count": [
+          "0"
+        ],
+        "x-stainless-runtime": [
+          "go"
+        ],
+        "x-stainless-runtime-version": [
+          "go1.27.2"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_021e11f0989ea324016ad0d1a7965c87d0a86b0b163a063471",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 7,
+      "group": 2,
+      "client": "sdk",
+      "started_at": "2026-10-15T13:14:02.772462447Z",
+      "seconds": 3.227184755,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "4e7d03784ad01c0b86f4d32c231c1bc49a8a465190d9798e3d5c74f9318d65e8",
+      "canonical_json_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "application/json"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "OpenAI/Go 3.78.0"
+        ],
+        "x-stainless-arch": [
+          "x64"
+        ],
+        "x-stainless-lang": [
+          "go"
+        ],
+        "x-stainless-os": [
+          "Linux"
+        ],
+        "x-stainless-package-version": [
+          "3.78.0"
+        ],
+        "x-stainless-retry-count": [
+          "0"
+        ],
+        "x-stainless-runtime": [
+          "go"
+        ],
+        "x-stainless-runtime-version": [
+          "go1.27.2"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0889183ffe0e07d0016ad0d1acd43087d0804f24210ca6e6e7",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    },
+    {
+      "number": 8,
+      "group": 2,
+      "client": "http",
+      "started_at": "2026-10-15T13:14:08.001440584Z",
+      "seconds": 3.026165863,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "canonical_json_sha256": "337b18b4cf34c860be0fd999c1158fa487b34fb650728129a0f5581ce0dfbfbe",
+      "body_bytes": 75345,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75345"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0f95870d4e8ba82b016ad0d1b1c30c87d08e5a00102cf5b674",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "usage": {
+        "input_tokens": 15942,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15947
+      },
+      "output": "OK"
+    }
+  ]
+}

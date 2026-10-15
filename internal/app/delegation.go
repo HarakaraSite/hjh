@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
+
 	"hjh/internal/contracts"
 	"hjh/internal/extensions"
 	"hjh/internal/history"
@@ -72,9 +74,12 @@ func (d *delegation) prepareChild(ctx context.Context, request contracts.AgentRu
 		}
 	}
 	addExecutionContextInstruction(&snapshot, model, d.input.workspace)
+	// Each child has its own model context and keeps one transport session ID
+	// for all of its requests, including retries and steered continuations.
+	childID := uuid.NewString()
 	provider := d.provider
 	if !d.input.injectedProvider {
-		provider, err = d.input.connections.provider(ctx, registry, model, d.input.rootSessionID, d.input.configPath)
+		provider, err = d.input.connections.provider(ctx, registry, model, childID, d.input.configPath)
 		if err != nil {
 			return preparedChild{}, err
 		}
@@ -90,7 +95,7 @@ func (d *delegation) prepareChild(ctx context.Context, request contracts.AgentRu
 	if err = d.control.storage(d.store.SaveConfiguration(persist, snapshot.ConfigurationID, snapshotJSON)); err != nil {
 		return preparedChild{}, err
 	}
-	child, err := d.store.BeginChildExecution(persist, history.BeginChildExecutionInput{Task: request.Task,
+	child, err := d.store.BeginChildExecution(persist, history.BeginChildExecutionInput{ExecutionID: childID, Task: request.Task,
 		ParentExecutionID: d.input.execution.ID, SpawnCallID: request.CallID, AgentName: snapshot.Agent.Name,
 		Model: contracts.JSON(model), Build: d.input.execution.Build, ConfigurationID: snapshot.ConfigurationID, MaxSteps: int64(d.input.maxSteps)})
 	if err = d.control.storage(err); err != nil {

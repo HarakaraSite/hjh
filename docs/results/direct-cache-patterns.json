@@ -1,0 +1,1948 @@
+{
+  "measured_at_utc": "2026-10-15T13:48:12.369231+00:00",
+  "endpoint": "https://api.openai.com/v1/responses",
+  "auth": "existing hjh-chatgpt OAuth, normal manager resolves/refreshes; same credential source across experiments",
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "service_tier": "default",
+  "sdk_used_for_model_requests": false,
+  "relay_used": false,
+  "transport": "shared Go http.Client/http.DefaultTransport within each experiment; HTTP/2 for all requests",
+  "artifacts_root": "/tmp/hjh-direct-cache-patterns-cqg17h3h",
+  "patterns": {
+    "key": {
+      "requests": 3,
+      "input_tokens_each": [
+        15951,
+        15951,
+        15951
+      ],
+      "cached_tokens_each": [
+        0,
+        0,
+        0
+      ],
+      "cache_percent_each": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "sent_body_cache_key": "0082d9448cf13c7d96bc3982581c3ee1",
+      "returned_cache_keys": [
+        "f8e2c972-cb0a-4ae3-bf2a-468bdd419119",
+        "ff96179a-173b-4326-ad95-ca1115b0917a",
+        "1310377e-2557-4191-a632-71fe14390621"
+      ],
+      "body_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    },
+    "underscore": {
+      "requests": 3,
+      "input_tokens_each": [
+        15952,
+        15952,
+        15952
+      ],
+      "cached_tokens_each": [
+        0,
+        15744,
+        15744
+      ],
+      "cache_percent_each": [
+        0.0,
+        98.696,
+        98.696
+      ],
+      "sent_body_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "returned_cache_keys": [
+        "4095b53ba31b8f79f1d8c789ee5ce792",
+        "4095b53ba31b8f79f1d8c789ee5ce792",
+        "4095b53ba31b8f79f1d8c789ee5ce792"
+      ],
+      "body_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    },
+    "hyphen": {
+      "requests": 3,
+      "input_tokens_each": [
+        15950,
+        15950,
+        15950
+      ],
+      "cached_tokens_each": [
+        0,
+        15744,
+        15744
+      ],
+      "cache_percent_each": [
+        0.0,
+        98.708,
+        98.708
+      ],
+      "sent_body_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "returned_cache_keys": [
+        "857e853ee691a069c96c927e0d447f6c",
+        "857e853ee691a069c96c927e0d447f6c",
+        "857e853ee691a069c96c927e0d447f6c"
+      ],
+      "body_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    },
+    "underscore-only": {
+      "requests": 3,
+      "input_tokens_each": [
+        15952,
+        15952,
+        15952
+      ],
+      "cached_tokens_each": [
+        0,
+        15744,
+        15744
+      ],
+      "cache_percent_each": [
+        0.0,
+        98.696,
+        98.696
+      ],
+      "sent_body_cache_key": null,
+      "returned_cache_keys": [
+        "d84b54f3c60a558e7588a1b7b924ee76",
+        "d84b54f3c60a558e7588a1b7b924ee76",
+        "d84b54f3c60a558e7588a1b7b924ee76"
+      ],
+      "body_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    },
+    "hyphen-only": {
+      "requests": 3,
+      "input_tokens_each": [
+        15950,
+        15950,
+        15950
+      ],
+      "cached_tokens_each": [
+        0,
+        15744,
+        15744
+      ],
+      "cache_percent_each": [
+        0.0,
+        98.708,
+        98.708
+      ],
+      "sent_body_cache_key": null,
+      "returned_cache_keys": [
+        "919cd377b0392b121e3f1ffe34d06f06",
+        "919cd377b0392b121e3f1ffe34d06f06",
+        "919cd377b0392b121e3f1ffe34d06f06"
+      ],
+      "body_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    },
+    "client-only": {
+      "requests": 3,
+      "input_tokens_each": [
+        15953,
+        15953,
+        15953
+      ],
+      "cached_tokens_each": [
+        0,
+        0,
+        0
+      ],
+      "cache_percent_each": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "sent_body_cache_key": null,
+      "returned_cache_keys": [
+        "8b484b33-a0e1-4226-966f-8443622b472c",
+        "9fb6a289-b6b4-4d08-982d-51c974e8802c",
+        "5df93b37-0440-4e4d-9bea-34905cf9e130"
+      ],
+      "body_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    },
+    "toggle": {
+      "requests": 5,
+      "input_tokens_each": [
+        15950,
+        15950,
+        15950,
+        15950,
+        15950
+      ],
+      "cached_tokens_each": [
+        0,
+        0,
+        15744,
+        0,
+        15744
+      ],
+      "cache_percent_each": [
+        0.0,
+        0.0,
+        98.708,
+        0.0,
+        98.708
+      ],
+      "sent_body_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "returned_cache_keys": [
+        "3e5b06efd520946a2483ac560450f5b6",
+        "d1681963-adf3-4c47-b448-52f8ae80b333",
+        "3e5b06efd520946a2483ac560450f5b6",
+        "7a6e2f4a-142d-4af9-ad84-1863432a0a6e",
+        "3e5b06efd520946a2483ac560450f5b6"
+      ],
+      "body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "same_body_bytes": true,
+      "response_turn_state_present": true
+    }
+  },
+  "total": {
+    "requests": 23,
+    "input_tokens": 366874,
+    "cached_tokens": 157440,
+    "output_tokens": 115
+  },
+  "toggle_body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+  "limitations": [
+    "Measured only this direct OpenAI ChatGPT OAuth route, model and effort; do not extrapolate to API-key or OpenRouter routes.",
+    "Long static input replay; growing conversations and hjh production integration were not exercised.",
+    "No explicit breakpoint or turn-state echo was needed or tested after working session-header patterns were found.",
+    "Server key rewrite is observed in response.prompt_cache_key; provider internal cache indexing/routing implementation is not established.",
+    "cache_write_tokens stayed zero even on sequences with confirmed later cache reads; this field alone does not establish absence of cache writes."
+  ],
+  "requests": [
+    {
+      "number": 1,
+      "group": 1,
+      "client": "key",
+      "started_at": "2026-10-15T13:43:58.783335694Z",
+      "seconds": 3.619196045,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "canonical_json_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": false,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_03f887b8a0dcf6ba016ad0d8b17fe487d0a98c44c85d1742c0",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "f8e2c972-cb0a-4ae3-bf2a-468bdd419119",
+      "response_turn_state_sha256": "2c511ec735863f7e5b1403d719efb568a750ca24970b2f648568f578dba6775e",
+      "usage": {
+        "input_tokens": 15951,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15956
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15951,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "0082d9448cf13c7d96bc3982581c3ee1",
+      "sent_session_id": null
+    },
+    {
+      "number": 2,
+      "group": 1,
+      "client": "key",
+      "started_at": "2026-10-15T13:44:04.40330613Z",
+      "seconds": 3.296843702,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "canonical_json_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_034b77e74ea32582016ad0d8b646ec87d08e62d480a2f76b18",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "ff96179a-173b-4326-ad95-ca1115b0917a",
+      "response_turn_state_sha256": "68c1739d31e89aaa92735a1f7d05c7dd8f6d5c5b081dcbb7fbece5ceb32d670e",
+      "usage": {
+        "input_tokens": 15951,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15956
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15951,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "0082d9448cf13c7d96bc3982581c3ee1",
+      "sent_session_id": null
+    },
+    {
+      "number": 3,
+      "group": 1,
+      "client": "key",
+      "started_at": "2026-10-15T13:44:09.701749151Z",
+      "seconds": 3.365765214,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "canonical_json_sha256": "b355c4fd06e87ef1e93e94553ab727888b5e4bce600223fd6fcd30d598cc2be3",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0bd93e8af15af502016ad0d8bb903887d0b562b64ff5aa31a1",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "1310377e-2557-4191-a632-71fe14390621",
+      "response_turn_state_sha256": "2330dee52875ca522d449a823ee435ff585625fe3d1b10587f2f57dda9c1b368",
+      "usage": {
+        "input_tokens": 15951,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15956
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15951,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "0082d9448cf13c7d96bc3982581c3ee1",
+      "sent_session_id": null
+    },
+    {
+      "number": 4,
+      "group": 2,
+      "client": "underscore",
+      "started_at": "2026-10-15T13:44:13.067953231Z",
+      "seconds": 3.486303224,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "canonical_json_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "4095b53ba31b8f79f1d8c789ee5ce792"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "4095b53ba31b8f79f1d8c789ee5ce792"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0b11bd00dd264a9e016ad0d8bee49c87d0a5f2456f2f7f4c87",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "response_turn_state_sha256": "40eeb6de7109953a705612a575349c911621bb2b99be2e2fb670bdb9e896c827",
+      "usage": {
+        "input_tokens": 15952,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15957
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15952,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "sent_session_id": [
+        "4095b53ba31b8f79f1d8c789ee5ce792"
+      ]
+    },
+    {
+      "number": 5,
+      "group": 2,
+      "client": "underscore",
+      "started_at": "2026-10-15T13:44:18.555801308Z",
+      "seconds": 4.895461981,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "canonical_json_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "4095b53ba31b8f79f1d8c789ee5ce792"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "4095b53ba31b8f79f1d8c789ee5ce792"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_017e704cd46691c5016ad0d8c4a69487d088afac7041128008",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "response_turn_state_sha256": "303ff63e34e3686d8e9dcd50318222a605db0943234ccaf8116675b4b263f604",
+      "usage": {
+        "input_tokens": 15952,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15957
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15952,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.696,
+      "sent_prompt_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "sent_session_id": [
+        "4095b53ba31b8f79f1d8c789ee5ce792"
+      ]
+    },
+    {
+      "number": 6,
+      "group": 2,
+      "client": "underscore",
+      "started_at": "2026-10-15T13:44:25.452221941Z",
+      "seconds": 2.972837265,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "canonical_json_sha256": "2adfd6c8fb770af95ab75df3aec86d0a206099c4ac556ac4732d3ad4af8ae27b",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "4095b53ba31b8f79f1d8c789ee5ce792"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "4095b53ba31b8f79f1d8c789ee5ce792"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0dff9ad4ea9840d1016ad0d8cb2c0887d0bbb0c4a8fbabcde5",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "response_turn_state_sha256": "2f804b719fa94943fe932006f13ed089b063dbd2ca623ab49f564dd69b45f16d",
+      "usage": {
+        "input_tokens": 15952,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15957
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15952,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.696,
+      "sent_prompt_cache_key": "4095b53ba31b8f79f1d8c789ee5ce792",
+      "sent_session_id": [
+        "4095b53ba31b8f79f1d8c789ee5ce792"
+      ]
+    },
+    {
+      "number": 7,
+      "group": 3,
+      "client": "hyphen",
+      "started_at": "2026-10-15T13:44:28.42570281Z",
+      "seconds": 3.007916775,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "canonical_json_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ],
+        "thread-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0efbd96b7f0f49b1016ad0d8ce3ac887d0a618149008ec33f8",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "response_turn_state_sha256": "67090f47339ea0e0689d8ad158086bc18d7d6ea1d10ba58a8e0ef35296d0e9d6",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15950,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "sent_session_id": [
+        "857e853ee691a069c96c927e0d447f6c"
+      ]
+    },
+    {
+      "number": 8,
+      "group": 3,
+      "client": "hyphen",
+      "started_at": "2026-10-15T13:44:33.435342586Z",
+      "seconds": 5.086283752,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "canonical_json_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ],
+        "thread-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_09974745a2fb0579016ad0d8d35fa487d09632a6895e0fb622",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "response_turn_state_sha256": "52a1e437467a88aa7d68ca3aed05f610534f055a87b5e4e5d2933bb54544fda1",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15950,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.708,
+      "sent_prompt_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "sent_session_id": [
+        "857e853ee691a069c96c927e0d447f6c"
+      ]
+    },
+    {
+      "number": 9,
+      "group": 3,
+      "client": "hyphen",
+      "started_at": "2026-10-15T13:44:40.523054464Z",
+      "seconds": 3.008484669,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "canonical_json_sha256": "f3e55827cedf65bcbf245108215b9bda9802915c4e4e553c949128a07b75744f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ],
+        "thread-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "857e853ee691a069c96c927e0d447f6c"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_058fe0d64b93c36d016ad0d8da2d6087d0b5e584abbc27b800",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "response_turn_state_sha256": "bf02f3ea44ac034ac66a83ef7d0e6cc453b94e830608fd92662e96b9c76584a2",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "identity",
+      "input_tokens": 15950,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.708,
+      "sent_prompt_cache_key": "857e853ee691a069c96c927e0d447f6c",
+      "sent_session_id": [
+        "857e853ee691a069c96c927e0d447f6c"
+      ]
+    },
+    {
+      "number": 1,
+      "group": 1,
+      "client": "underscore-only",
+      "started_at": "2026-10-15T13:45:28.729062461Z",
+      "seconds": 2.812495412,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "canonical_json_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "d84b54f3c60a558e7588a1b7b924ee76"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": false,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_06736e5425bee4df016ad0d90a77d487d081876a52ea6657c7",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "d84b54f3c60a558e7588a1b7b924ee76",
+      "response_turn_state_sha256": "f61e7d5be0ce94543987f0c27a0e69b606861896c0d88155dcf63277bac1a05c",
+      "usage": {
+        "input_tokens": 15952,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15957
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15952,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": [
+        "d84b54f3c60a558e7588a1b7b924ee76"
+      ]
+    },
+    {
+      "number": 2,
+      "group": 1,
+      "client": "underscore-only",
+      "started_at": "2026-10-15T13:45:33.543479938Z",
+      "seconds": 2.675036755,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "canonical_json_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "d84b54f3c60a558e7588a1b7b924ee76"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0b763fb393c6e867016ad0d90f2f7087d0bdd95e6499e61ec1",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "d84b54f3c60a558e7588a1b7b924ee76",
+      "response_turn_state_sha256": "72bf16496e75463334b346387347832748f480b82dd05a244bd37e1548af942b",
+      "usage": {
+        "input_tokens": 15952,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15957
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15952,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.696,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": [
+        "d84b54f3c60a558e7588a1b7b924ee76"
+      ]
+    },
+    {
+      "number": 3,
+      "group": 1,
+      "client": "underscore-only",
+      "started_at": "2026-10-15T13:45:38.219360251Z",
+      "seconds": 4.637914843,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "canonical_json_sha256": "94706cf506138b79a3a597096d3b53ef993cf381cbd4ca57ee636c24f0021a0e",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "d84b54f3c60a558e7588a1b7b924ee76"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_06be0bfc838fc385016ad0d913f69487d08707b3fc2ef7e7d0",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "d84b54f3c60a558e7588a1b7b924ee76",
+      "response_turn_state_sha256": "b083c1e6978d437585ad5ce44e1386bab02bf294e3d521b8a187592b84ec9329",
+      "usage": {
+        "input_tokens": 15952,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15957
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15952,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.696,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": [
+        "d84b54f3c60a558e7588a1b7b924ee76"
+      ]
+    },
+    {
+      "number": 4,
+      "group": 2,
+      "client": "hyphen-only",
+      "started_at": "2026-10-15T13:45:42.857808704Z",
+      "seconds": 3.446042287,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "canonical_json_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session-id": [
+          "919cd377b0392b121e3f1ffe34d06f06"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0e6ac74ca4a4cfea016ad0d9188afc87d083b8d18b6f570fef",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "919cd377b0392b121e3f1ffe34d06f06",
+      "response_turn_state_sha256": "37531eef0e966aa24eccaf0197d046715603ceee0c6032690aae9b0c53a08aab",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15950,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": [
+        "919cd377b0392b121e3f1ffe34d06f06"
+      ]
+    },
+    {
+      "number": 5,
+      "group": 2,
+      "client": "hyphen-only",
+      "started_at": "2026-10-15T13:45:48.305507534Z",
+      "seconds": 3.015341253,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "canonical_json_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session-id": [
+          "919cd377b0392b121e3f1ffe34d06f06"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0f7c530cb6db9582016ad0d91decf087d0ab002ee01d284180",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "919cd377b0392b121e3f1ffe34d06f06",
+      "response_turn_state_sha256": "e54ab927881e55fd76cc3e7dc8c4ff2bcbc53f5298e427fb62b9f5b91b1106e6",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15950,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.708,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": [
+        "919cd377b0392b121e3f1ffe34d06f06"
+      ]
+    },
+    {
+      "number": 6,
+      "group": 2,
+      "client": "hyphen-only",
+      "started_at": "2026-10-15T13:45:53.322457442Z",
+      "seconds": 3.43622799,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "canonical_json_sha256": "fe25ed5310f045b27c497ac5a33d3b5bd1be8f0e4a879b62e238689442d1377e",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session-id": [
+          "919cd377b0392b121e3f1ffe34d06f06"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_00459b7019f4a4fe016ad0d923419087d082d60cdfbf88b16c",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "919cd377b0392b121e3f1ffe34d06f06",
+      "response_turn_state_sha256": "7d8c73b297eacb2eb3e34c17fc8350523ab44f5114bdd3241663f1e5bbcff68f",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15950,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.708,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": [
+        "919cd377b0392b121e3f1ffe34d06f06"
+      ]
+    },
+    {
+      "number": 7,
+      "group": 3,
+      "client": "client-only",
+      "started_at": "2026-10-15T13:45:56.759619937Z",
+      "seconds": 3.068131485,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "canonical_json_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "41caad7efbfa6bd5482e40e4e0d3386b"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0a3ea69d6c1ad990016ad0d926ab7087d0a076a283f38250dc",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "8b484b33-a0e1-4226-966f-8443622b472c",
+      "response_turn_state_sha256": "3f3ac613f856c7df35e46566a25136791e3b82d79c75cc063d6ae8b5ffc6e775",
+      "usage": {
+        "input_tokens": 15953,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15958
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15953,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": null
+    },
+    {
+      "number": 8,
+      "group": 3,
+      "client": "client-only",
+      "started_at": "2026-10-15T13:46:01.829603537Z",
+      "seconds": 3.444253165,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "canonical_json_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "41caad7efbfa6bd5482e40e4e0d3386b"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_04db0d2e97097795016ad0d92bf58887d0abf72a53dd4c6a00",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "9fb6a289-b6b4-4d08-982d-51c974e8802c",
+      "response_turn_state_sha256": "60f92aa01396723e319c2de1396fc809a524f43a86f00e2187b7f9b8a7b023d4",
+      "usage": {
+        "input_tokens": 15953,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15958
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15953,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": null
+    },
+    {
+      "number": 9,
+      "group": 3,
+      "client": "client-only",
+      "started_at": "2026-10-15T13:46:07.275840823Z",
+      "seconds": 3.278558876,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "canonical_json_sha256": "2d2ebaa81cfc529de97bc7e58065ad8831c7958e20c8a0c154b75c5ea056726f",
+      "body_bytes": 75353,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75353"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ],
+        "x-client-request-id": [
+          "41caad7efbfa6bd5482e40e4e0d3386b"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0e486b6da70ddf3e016ad0d9313b5c87d0adb320fa3e30f0cf",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "5df93b37-0440-4e4d-9bea-34905cf9e130",
+      "response_turn_state_sha256": "bca1eca56d6bf0cb6b97ba392c24751217ff1238e49efafbe23b693d983b92ce",
+      "usage": {
+        "input_tokens": 15953,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15958
+      },
+      "output": "OK",
+      "experiment": "minimal",
+      "input_tokens": 15953,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": null,
+      "sent_session_id": null
+    },
+    {
+      "number": 1,
+      "group": 1,
+      "client": "toggle",
+      "started_at": "2026-10-15T13:46:36.736094137Z",
+      "seconds": 3.162755645,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "canonical_json_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "3e5b06efd520946a2483ac560450f5b6"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": false,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_03a570a5d445a082016ad0d94edf6087d0b8c1bff237e0fed2",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "response_turn_state_sha256": "78d88996c9e92412be3efaaa71f05b01f6f542170f8a26ce491ceb269f1c5075",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "toggle",
+      "input_tokens": 15950,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "sent_session_id": [
+        "3e5b06efd520946a2483ac560450f5b6"
+      ]
+    },
+    {
+      "number": 2,
+      "group": 1,
+      "client": "toggle",
+      "started_at": "2026-10-15T13:46:41.900807741Z",
+      "seconds": 3.086640057,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "canonical_json_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_084ff1be414eaad7016ad0d953f98c87d08f2545ec1484b636",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "d1681963-adf3-4c47-b448-52f8ae80b333",
+      "response_turn_state_sha256": "782160744c5e2b0f8b8c56e030246285defa3c20846ac78483371f4f4bb74b23",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "toggle",
+      "input_tokens": 15950,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "sent_session_id": null
+    },
+    {
+      "number": 3,
+      "group": 1,
+      "client": "toggle",
+      "started_at": "2026-10-15T13:46:46.989176105Z",
+      "seconds": 9.118794128,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "canonical_json_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "3e5b06efd520946a2483ac560450f5b6"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_02a504d8aedca9b1016ad0d95c28fc87d0a63224430cd29147",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "response_turn_state_sha256": "1ee3deeb521be743c3d0e0e87a4cb64d14ea2f0ff32cd19b40e1296f7c014b3a",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "toggle",
+      "input_tokens": 15950,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.708,
+      "sent_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "sent_session_id": [
+        "3e5b06efd520946a2483ac560450f5b6"
+      ]
+    },
+    {
+      "number": 4,
+      "group": 1,
+      "client": "toggle",
+      "started_at": "2026-10-15T13:46:58.109696401Z",
+      "seconds": 2.856951326,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "canonical_json_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_0c673fbad4c2c722016ad0d96405ec87d0b332b6ac36f21c5c",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "7a6e2f4a-142d-4af9-ad84-1863432a0a6e",
+      "response_turn_state_sha256": "e9ad91513acd6800d8844724a9c43e38b3f9b509d8272e74b4b3a9b71ca46596",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "toggle",
+      "input_tokens": 15950,
+      "cached_tokens": 0,
+      "cached_input_percent": 0.0,
+      "sent_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "sent_session_id": null
+    },
+    {
+      "number": 5,
+      "group": 1,
+      "client": "toggle",
+      "started_at": "2026-10-15T13:47:02.968419981Z",
+      "seconds": 3.040160849,
+      "url": "https://api.openai.com/v1/responses",
+      "body_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "canonical_json_sha256": "371e3e9dfd885b42dbc6a24cbcc9e6bc3c81be5ffde3df59b8ebbc5b790d8e0f",
+      "body_bytes": 75407,
+      "sent_headers": {
+        ":authority": [
+          "api.openai.com"
+        ],
+        ":method": [
+          "POST"
+        ],
+        ":path": [
+          "/v1/responses"
+        ],
+        ":scheme": [
+          "https"
+        ],
+        "accept": [
+          "text/event-stream"
+        ],
+        "accept-encoding": [
+          "gzip"
+        ],
+        "authorization": [
+          "<omitted>"
+        ],
+        "content-length": [
+          "75407"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "session_id": [
+          "3e5b06efd520946a2483ac560450f5b6"
+        ],
+        "user-agent": [
+          "Go-http-client/2.0"
+        ]
+      },
+      "reused_connection": true,
+      "http_protocol": "HTTP/2.0",
+      "http_status": 200,
+      "response_id": "resp_01954dd1152e014c016ad0d968b7d487d0b91cf73ce8d9cba9",
+      "returned_model": "gpt-6.1-sol",
+      "returned_service_tier": "default",
+      "returned_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "response_turn_state_sha256": "a1da46e0ff17cda6d6b4f00ff88bcea6ed680c6768405e25bb5eeb9a131b284c",
+      "usage": {
+        "input_tokens": 15950,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 15744
+        },
+        "output_tokens": 5,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 15955
+      },
+      "output": "OK",
+      "experiment": "toggle",
+      "input_tokens": 15950,
+      "cached_tokens": 15744,
+      "cached_input_percent": 98.708,
+      "sent_prompt_cache_key": "3e5b06efd520946a2483ac560450f5b6",
+      "sent_session_id": [
+        "3e5b06efd520946a2483ac560450f5b6"
+      ]
+    }
+  ]
+}

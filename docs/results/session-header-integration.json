@@ -1,0 +1,115 @@
+{
+  "session_id": "ef265b94-596c-42a3-975b-6d283cbfbb11",
+  "provider": "openai-chatgpt",
+  "model": "gpt-6.1-sol",
+  "effort": "high",
+  "session_header": "session_id",
+  "requests": [
+    {
+      "label": "chain",
+      "step": 1,
+      "input_tokens": 7369,
+      "cached_tokens": 0
+    },
+    {
+      "label": "chain",
+      "step": 2,
+      "input_tokens": 12221,
+      "cached_tokens": 7168
+    },
+    {
+      "label": "chain",
+      "step": 3,
+      "input_tokens": 17064,
+      "cached_tokens": 12032
+    },
+    {
+      "label": "chain",
+      "step": 4,
+      "input_tokens": 21910,
+      "cached_tokens": 16896
+    },
+    {
+      "label": "next-turn",
+      "step": 1,
+      "input_tokens": 21943,
+      "cached_tokens": 21760
+    }
+  ],
+  "input_tokens": 80507,
+  "cached_tokens": 57856,
+  "cache_ratio": 0.7186455836138472,
+  "artifact_directory": "/tmp/hjh-session-header-check-ufn6j8z9",
+  "transport": "native hjh Core net/http; no relay",
+  "child_identity_check": {
+    "provider": "openai-chatgpt",
+    "model": "gpt-6.1-sol",
+    "effort": "high",
+    "artifact_directory": "/tmp/hjh-child-session-check-pm__0e8y",
+    "transport": "native hjh Core net/http; no relay",
+    "executions": [
+      {
+        "execution_id": "6576c3b0-d3d4-4560-94a9-38a7592db12d",
+        "parent_execution_id": null,
+        "role": "default",
+        "lifecycle": "settled",
+        "outcome": "completed",
+        "requests": [
+          {
+            "step": 1,
+            "input_tokens": 7387,
+            "cached_tokens": 0
+          },
+          {
+            "step": 2,
+            "input_tokens": 7576,
+            "cached_tokens": 7296
+          }
+        ]
+      },
+      {
+        "execution_id": "a1ff637c-0842-48c2-bba7-43abfe66f26c",
+        "parent_execution_id": "6576c3b0-d3d4-4560-94a9-38a7592db12d",
+        "role": "explorer",
+        "lifecycle": "settled",
+        "outcome": "completed",
+        "requests": [
+          {
+            "step": 1,
+            "input_tokens": 4560,
+            "cached_tokens": 0
+          },
+          {
+            "step": 2,
+            "input_tokens": 9412,
+            "cached_tokens": 4480
+          },
+          {
+            "step": 3,
+            "input_tokens": 14282,
+            "cached_tokens": 9216
+          },
+          {
+            "step": 4,
+            "input_tokens": 19155,
+            "cached_tokens": 14080
+          }
+        ]
+      },
+      {
+        "execution_id": "800d6245-93a8-4946-81c9-68188c1823c2",
+        "parent_execution_id": null,
+        "role": "default",
+        "lifecycle": "settled",
+        "outcome": "completed",
+        "requests": [
+          {
+            "step": 1,
+            "input_tokens": 7609,
+            "cached_tokens": 7424
+          }
+        ]
+      }
+    ]
+  }
+}

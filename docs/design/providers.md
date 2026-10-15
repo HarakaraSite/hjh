@@ -100,6 +100,7 @@ by `hjh providers`.
       "defaultModel": "gpt-6.1-sol",
       "defaultEffort": "auto",
       "catalog": {"kind": "openai-account", "path": "/models"},
+      "sessionHeader": "session_id",
       "adapter": {"store": false, "namespaceTools": true, "reasoningReplay": true}
     }
   }
@@ -152,6 +153,19 @@ replayed for the same destination and model, and `reasoningField` names the
 provider-specific Chat Completions field read for public thinking and reasoning state. `headers`
 and `sessionHeader` are passed to the transport; keep credential values in
 credential references rather than these fields.
+
+The standard `openai-chatgpt` definition sends the existing full hjh Session ID
+through `session_id`. The ID remains the same across model calls, turns, and
+session resume. Each child agent uses its own execution ID as its transport
+session ID, retained across model calls, retries, and steered continuations.
+This does not create another saved conversation Session; history correlation
+still belongs to the root Session. This keeps the ChatGPT
+OAuth route's cache identity stable. Direct HTTP measurements confirmed cache
+reuse with this header; see [the measured patterns](../results/direct-cache-patterns.md).
+Existing extension configs are preserved by default installation, so add
+`"sessionHeader": "session_id"` to their `openai-chatgpt` entry as well.
+The [provider cache-affinity note](../notes/provider-cache-affinity.md) records
+the mixed-provider parent/child behavior and the remaining measurement scope.
 
 The standard OpenCode Go Chat definition sets
 `"adapter": {"reasoningField": "reasoning_content", "reasoningReplay": true}`.
