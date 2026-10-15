@@ -137,6 +137,7 @@ Provider definitions use these fields:
 | `catalog.kind`, `catalog.path` | Dynamic model catalog source. `openai-account` reads `/models` for the selected ChatGPT account, displaying entries whose `visibility` is `list`. |
 | `headers` | Additional non-secret HTTP headers. Authentication headers are supplied by the selected `auth` method. |
 | `sessionHeader` | Header name used to send the current Session ID when a route requires it. |
+| `responseTimeout.startSeconds`, `responseTimeout.idleSeconds` | HTTP response-start and body-read idle waits in seconds. Omitted fields use 300 and 600 respectively; explicit `0` disables that clock. |
 | `adapter` | Confirmed protocol differences: `store`, `namespaceTools`, `reasoningReplay`, and the Chat Completions `reasoningField`. |
 
 `models` are selection suggestions, not an allowlist. An explicit model ID is
@@ -172,6 +173,44 @@ request. Public summary extraction does not depend on `reasoningReplay`.
 The current [OpenAI stateless reasoning contract](https://developers.openai.com/api/docs/guides/reasoning)
 returns encrypted reasoning state by default with `store: false`; the legacy
 `include: ["reasoning.encrypted_content"]` option is not required.
+
+## Model response waits
+
+Each provider may configure its response waits in the captured extension config:
+
+```json
+{
+  "providers": {
+    "openai-chatgpt": {
+      "responseTimeout": {"startSeconds": 300, "idleSeconds": 600}
+    }
+  }
+}
+```
+
+These are provisional product defaults for all providers, not provider guarantees.
+Each omitted field uses its own default (start 300 seconds, idle 600 seconds);
+explicit `0` disables only that clock. Positive fractional seconds are supported.
+Negative values are configuration errors reported with the provider ID during
+connection preparation. No minimum, maximum, or total-generation limit is added.
+Configuration is captured with the Worker and applies to newly prepared Workers;
+existing config files and saved data are not rewritten.
+
+The start clock begins immediately before the HTTP request, including per-request
+OAuth resolution, connection, sending, and header wait. Headers do not reset it: it
+runs until the first nonempty body read. Subsequent body-read waits use the idle
+clock. All received body bytes count, including comments, heartbeats, thinking,
+and partial tool arguments. Parser, observer, history-save, hook, and tool time do
+not count as body-read idle waits. Initial credential preparation is outside these
+clocks. Continued reception may therefore outlast both values; heartbeat-only
+stalls are not terminated while bytes continue arriving.
+
+A timeout ends that physical HTTP request before the existing single retry of the
+same prepared request, after two seconds. It does not rerun completed tools or the
+child execution. Parent and child requests share this behavior; exhausted child
+failures return through collect without cancelling the parent. Hook helper model
+generation uses the clocks but remains a single call without Agent retry. User
+cancellation and actual credential errors do not become retryable timeouts.
 
 ## Credentials
 

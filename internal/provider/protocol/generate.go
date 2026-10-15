@@ -40,7 +40,9 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	if provider.endpoint == "" {
 		return contracts.ModelResult{}, provider.fail(observer, requestID, errors.New("provider endpoint is empty"))
 	}
-	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, provider.endpoint, bytes.NewReader(body))
+	wait := newResponseWait(ctx, provider.config.ResponseTimeout)
+	defer wait.cancel(nil)
+	httpRequest, err := http.NewRequestWithContext(wait.ctx, http.MethodPost, provider.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return contracts.ModelResult{}, provider.fail(observer, requestID, fmt.Errorf("create provider request: %w", err))
 	}
@@ -52,8 +54,15 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	if provider.config.SessionHeader != "" && provider.config.SessionID != "" {
 		httpRequest.Header.Set(provider.config.SessionHeader, provider.config.SessionID)
 	}
+	stopWait := wait.start()
 	response, err := provider.client.Do(httpRequest)
+	stopWait()
+	if response != nil {
+		response.Body = &responseWaitBody{ReadCloser: response.Body, wait: wait}
+		defer response.Body.Close()
+	}
 	if err != nil {
+		err = wait.transportError(err)
 		if ctx.Err() != nil {
 			err = classifyProviderTransport(fmt.Errorf("provider request canceled: %w", ctx.Err()))
 		} else {
@@ -61,7 +70,6 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 		}
 		return contracts.ModelResult{}, provider.fail(observer, requestID, err)
 	}
-	defer response.Body.Close()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		responseBody, readErr := io.ReadAll(response.Body)
 		if ctx.Err() != nil {
@@ -105,6 +113,9 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 	if streamErr != nil {
 		if ctx.Err() != nil {
 			streamErr = classifyProviderTransport(fmt.Errorf("provider stream canceled: %w", ctx.Err()))
+		} else if !isObservationError(streamErr) && wait.timeout() != nil &&
+			(errors.Is(streamErr, context.Canceled) || errors.Is(streamErr, context.DeadlineExceeded)) {
+			streamErr = classifyProviderTransport(wait.timeout())
 		} else if contracts.FailureFor(streamErr) == nil && !isObservationError(streamErr) {
 			streamErr = classifyProviderTransport(fmt.Errorf("provider stream failed: %w", streamErr))
 		} else {

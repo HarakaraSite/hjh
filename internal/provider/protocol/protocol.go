@@ -20,18 +20,19 @@ type Options struct {
 
 // Config contains non-secret endpoint and adapter settings plus transport-only credentials.
 type Config struct {
-	ProviderID    string
-	StateIdentity string
-	API           string
-	BaseURL       string
-	Path          string
-	Headers       map[string]string
-	Options       Options
-	APIKey        string
-	ResolveToken  func(context.Context) (string, error)
-	HTTPClient    *http.Client
-	SessionID     string
-	SessionHeader string
+	ProviderID      string
+	StateIdentity   string
+	API             string
+	BaseURL         string
+	Path            string
+	Headers         map[string]string
+	Options         Options
+	ResponseTimeout ResponseTimeout
+	APIKey          string
+	ResolveToken    func(context.Context) (string, error)
+	HTTPClient      *http.Client
+	SessionID       string
+	SessionHeader   string
 }
 
 // Provider implements contracts.Provider for OpenAI-compatible JSON/SSE endpoints.

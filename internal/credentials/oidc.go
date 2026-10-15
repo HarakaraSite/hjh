@@ -78,6 +78,13 @@ func (m *Manager) openIDConfiguration(ctx context.Context) (openIDConfiguration,
 	}
 	var configuration openIDConfiguration
 	if err := json.NewDecoder(response.Body).Decode(&configuration); err != nil {
+		// Only preserve cancellation identity, not potentially sensitive response bytes.
+		if errors.Is(err, context.Canceled) {
+			return openIDConfiguration{}, fmt.Errorf("could not read OpenAI sign-in configuration: %w", context.Canceled)
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return openIDConfiguration{}, fmt.Errorf("could not read OpenAI sign-in configuration: %w", context.DeadlineExceeded)
+		}
 		return openIDConfiguration{}, errors.New("could not read OpenAI sign-in configuration")
 	}
 	if configuration.Issuer != "https://auth.openai.com" || configuration.AuthorizationEndpoint == "" || configuration.TokenEndpoint == "" || configuration.JWKSURI == "" {

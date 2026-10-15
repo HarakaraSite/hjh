@@ -161,3 +161,34 @@ func TestStandardConfigUsesExternalProviderDefinitions(t *testing.T) {
 		t.Fatalf("ChatGPT catalog = %+v, want the account model endpoint", chatGPT.Catalog)
 	}
 }
+
+func TestResponseTimeoutDefinitionPreservesProviderSettings(t *testing.T) {
+	registry, err := Parse([]byte(`{"providers":{"defaults":{},"custom":{"responseTimeout":{"startSeconds":1.25,"idleSeconds":0}},"idle-only":{"responseTimeout":{"idleSeconds":2}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults, _ := registry.Definition("defaults")
+	if defaults.ResponseTimeout.StartSeconds != nil || defaults.ResponseTimeout.IdleSeconds != nil {
+		t.Fatal("omitted clocks lost default semantics")
+	}
+	custom, _ := registry.Definition("custom")
+	if custom.ResponseTimeout.StartSeconds == nil || *custom.ResponseTimeout.StartSeconds != 1.25 || custom.ResponseTimeout.IdleSeconds == nil || *custom.ResponseTimeout.IdleSeconds != 0 {
+		t.Fatalf("custom settings=%+v", custom.ResponseTimeout)
+	}
+	encoded, err := json.Marshal(registry.List())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var listed []Definition
+	if err := json.Unmarshal(encoded, &listed); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range listed {
+		if d.ID == "custom" && (d.ResponseTimeout.IdleSeconds == nil || *d.ResponseTimeout.IdleSeconds != 0) {
+			t.Fatal("listing dropped explicit zero")
+		}
+		if d.ID == "idle-only" && (d.ResponseTimeout.StartSeconds != nil || d.ResponseTimeout.IdleSeconds == nil || *d.ResponseTimeout.IdleSeconds != 2) {
+			t.Fatal("partial override changed omitted start")
+		}
+	}
+}

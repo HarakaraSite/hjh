@@ -33,20 +33,21 @@ type RoleModel struct {
 // Definition describes one connection using an API and authentication
 // implementation already supported by the Go runtime.
 type Definition struct {
-	ModelsDevProviderID string            `json:"modelsDevProviderId,omitempty"`
-	ID                  string            `json:"id"`
-	DisplayName         string            `json:"displayName"`
-	API                 string            `json:"api"`
-	BaseURL             string            `json:"baseURL"`
-	Path                string            `json:"path"`
-	Auth                Auth              `json:"auth"`
-	DefaultModel        string            `json:"defaultModel"`
-	DefaultEffort       string            `json:"defaultEffort"`
-	Models              []ModelInfo       `json:"models,omitempty"`
-	Catalog             Catalog           `json:"catalog,omitempty"`
-	Headers             map[string]string `json:"headers,omitempty"`
-	SessionHeader       string            `json:"sessionHeader,omitempty"`
-	Adapter             protocol.Options  `json:"adapter,omitempty"`
+	ModelsDevProviderID string                   `json:"modelsDevProviderId,omitempty"`
+	ID                  string                   `json:"id"`
+	DisplayName         string                   `json:"displayName"`
+	API                 string                   `json:"api"`
+	BaseURL             string                   `json:"baseURL"`
+	Path                string                   `json:"path"`
+	Auth                Auth                     `json:"auth"`
+	DefaultModel        string                   `json:"defaultModel"`
+	DefaultEffort       string                   `json:"defaultEffort"`
+	Models              []ModelInfo              `json:"models,omitempty"`
+	Catalog             Catalog                  `json:"catalog,omitempty"`
+	Headers             map[string]string        `json:"headers,omitempty"`
+	SessionHeader       string                   `json:"sessionHeader,omitempty"`
+	Adapter             protocol.Options         `json:"adapter,omitempty"`
+	ResponseTimeout     protocol.ResponseTimeout `json:"responseTimeout,omitempty"`
 }
 
 // Auth selects a Go authentication method and names a credentials profile.

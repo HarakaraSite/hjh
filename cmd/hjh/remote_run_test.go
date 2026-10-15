@@ -144,34 +144,32 @@ func TestConnectedRunSharesActiveSessionAndPreservesCLIOutput(t *testing.T) {
 			if err != nil || state == nil || state.RunID != active.RunID {
 				t.Fatalf("TUI active-run lookup = %+v, %v", state, err)
 			}
-			snapshot := make(chan apiclient.RunEvent, 8)
+			partialSeen := make(chan struct{})
+			var partialOnce sync.Once
+			observePartial := func(entity api.ConversationEntity) {
+				if entity.Kind == "assistant" && entity.Text == "README " {
+					partialOnce.Do(func() { close(partialSeen) })
+				}
+			}
 			attached := client.AttachRun(manager.Core().CoreID, active.RunID, func(event apiclient.RunEvent) {
-				select {
-				case snapshot <- event:
-				default:
+				// Inspect reception directly: unrelated startup updates must not fill
+				// a test queue and drop the partial response we are waiting for.
+				if event.Conversation != nil {
+					for _, entity := range event.Conversation.Entities {
+						observePartial(entity)
+					}
+				}
+				if event.Update != nil {
+					for _, entity := range event.Update.Upserts {
+						observePartial(entity)
+					}
 				}
 			})
-			awaitConnected(t, func() bool {
-				select {
-				case event := <-snapshot:
-					if event.Conversation != nil {
-						for _, entity := range event.Conversation.Entities {
-							if entity.Kind == "assistant" && entity.Text == "README " {
-								return true
-							}
-						}
-					}
-					if event.Update != nil {
-						for _, entity := range event.Update.Upserts {
-							if entity.Kind == "assistant" && entity.Text == "README " {
-								return true
-							}
-						}
-					}
-				default:
-				}
-				return false
-			})
+			select {
+			case <-partialSeen:
+			case <-time.After(5 * time.Second):
+				t.Fatal("attached client did not receive the partial response")
+			}
 			if stream {
 				awaitConnected(t, func() bool { return stdout.String() == "README " })
 			} else if stdout.String() != "" {

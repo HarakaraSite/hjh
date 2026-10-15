@@ -392,6 +392,14 @@ func (m *Manager) refreshRecord(ctx context.Context, path string, record *oauthR
 	}
 	var tokens tokenResponse
 	if err := json.NewDecoder(response.Body).Decode(&tokens); err != nil {
+		// Keep request cancellation recognizable outside the credential wrapper.
+		// Other decode errors remain opaque; token response bytes are not exposed.
+		if errors.Is(err, context.Canceled) {
+			return fmt.Errorf("could not read ChatGPT refresh response: %w", context.Canceled)
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("could not read ChatGPT refresh response: %w", context.DeadlineExceeded)
+		}
 		return errors.New("could not read ChatGPT refresh response")
 	}
 	if tokens.AccessToken == "" || tokens.RefreshToken == "" {

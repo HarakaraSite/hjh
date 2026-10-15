@@ -96,6 +96,9 @@ func (f *connectionFactory) provider(ctx context.Context, registry *providers.Re
 	if err != nil {
 		return nil, err
 	}
+	if err := definition.ResponseTimeout.Validate(); err != nil {
+		return nil, fmt.Errorf("provider %q responseTimeout: %w", selection.Provider, err)
+	}
 	target := credentials.Target{ConfigPath: configPath, ProviderID: selection.Provider, Name: selection.AuthProfile,
 		Kind: definition.Auth.Kind, Profile: registry.Config.Credentials[selection.AuthProfile]}
 	if selection.AuthProfile == f.overrideProfile {
@@ -119,7 +122,7 @@ func (f *connectionFactory) provider(ctx context.Context, registry *providers.Re
 	identity := selection.Provider + ":" + hex.EncodeToString(digest[:])
 	config := protocol.Config{ProviderID: selection.Provider, StateIdentity: identity,
 		API: definition.API, BaseURL: definition.BaseURL, Path: definition.Path, Headers: definition.Headers,
-		Options: definition.Adapter, APIKey: resolved.Token, HTTPClient: f.client,
+		Options: definition.Adapter, ResponseTimeout: definition.ResponseTimeout, APIKey: resolved.Token, HTTPClient: f.client,
 		SessionID: sessionID, SessionHeader: definition.SessionHeader}
 	if definition.Auth.Kind == credentials.KindChatGPTOAuth {
 		config.ResolveToken = func(requestCtx context.Context) (string, error) {
