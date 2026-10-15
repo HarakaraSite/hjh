@@ -322,6 +322,17 @@ hook result recordへの参照を持つinstruction componentとして保存・at
 追加後の指示は通常のcontext budget経路へ進み、次turnへ累積しない。
 `afterTurn`と`runtimeStop`の戻り値は後続のmodel入力や結果を変更しない。
 
+2026-10-15、利用者指示で標準配布とこのworkspaceの`hooks.js`から、開始日時を指示へ
+自動注入する`runtimeStart`の実装を外した。ターンごとに指示内の日時を書き換えると、
+その位置以降の会話まで続く共通prefixが変わり、キャッシュ再利用を妨げるためである。
+hook機構と`runtime.startedAt`／`runtime.timeZone`の提供は維持する。
+このworkspaceの`projectRequest`によるコンパクションも維持する。
+
+今後の検討メモ：hookが文脈を追加する際、追加位置を指定できるAPIを検討する。
+固定の指示・過去の会話を維持し、日時など変化する情報を新しい会話要素として末尾へ追記したい。
+具体的な指定形式、messageのrole、保存・再開・コンパクション時の扱いは未決。
+今回の日時注入停止には追加位置APIや終了hookからの会話追加を含めない。
+
 終了処理は既存のCall/Hookがhost work、blocking child、終了観測をjoin/drainした後に進む。
 子executionの清算後、terminalとrootの採用判断を保存し、`afterTurn`→`runtimeStop`→`Worker.Close`の順にawaitする。
 provider待機中の取消ではWorkerを清算に使える。active JS/host call中の取消でWorkerが閉じた場合は

@@ -55,7 +55,6 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 	var archivedConfig []byte
 	var runAgentSource []byte
 	var agentControlSource []byte
-	var hooksSource []byte
 	for _, resource := range snapshot.Resources {
 		if resource.Path == "config.json" {
 			archivedConfig = resource.Bytes
@@ -72,9 +71,6 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		if resource.Path == "agent-control.js" {
 			agentControlSource = resource.Bytes
 		}
-		if resource.Path == "hooks.js" {
-			hooksSource = resource.Bytes
-		}
 	}
 	if string(source) != "// edited by user\n" {
 		t.Fatalf("capture did not freeze the edited source: %q", source)
@@ -87,10 +83,6 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		!strings.Contains(string(runAgentSource), "api.agents.run(args)") || !strings.Contains(string(agentControlSource), "api.agents.spawn(args)") ||
 		!strings.Contains(string(agentControlSource), "api.agents.steer(args)") {
 		t.Fatalf("default role does not capture child control tools: tools=%+v run_agent=%q agent_control=%q", snapshot.Tools, runAgentSource, agentControlSource)
-	}
-	if !strings.Contains(string(hooksSource), "export async function runtimeStart") ||
-		!strings.Contains(string(hooksSource), "runtime.startedAt") || !strings.Contains(string(hooksSource), "runtime.timeZone") {
-		t.Fatalf("default hooks.js does not demonstrate the Go-provided start time: %s", hooksSource)
 	}
 	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
 	for _, expected := range []string{"composition", "independent parallel calls", "aggregation", "string/JSON processing", "only selected tools", "Await calls and return", "Promise", "setTimeout", "setInterval"} {
