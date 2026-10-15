@@ -119,15 +119,18 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 				return result, err
 			}
 		}
+		var response contracts.ModelResult
 		stepObserver := func(o contracts.Observation) error {
 			o.ModelStep = step
+			if o.Kind == "model_tool" {
+				o.RetryAttempt = response.RetryAttempt
+			}
 			if observe != nil {
 				return observe(o)
 			}
 			return nil
 		}
-		var response contracts.ModelResult
-		response, err = provider.Generate(ctx, req, stepObserver)
+		response, err = generateWithRetry(ctx, provider, req, stepObserver)
 		if err != nil {
 			return result, err
 		}
@@ -219,7 +222,7 @@ func Run(ctx context.Context, input Input, provider contracts.Provider, executor
 						return callErr.Error()
 					}
 					return ""
-				}(), Request: contracts.RequestIdentity{Lane: "parent", RequestOrdinal: step, ModelStep: step},
+				}(), Request: contracts.RequestIdentity{Lane: "parent", RequestOrdinal: step, ModelStep: step, RetryAttempt: response.RetryAttempt},
 				Conversation: contracts.ConversationMetadata{EntityKind: "tool", LocalKey: call.CallID}}
 			if err = appendMessage(message); err != nil {
 				return result, err
@@ -247,8 +250,8 @@ func additionalInputCloseReason(ctx context.Context, result Result, runErr error
 
 func assistantFact(response contracts.ModelResult, step int, phase string) *contracts.ExecutionFact {
 	request := contracts.RequestIdentity{Lane: "parent", RequestOrdinal: step, ModelStep: step,
-		PhysicalRequestID: response.PhysicalRequestID}
+		PhysicalRequestID: response.PhysicalRequestID, RetryAttempt: response.RetryAttempt}
 	return &contracts.ExecutionFact{Kind: "assistant_message", Phase: phase, Role: "assistant", Text: response.Text,
 		Request: request, Thinking: append([]contracts.ThinkingItem(nil), response.Thinking...),
-		Conversation: contracts.ConversationMetadata{EntityKind: "assistant", LocalKey: "parent/" + fmt.Sprint(step) + "/answer"}}
+		Conversation: contracts.ConversationMetadata{EntityKind: "assistant", LocalKey: request.AssistantKey("answer")}}
 }

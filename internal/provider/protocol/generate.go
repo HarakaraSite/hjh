@@ -110,7 +110,7 @@ func (provider *Provider) generate(ctx context.Context, request contracts.ModelR
 		} else {
 			streamErr = fmt.Errorf("provider stream failed: %w", streamErr)
 		}
-		return contracts.ModelResult{}, provider.fail(observer, requestID, streamErr)
+		return contracts.ModelResult{}, provider.fail(observer, requestID, assembly.diagnoseFailure(streamErr))
 	}
 	result, err := assembly.result(provider, request)
 	if err != nil {

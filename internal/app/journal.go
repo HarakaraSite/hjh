@@ -82,8 +82,7 @@ func (j *journal) observe(o contracts.Observation) error {
 
 func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts.ExecutionFact, error) {
 	if o.Kind == "assistant_text" {
-		request := contracts.RequestIdentity{ExecutionID: j.executionID, Lane: "parent", RequestOrdinal: o.ModelStep,
-			ModelStep: o.ModelStep, PhysicalRequestID: o.PhysicalRequestID}
+		request := requestForObservation(o, j.executionID)
 		facts, err := j.store.SaveAssistantProgress(j.ctx, history.AssistantProgressInput{
 			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
 			Request: request, Text: o.Text, Thinking: o.Thinking, ObservedAt: o.Time.UTC().Format(time.RFC3339Nano),
@@ -107,9 +106,12 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 			relations = append(relations, history.Relation{Relation: "call_start", TargetRecordID: start, Mandatory: true, Resolved: true})
 		}
 	}
-	if o.Kind == "model_result" {
+	if o.Kind == "model_result" || o.Kind == "model_retry" {
 		request := requestForObservation(o, j.executionID)
 		phase := "completed"
+		if o.Kind == "model_retry" {
+			phase = "superseded"
+		}
 		if finishReason := observationFinishReason(o); finishReason == "length" {
 			phase = "incomplete"
 		}
@@ -122,6 +124,10 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		for index := range facts {
 			if facts[index].Conversation.EntityKind == "assistant" {
 				facts[index].Name = o.Name
+				if o.Kind == "model_retry" {
+					facts[index].Error = o.Error
+					facts[index].Diagnostic = contracts.CloneFailure(o.Diagnostic)
+				}
 			}
 		}
 		return facts, err
@@ -226,8 +232,12 @@ func observationKind(o contracts.Observation) (kind string, started bool) {
 
 func (j *journal) metadataFor(o contracts.Observation, kind string, sequence uint64) *contracts.ConversationMetadata {
 	if o.Kind == "context" {
+		key := "context/" + o.Name
+		if o.Name == "provider_retry" {
+			key += fmt.Sprintf("/%d", o.ModelStep)
+		}
 		return &contracts.ConversationMetadata{RootExecutionID: j.rootExecutionID, Sequence: sequence,
-			EntityKind: "notice", LocalKey: "context/" + o.Name, FirstSequence: sequence}
+			EntityKind: "notice", LocalKey: key, FirstSequence: sequence}
 	}
 	switch kind {
 	case "execution_admission":
@@ -258,7 +268,7 @@ func requestForObservation(o contracts.Observation, executionID string) contract
 		physicalID = o.ID
 	}
 	return contracts.RequestIdentity{ExecutionID: executionID, Lane: "parent", RequestOrdinal: o.ModelStep,
-		ModelStep: o.ModelStep, PhysicalRequestID: physicalID}
+		ModelStep: o.ModelStep, PhysicalRequestID: physicalID, RetryAttempt: o.RetryAttempt}
 }
 
 func observationFinishReason(o contracts.Observation) string {

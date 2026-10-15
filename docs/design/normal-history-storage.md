@@ -228,3 +228,34 @@ Messages/ConversationはSQL rowsを閉じてから本文を解決する。
 保存後に停止した実行も、この所有と公開読戻しの経路を使う。
 
 hookのruntime入力・動作の改善、圧縮、要約checkpoint、旧DBの変換は対象外。
+
+## Provider要求の一回再送（2026-10-15）
+
+[一回再送計画](../plans/provider-single-retry.md)により、ModelStep/RequestOrdinalは論理要求のまま維持し、
+再送にだけ`retryAttempt: 1`を付ける。assistant/thinkingのkeyは再送時に`/retry/1/`を含むため、
+最初の試行の表示receiptと混ざらない。準備済みwire・budgetは再生成せず、既存の最新snapshot方式を維持する。
+
+再送前の本文/thinkingは既存model_result/assistant_message記録へ`phase: superseded`で確定し、
+active stateを削除する。messages/canonical会話には採用しない。詳細履歴には残すが、通常TUIと
+recall referenceの候補から除外する。再送の最後の失敗は従来どおりincompleteとして保存し、recallできる。
+新table・schema変更はない。retry noticeは既存context_update記録を使う。
+
+## Git・編集・Web検索のHost境界（2026-10-15）
+
+[tool保存改善計画](../plans/tool-output-storage.md)により、git_inspectはnative出力を
+Host内でページ処理してから観測する。edit_fileはHost内で読取り・順次置換・一回の書込みを
+完結し、入力path/editsと結果の置換件数/bytesを記録する。内部でファイル全体を受け渡す
+readFile/writeFile観測は生成しない。
+
+web_searchは既存のcredential付きHTTP dispatcherをHost内で呼び、公開検索結果をJSへ返す。
+Host観測だけにはstatus/resultCount/responseBytesを返す。本文の永続所有は公開web_searchの
+tool_resultへ集約し、HTTP wrapperのbody文字列を別途保存しない。
+HostのObservedResultとWorkerのcompletionが返却値・観測値を分ける。
+通常解決と終了時のcompletion回収の両経路に同じ観測値を使い、他のHost操作は従来の値を観測する。
+HTTP失敗時は既存の公開error/tag/requestIdをerrorへ含める。認証tokenはGo transport内に留める。
+
+run_js自身は返却値をtool結果として保存する。内側で明示的に呼んだtoolの実行記録も保持する。
+JSローカル変数のsnapshotはない。read_file全文を取得してreturn時に一部だけ返す場合、
+親モデルへはその一部だけが渡るが、元のread_file結果は内側toolの証跡に残る。
+read_fileのoffset/limit等を呼出し時に使えば、内側の保存結果もその範囲となる。
+今回の変更はrun_js経由にも適用され、schema変更・既存DB変換はない。

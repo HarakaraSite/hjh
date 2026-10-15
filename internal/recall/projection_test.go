@@ -236,3 +236,19 @@ func msgLocator(executionID string, ordinal int64) map[string]any {
 }
 
 func jsonNumber(value int64) string { return strings.TrimSpace(string(contracts.JSON(value))) }
+
+func TestProjectUsesFinalPartialInsteadOfSupersededAttempt(t *testing.T) {
+	projected, err := Project(Evidence{
+		Execution: Execution{ExecutionID: "stopped", SessionID: "session", Lifecycle: "settled", Outcome: "failed"},
+		Records: []Record{
+			record("stopped", 1, "model_result", map[string]any{"kind": "model_retry", "phase": "superseded", "text": "first failed body", "request": map[string]any{"modelStep": 1}, "conversation": map[string]any{"entityKind": "assistant"}}),
+			record("stopped", 2, "assistant_message", map[string]any{"kind": "assistant_message", "phase": "incomplete", "payload": map[string]any{"text": "last failed body"}, "request": map[string]any{"modelStep": 1, "retryAttempt": 1}, "conversation": map[string]any{"entityKind": "assistant"}}),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(projected.Observations) != 1 || projected.Observations[0].Text != "last failed body" || projected.Observations[0].Status != "incomplete" {
+		t.Fatalf("superseded attempt obscured final recall evidence: %+v", projected.Observations)
+	}
+}

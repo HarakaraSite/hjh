@@ -228,7 +228,7 @@ type storedConversationFact struct {
 	diagnosticJSON                                                                                   string
 	contentDigest                                                                                    sql.NullString
 	sequence, firstSequence                                                                          sql.NullInt64
-	itemIndex, modelStep, requestOrdinal                                                             sql.NullInt64
+	itemIndex, modelStep, requestOrdinal, retryAttempt                                               sql.NullInt64
 	ordinal                                                                                          int64
 }
 
@@ -301,7 +301,8 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 				COALESCE(json_extract(r.payload_json,'$.request.physicalRequestId'),''),
 				r.content_digest,
 				COALESCE(json_extract(r.payload_json,'$.recall'),''),
-                COALESCE(json_extract(r.payload_json,'$.diagnostic'),'')
+                COALESCE(json_extract(r.payload_json,'$.diagnostic'),''),
+				json_extract(r.payload_json,'$.request.retryAttempt')
 			FROM semantic_records r
 			WHERE r.execution_id=? AND r.ordinal>? AND r.ordinal<=?
 				AND (r.kind IN ('user_message','assistant_message','model_result','tool_call','tool_result','execution_admission','host_decision')
@@ -318,7 +319,7 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 				&item.name, &item.callID, &item.parentCallID, &item.outcome, &item.failure,
 				&item.text, &item.preview, &item.previewInput, &item.entityKind, &item.localKey, &item.thinkingKind, &item.sequence,
 				&item.firstSequence, &item.itemIndex, &item.modelStep,
-				&item.requestOrdinal, &item.lane, &item.physicalRequestID, &item.contentDigest, &item.recallJSON, &item.diagnosticJSON); err != nil {
+				&item.requestOrdinal, &item.lane, &item.physicalRequestID, &item.contentDigest, &item.recallJSON, &item.diagnosticJSON, &item.retryAttempt); err != nil {
 				_ = rows.Close()
 				return fmt.Errorf("history scan conversation record page: %w", err)
 			}
@@ -411,7 +412,7 @@ func normalizeStoredFact(cut ConversationCut, execution ConversationExecutionCut
 		Error:                item.failure,
 		ThinkingKind:         item.thinkingKind,
 		Request: contracts.RequestIdentity{ExecutionID: execution.ExecutionID, Lane: item.lane,
-			RequestOrdinal: intOrZero(item.requestOrdinal), ModelStep: intOrZero(item.modelStep), PhysicalRequestID: item.physicalRequestID},
+			RequestOrdinal: intOrZero(item.requestOrdinal), ModelStep: intOrZero(item.modelStep), PhysicalRequestID: item.physicalRequestID, RetryAttempt: intOrZero(item.retryAttempt)},
 		Conversation: metadata,
 		Locator: contracts.ExecutionLocator{ExecutionID: execution.ExecutionID, RecordID: item.id,
 			Ordinal: item.ordinal, ItemIndex: intOrZero(item.itemIndex), Lane: item.lane, ModelStep: intOrZero(item.modelStep)},
@@ -425,7 +426,7 @@ func normalizeStoredFact(cut ConversationCut, execution ConversationExecutionCut
 
 	if fact.Conversation.EntityKind == "thinking" {
 		key := item.localKey
-		prefix := fact.Request.Lane + fmt.Sprintf("/%d/", fact.Request.RequestOrdinal)
+		prefix := fact.Request.AssistantKey("")
 		if fact.Request.Lane != "" && fact.Request.RequestOrdinal != 0 && strings.HasPrefix(key, prefix) {
 			key = strings.TrimPrefix(key, prefix)
 		}
@@ -440,6 +441,9 @@ func normalizeStoredFact(cut ConversationCut, execution ConversationExecutionCut
 			fact.Kind = "assistant_message"
 			fact.Role = "assistant"
 			fact.Phase = "completed"
+			if item.phase == "superseded" {
+				fact.Phase = "superseded"
+			}
 			if item.finishReason == "length" {
 				fact.Phase = "incomplete"
 			}
@@ -503,7 +507,7 @@ func normalizeStoredFact(cut ConversationCut, execution ConversationExecutionCut
 	}
 	if fact.Conversation.EntityKind == "thinking" {
 		key := item.localKey
-		prefix := fact.Request.Lane + fmt.Sprintf("/%d/", fact.Request.RequestOrdinal)
+		prefix := fact.Request.AssistantKey("")
 		if fact.Request.Lane != "" && fact.Request.RequestOrdinal != 0 && strings.HasPrefix(key, prefix) {
 			key = strings.TrimPrefix(key, prefix)
 		}
@@ -670,7 +674,7 @@ func factFromJSON(cut ConversationCut, execution ConversationExecutionCut, raw j
 	}
 	if metadata.EntityKind == "thinking" {
 		key := metadata.LocalKey
-		prefix := fact.Request.Lane + fmt.Sprintf("/%d/", fact.Request.RequestOrdinal)
+		prefix := fact.Request.AssistantKey("")
 		if fact.Request.Lane != "" && fact.Request.RequestOrdinal != 0 && strings.HasPrefix(key, prefix) {
 			key = strings.TrimPrefix(key, prefix)
 		}

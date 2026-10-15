@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	MaxBodyBytes = 1_048_576
+	MaxBodyBytes = 64 * 1024
 	timeout      = 30 * time.Second
 	userAgent    = "hjh"
 )

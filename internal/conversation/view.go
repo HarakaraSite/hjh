@@ -618,6 +618,9 @@ func stableID(executionID, kind, localKey string) string {
 }
 
 func entityStatus(fact contracts.ExecutionFact) string {
+	if fact.Phase == "superseded" {
+		return "superseded"
+	}
 	if fact.Conversation.EntityKind == "task" {
 		return "completed"
 	}

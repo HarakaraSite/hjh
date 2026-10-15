@@ -126,6 +126,7 @@ type ModelResult struct {
 	ProviderState     *ProviderState
 	Usage             json.RawMessage
 	PhysicalRequestID string
+	RetryAttempt      int
 	Thinking          []ThinkingItem
 }
 
@@ -144,6 +145,7 @@ type Observation struct {
 	Result            json.RawMessage    `json:"result,omitempty"`
 	Error             string             `json:"error,omitempty"`
 	ModelStep         int                `json:"modelStep,omitempty"`
+	RetryAttempt      int                `json:"retryAttempt,omitempty"`
 	Diagnostic        *FailureDiagnostic `json:"diagnostic,omitempty"`
 	// Text and Thinking are typed Go-side values. The provider must not wrap
 	// cumulative body text in Result JSON and make the history path parse it.
@@ -160,6 +162,7 @@ type RequestIdentity struct {
 	RequestOrdinal    int    `json:"requestOrdinal"`
 	ModelStep         int    `json:"modelStep"`
 	PhysicalRequestID string `json:"physicalRequestId,omitempty"`
+	RetryAttempt      int    `json:"retryAttempt,omitempty"`
 }
 
 // ConversationMetadata is stored in a semantic payload and is the durable

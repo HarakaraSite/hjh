@@ -38,6 +38,9 @@ func TestFailureNoticesUseAdoptedReasonsAndRecallHints(t *testing.T) {
 	if got := failureNotice(nil, "failed", "unknown detail", true); got != "unknown detail" {
 		t.Fatalf("unknown error changed: %q", got)
 	}
+	if got := failureNotice(&contracts.FailureDiagnostic{Code: contracts.FailureHTTP, HTTPStatus: 503, RetryAttempt: 1}, "failed", "detail", true); got != "FAILED · provider request failed · try /recall" {
+		t.Fatalf("exhausted HTTP retry omitted recovery: %q", got)
+	}
 }
 
 func TestRootFailureNoticeSurvivesReloadAndIsNotDuplicatedAtFinish(t *testing.T) {

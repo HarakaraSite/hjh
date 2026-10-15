@@ -20,10 +20,12 @@ const (
 // FailureDiagnostic is the small, stable classification retained alongside an error.
 // Provider-specific details remain in the error text or its underlying cause.
 type FailureDiagnostic struct {
-	Code        string `json:"code"`
-	ParseReason string `json:"parseReason,omitempty"`
-	Field       string `json:"field,omitempty"`
-	HTTPStatus  int    `json:"httpStatus,omitempty"`
+	Code         string `json:"code"`
+	ParseReason  string `json:"parseReason,omitempty"`
+	Field        string `json:"field,omitempty"`
+	HTTPStatus   int    `json:"httpStatus,omitempty"`
+	FinishReason string `json:"finishReason,omitempty"`
+	RetryAttempt int    `json:"retryAttempt,omitempty"`
 }
 
 // FailureError attaches a classification while preserving the original error chain.

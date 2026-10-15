@@ -68,6 +68,14 @@ func TestGrepPrefersRGAndWorksWithOnlyGNUGrepOnPATH(t *testing.T) {
 			if names.Backend != backend || names.IgnoreApplied != (backend == "rg") || len(names.Files) != wantFiles || names.Matches != wantMatches {
 				t.Fatalf("backend selection/ignore/file search: %s", value)
 			}
+			value = inspectionCall(t, worker, "grep", map[string]any{"pattern": "Target", "glob": "!ignored.txt", "output": "files"})
+			var single struct {
+				Files   []string
+				Matches int
+			}
+			if err := json.Unmarshal(value, &single); err != nil || len(single.Files) != 2 || single.Matches != 3 {
+				t.Fatalf("single exclusion glob and default ignores: %s, %v", value, err)
+			}
 			value = inspectionCall(t, worker, "run_js", map[string]string{"code": `
 // Search with context, page through it, and check empty results.
 const first=await tools.grep({path:"src",pattern:"target",patternKind:"literal",caseSensitive:false,context:1,glob:["*.txt","!binary.txt"],limit:2});
@@ -99,7 +107,7 @@ return {first,next,none};`})
 				}
 			}
 			// Native filename bytes must survive the command-to-JSON boundary.
-			if backend == "grep" {
+			{
 				name := string([]byte{'b', 'a', 'd', 0xff})
 				if err := os.WriteFile(filepath.Join(workspace, name), []byte("unique-byte-path\n"), 0644); err != nil {
 					t.Fatal(err)

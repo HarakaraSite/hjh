@@ -125,6 +125,9 @@ func (out *remoteRunOutput) observePhase(phase string) error {
 }
 
 func (out *remoteRunOutput) observeEntity(rootExecutionID string, entity api.ConversationEntity) error {
+	if entity.Status == "superseded" {
+		return nil
+	}
 	isRoot := rootExecutionID != "" && entity.ExecutionID == rootExecutionID
 	if out.stream && isRoot && entity.Kind == "assistant" {
 		if err := out.streamAssistant(entity); err != nil {
@@ -132,7 +135,7 @@ func (out *remoteRunOutput) observeEntity(rootExecutionID string, entity api.Con
 		}
 	}
 	if entity.Kind == "tool" || (entity.Kind == "execution" && entity.ParentExecutionID != "") ||
-		(isRoot && entity.Kind == "notice" && strings.HasPrefix(entity.Name, "hook/")) {
+		(isRoot && entity.Kind == "notice" && (strings.HasPrefix(entity.Name, "hook/") || entity.Name == "provider_retry")) {
 		return out.observeProgress(entity)
 	}
 	return nil

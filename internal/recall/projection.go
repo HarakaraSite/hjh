@@ -225,6 +225,9 @@ func Project(evidence Evidence) (Projection, error) {
 
 	for _, record := range records {
 		v := decodeRecord(record)
+		if v.Phase == "superseded" {
+			continue
+		}
 		if hasMessageLocator(v) {
 			messageOrdinal := v.Locator.MessageOrdinal
 			if seenMessages[messageOrdinal] {

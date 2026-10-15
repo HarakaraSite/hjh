@@ -133,15 +133,17 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 			return nil, err
 		}
 		query := body["query"].(string)
-		if query == "generated" && r.Header.Get("Exa-Beta") != "dynamic-highlights-2026-08-28" {
-			t.Error("dynamic highlights omitted the legacy beta header")
+		contents, _ := body["contents"].(map[string]any)
+		highlights, _ := contents["highlights"].(map[string]any)
+		if contents["text"] != false || highlights["maxCharacters"] != float64(1000) {
+			t.Error("search request did not keep page text disabled and excerpts bounded")
 		}
 		mu.Lock()
 		bodies[query] = body
 		mu.Unlock()
 		result := contracts.JSON(map[string]any{"requestId": query, "results": []any{
 			map[string]any{"url": "https://example.com/first", "title": query, "highlights": []string{"source evidence"}, "future_result_field": "PRESERVED"},
-			map[string]any{"url": "https://example.com/second", "text": "complete page text"}},
+			map[string]any{"url": "https://example.com/second", "highlights": []string{"complete source excerpt"}}},
 			"output": map[string]any{"content": "synthesized evidence"}, "future_response_field": "PRESERVED"})
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(string(result)))}, nil
 	})}
@@ -163,6 +165,17 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 		steps[task]++
 		step := steps[task]
 		mu.Unlock()
+		for _, tool := range req.Tools {
+			if tool.Name == "web_search" {
+				var schema struct{ Properties map[string]json.RawMessage }
+				if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
+					t.Fatal(err)
+				}
+				if schema.Properties["contents"] != nil {
+					t.Fatal("page content controls are still advertised to the model")
+				}
+			}
+		}
 		if task == "parent search" && step == 1 {
 			return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "direct-search", Name: "web_search", Arguments: contracts.JSON(map[string]string{"query": "direct"})}}}, nil
 		}
@@ -179,7 +192,7 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 	if err != nil || !result.Result.OK {
 		t.Fatalf("search %+v: %v", result, err)
 	}
-	if len(bodies) != 3 || bodies["direct"]["type"] != "auto" || bodies["direct"]["stream"] != false || bodies["direct"]["contents"].(map[string]any)["highlights"] != true || bodies["generated"]["stream"] != false || bodies["generated"]["futureOption"].(map[string]any)["accepted"] != true || bodies["child"]["contents"] != nil {
+	if len(bodies) != 3 || bodies["direct"]["numResults"] != float64(10) || bodies["child"]["numResults"] != float64(10) || bodies["generated"]["numResults"] != float64(2) || bodies["direct"]["type"] != "auto" || bodies["direct"]["stream"] != false || bodies["generated"]["stream"] != false || bodies["generated"]["futureOption"].(map[string]any)["accepted"] != true {
 		t.Fatalf("search defaults/options were changed: %+v", bodies)
 	}
 	children, err := store.Children(context.Background(), result.ExecutionID)
@@ -196,9 +209,22 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 			if strings.Contains(string(r.Payload), key) || strings.Contains(string(r.Content), key) {
 				t.Fatal("credential exposed in stored search history")
 			}
-			if r.Kind == "effect_observation" && strings.Contains(string(r.Payload), "requestProvider") {
+			if r.Kind == "effect_observation" && strings.Contains(string(r.Payload), "webSearch") {
 				requestSaved = requestSaved || strings.Contains(string(r.Payload), "exa-api-key")
-				responseSaved = responseSaved || strings.Contains(string(r.Payload), "future_response_field")
+				var observation contracts.Observation
+				if err := json.Unmarshal(r.Payload, &observation); err != nil {
+					t.Fatal(err)
+				}
+				if observation.Phase == "completed" {
+					var summary host.SearchObservation
+					if err := json.Unmarshal(observation.Result, &summary); err != nil {
+						t.Fatal(err)
+					}
+					responseSaved = summary.Status == 200 && summary.ResultCount == 2 && summary.ResponseBytes > 0
+					if strings.Contains(string(observation.Result), "future_response_field") {
+						t.Fatal("raw response duplicated in host summary")
+					}
+				}
 			}
 		}
 		if !requestSaved || !responseSaved {

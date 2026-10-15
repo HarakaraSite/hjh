@@ -196,8 +196,8 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 53 | 接続選択 | provider、model、effort picker、お気に入り、workspaceごとの即時保存と新規Sessionへの引継ぎ、モデル変更時のeffortリセット | [接続選択](i08-connection-selection.md)、[選択保存](remembered-model-selection.md)、[お気に入り](i11-model-favorites.md) |
 | 54 | 認証 | APIキー、ChatGPTの追加と再認証と複数accountの選択機構。既定保存先は`~/.config/hjh/credentials/`（XDG_CONFIG_HOME対応）、モデルとtoolの認証は同じManagerを使用 | [認証UI](i12-authentication-ui.md)、[保存先集約](credential-config-directory.md) |
 | 55 | 指示とskills | ユーザー共通base.mdによる基本指示差替え、共通・祖先・workspaceのAGENTS.md、role指示、起動・各親子開始時のskill一覧、利用時の本文読取り。`~/.config/hjh/skills/`と`workspace/.hjh/skills/`を探索 | [基本指示](base-instructions.md)、[workspace指示とskills](../design/workspace-instructions-skills.md) |
-| 56 | Web読取り | HTML可読化、1MiB上限、`save_to` | [Webと予算管理](i14-web-context.md) |
-| 57 | Web検索 | Exa auto/highlights、各option、直接/生成JS/子の利用、認証付きHTTPと保存 | [I-22の完了結果](i22-exa-web-search.md) |
+| 56 | Web読取り | HTML可読化、通常64 KiB上限、`save_to` | [Webと予算管理](i14-web-context.md) |
+| 57 | Web検索 | Exa auto、既定10件・抜粋1,000文字、本文はweb_fetch、各option、直接/生成JS/子の利用、認証付きHTTPと保存 | [I-22の完了結果](i22-exa-web-search.md) |
 | 58 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
 | 59 | 子agent | 非同期開始・並列実行・状態確認・回収・取消、model/provider/effort/tools指定、報告差分、親からの追加指示 | [I-19の完了結果](i19-child-agent-control.md) |
 | 60 | 外部拡張 | role、tool、六種類のhook、開始文脈、実行開始時のメモリ上のsource固定、次実行への編集反映。実装ソース一式のDB自動保存は停止 | [外部拡張](../design/extensions.md)、[hookの完了結果](i20-lifecycle-hooks.md)、[ソース保存停止](initial-run.md#2026-10-13追補実装ソースの自動保存を停止) |

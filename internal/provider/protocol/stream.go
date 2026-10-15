@@ -563,7 +563,8 @@ func (assembly *streamAssembly) appendOutputMessageText(raw json.RawMessage) {
 	}
 }
 
-func (assembly *streamAssembly) result(provider *Provider, request contracts.ModelRequest) (contracts.ModelResult, error) {
+func (assembly *streamAssembly) result(provider *Provider, request contracts.ModelRequest) (result contracts.ModelResult, err error) {
+	defer func() { err = assembly.diagnoseFailure(err) }()
 	if assembly.terminal == "failed" {
 		message := assembly.failure
 		if message == "" {
@@ -580,10 +581,10 @@ func (assembly *streamAssembly) result(provider *Provider, request contracts.Mod
 	}
 	if assembly.api == "responses" {
 		if !assembly.responseDone || assembly.terminal != "completed" {
-			return contracts.ModelResult{}, responseFailure(errors.New("provider Responses stream ended before response.completed"), "", "")
+			return contracts.ModelResult{}, responseFailure(errors.New("provider Responses stream ended before response.completed"), "missing_terminal_event", "")
 		}
 	} else if !assembly.chatDone {
-		return contracts.ModelResult{}, responseFailure(errors.New("provider Chat Completions stream ended before [DONE]"), "", "")
+		return contracts.ModelResult{}, responseFailure(errors.New("provider Chat Completions stream ended before [DONE]"), "missing_terminal_event", "")
 	}
 	calls, err := assembly.toolCallResults()
 	if err != nil {
@@ -606,6 +607,19 @@ func (assembly *streamAssembly) result(provider *Provider, request contracts.Mod
 		Usage:         append(json.RawMessage(nil), assembly.usage...),
 		Thinking:      assembly.thinkingItems(),
 	}, nil
+}
+
+func (assembly *streamAssembly) diagnoseFailure(err error) error {
+	diagnostic := contracts.FailureFor(err)
+	finishReason := assembly.finishReason
+	if assembly.incompleteReason == "max_output_tokens" {
+		finishReason = "length"
+	}
+	if diagnostic == nil || finishReason == "" {
+		return err
+	}
+	diagnostic.FinishReason = finishReason
+	return contracts.WithFailure(err, *diagnostic)
 }
 
 func responseThinkingKey(event map[string]json.RawMessage, kind string) string {

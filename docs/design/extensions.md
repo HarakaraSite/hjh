@@ -265,7 +265,7 @@ ls/find/grepとGitの出力行のoffsetは0始まり、既定limit 100。Git log
 `command` は `program`、`args`、`stdin` を受け、`exitCode`、`stdout`、`stderr` を返す。
 nonzero exitは構造化結果であり、tool失敗にはしない。
 `http` はGETを行い、statusとbodyを返す。HTTP statusは結果データである。
-ページ読取りは`web_fetch`を使う。HTML可読化、通常1MiB上限、原本文の`save_to`保存は
+ページ読取りは`web_fetch`を使う。HTML可読化、通常64 KiB上限、原本文の`save_to`保存は
 [I-14契約](i14-web-context-contract.md)を参照する。
 標準toolの振る舞いは外部JS moduleにあり、host packageはfile、HTTP、Linux processの実処理だけを行う。
 
@@ -392,3 +392,11 @@ accepted/applied/unappliedのreceiptを返し、statusのinstructionsで最新�
 appliedは入力への取込みを示し、指示どおりの結果かは後の報告とcollectで判断する。
 S5のfocused確認と通常・批判的reviewを完了した。
 [I-19計画](../plans/i19-child-agent-control.md)と[実装結果](../results/i19-child-agent-control.md)を参照する。
+
+### Web取得の既定値（2026-10-15）
+
+web_searchはnumResults省略時に10をExaへ送る。明示指定があればその値を使う。
+内部要求はtext:false・highlights.maxCharacters:1000へ固定し、モデル向けcontents引数は持たない。
+検索で出典を選び、本文はweb_fetchで読む。これは件数・抜粋長の要求であり、
+response全体のbyte上限ではない。
+web_fetchの通常受信上限は64 KiB。save_toは全文をfileへ保存し、metadataだけを返す。

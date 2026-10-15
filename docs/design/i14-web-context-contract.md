@@ -11,13 +11,14 @@ I-18で追加したAGENTS.mdとskill manifestはinstructionの一部として同
 ## Web読取り
 
 `web_fetch({url, save_to?})`は最終URL、HTTP status、Content-Typeと本文を可読文字列で返す。
-通常受信本文は1MiBまでで、超過を`truncated: true`と`[body truncated]`で示す。
+通常受信本文は64 KiB（65,536 bytes）までで、超過を`truncated: true`と`[body truncated]`で示す。
+上限はHTML変換前の受信bytesに適用し、metadataや切詰めmarkerは上限の外へ付加する。
 HTMLはscript/style/comment/tagを除き、block改行とentityを整える。JS描画は行わない。
 text/*、JSON、XML(+json/+xml含む)は文字列、その他はmetadataを返す。
 GETはredirectを辿り、30秒のdeadlineと実行取消を使う。非2xxはtool errorになる。
 
 `save_to`はworkspace相対またはabsolute pathへ元のresponse bytesを作成/置換する。
-1MiB上限は適用せず、path、byte数、HTTP metadataだけを会話へ戻す。
+通常読取りの64 KiB上限は適用せず、path、byte数、HTTP metadataだけを会話へ戻す。
 `write_file`と同じく親directoryは事前に用意する。中断時の途中fileはそのまま残る。
 登録moduleは`api.webFetch`、生成JSは`tools.web_fetch`を使う。
 raw status/bodyが必要なら既存`http`とmodule用`api.http`を使う。

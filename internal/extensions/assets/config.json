@@ -408,8 +408,8 @@
             ]
           },
           "glob": {
-            "type": "array",
-            "description": "Native backend globs. rg supports ordered path globs and ! exclusions; GNU grep uses filename include/exclude globs.",
+            "type": ["string", "array"],
+            "description": "One native glob or an array of globs. rg supports ordered path globs and ! exclusions; GNU grep uses filename include/exclude globs.",
             "items": {
               "type": "string"
             }
@@ -480,8 +480,8 @@
             ]
           },
           "paths": {
-            "type": "array",
-            "description": "Paths or Git pathspecs limiting the operation.",
+            "type": ["string", "array"],
+            "description": "One path or an array of paths/Git pathspecs limiting the operation.",
             "items": {
               "type": "string"
             }
@@ -541,9 +541,9 @@
     },
     {
       "name": "web_fetch",
-      "description": "Read an http or https page or API response. HTML is converted to readable text; text responses are limited to 1 MiB. Set save_to to save the original response bytes to a workspace-relative or absolute path without returning the body.",
+      "description": "Read an http or https page or API response. HTML is converted to readable text; response bodies are read up to 64 KiB before text/HTML conversion. Set save_to to save the original response bytes to a workspace-relative or absolute path without returning the body.",
       "promptGuidelines": [
-        "To read a page in context, pass url and omit save_to. Include save_to only when saving the original response to a concrete file path; do not fill an unused save_to with an empty string."
+        "To read a page in context, pass url and omit save_to. Include save_to only when saving the original response to a concrete file path; do not fill an unused save_to with an empty string. Normal reading stops at 64 KiB and reports truncated:true when cut; use save_to then read_file line ranges when more of a long page is needed."
       ],
       "inputSchema": {"type":"object","properties":{"url":{"type":"string"},"save_to":{"type":"string"}},"required":["url"],"additionalProperties":false},
       "module": "index.js",
@@ -551,20 +551,20 @@
     },
     {
       "name": "web_search",
-      "description": "Search the public web with Exa. Return ordered source URLs, titles, page text or highlights, metadata, and optional synthesized output. Defaults to auto search with highlights.",
+      "description": "Search the public web with Exa. Return ordered source URLs, titles, short excerpts, metadata, and optional synthesized output. Defaults to auto search with up to 10 results and 1000-character excerpts; use web_fetch to read page bodies.",
       "promptGuidelines": [
-        "Only include optional arguments needed for this search. Omit unused fields rather than filling them with empty strings, nulls, empty arrays, or guessed values. A query alone uses the default auto search with highlights. If a request fails, use the reported provider error to decide what to change instead of retrying unrelated search options.",
+        "Only include optional arguments needed for this search. Omit unused fields rather than filling them with empty strings, nulls, empty arrays, or guessed values. A query alone uses auto search with highlights and up to 10 results. Specify a smaller numResults when fewer sources are sufficient. If a request fails, use the reported provider error to decide what to change instead of retrying unrelated search options.",
         "Choose the task source before exploring. If the user explicitly identifies the current repository, a local file, or a canonical URL or API, use that source first and do not add web search unless it leaves a current or external question unresolved. If current or external information is requested and the target identity or canonical source is not already established, use web_search as the first source-discovery tool; do not inspect the workspace, sibling repositories, handoff files, or try guessed endpoints with bash or curl merely because a software workspace exists. When external sources alone can answer the task, stay on that route. After discovery, obtain fast-changing lists or precise current values from the direct canonical source with web_fetch and disclose retrieval time or conflicts with search results. Put independent read-only retrievals in distinct tool calls in the same model step when their targets are already known; perform result-dependent retrievals sequentially. Give a specific query describing the information needed.",
-        "Treat results[].text and results[].highlights as source material; summary and output are synthesized material. Cite direct source URLs near supported claims, do not copy provider-local citation numbers, and do not add facts unsupported by the returned material. Say when sources do not answer the question and label inference.",
-        "Choose type and contents for the task. Use contents.text for full page text, highlights for relevant excerpts, and outputSchema for synthesized text or structured output. AdditionalQueries apply to deep search modes. Category accepts custom hints; company and people do not support published-date filters or excludeDomains. Dates use ISO 8601. userLocation accepts a two-letter country code or an object with country, latitude, and longitude. Tool results are complete JSON; transport streaming is disabled. Dynamic highlights and verbosity automatically enable the documented Exa beta header.",
-        "Choose contents deliberately: highlights (optionally with maxCharacters) answer most lookups, while full page text can add tens of thousands of context tokens for one result. Bound text with maxCharacters, or use web_fetch save_to when only parts of a long page matter."
+        "Treat results[].highlights as source excerpts; output is synthesized material. Cite direct source URLs near supported claims, do not copy provider-local citation numbers, and do not add facts unsupported by the returned material. Say when sources do not answer the question and label inference.",
+        "Choose type for the search and outputSchema only when synthesized text or structured output is needed. AdditionalQueries apply to deep search modes. Category accepts custom hints; company and people do not support published-date filters or excludeDomains. Dates use ISO 8601. userLocation accepts a two-letter country code or an object with country, latitude, and longitude. Tool results are complete JSON; transport streaming is disabled.",
+        "Use web_search to discover sources, not to fetch known pages. Exa page text is disabled and excerpts are fixed to at most 1000 characters per result. Read selected URLs with web_fetch; use save_to and read_file line ranges for long pages. Do not pass contents options to web_search."
       ],
       "inputSchema": {
         "type": "object",
         "properties": {
           "query": {"type": "string", "description": "Specific search query or research question."},
           "type": {"type": "string", "enum": ["instant", "fast", "auto", "deep-lite", "deep", "deep-reasoning"], "description": "Search mode; defaults to auto."},
-          "numResults": {"type": "integer", "description": "Requested result count (1–100, mode dependent)."},
+          "numResults": {"type": "integer", "description": "Requested result count (1–100, mode dependent); defaults to 10."},
           "includeDomains": {"type": "array", "items": {"type": "string"}, "description": "Include domains, subdomains, or URL paths."},
           "excludeDomains": {"type": "array", "items": {"type": "string"}, "description": "Exclude domains, subdomains, or URL paths."},
           "startPublishedDate": {"type": "string", "description": "Earliest publication time, ISO 8601."},
@@ -585,27 +585,7 @@
               {"type": "null"}
             ]
           },
-          "systemPrompt": {"type": "string", "description": "Additional synthesized-output instructions."},
-          "contents": {
-            "anyOf": [
-              {
-                "type": "object",
-                "description": "Content retrieval; defaults to highlights:true when omitted.",
-                "properties": {
-                  "text": {"anyOf": [{"type": "boolean"}, {"type": "object", "properties": {"maxCharacters": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "includeHtmlTags": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}, "verbosity": {"anyOf": [{"type": "string", "enum": ["compact", "standard", "full"]}, {"type": "null"}]}, "includeSections": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}, "excludeSections": {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}}}, {"type": "null"}]},
-                  "highlights": {"anyOf": [{"type": "boolean"}, {"type": "object", "properties": {"query": {"anyOf": [{"type": "string"}, {"type": "null"}]}, "maxCharacters": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "verbosity": {"anyOf": [{"type": "string", "enum": ["low", "medium", "high"]}, {"type": "null"}], "description": "Beta length preset; incompatible with maxCharacters."}, "dynamic": {"anyOf": [{"type": "boolean"}, {"type": "null"}], "description": "Beta shared context budget; incompatible with maxCharacters."}}}, {"type": "null"}]},
-                  "summary": {"anyOf": [{"type": "boolean"}, {"type": "object", "properties": {"query": {"anyOf": [{"type": "string"}, {"type": "null"}]}, "schema": {"anyOf": [{"type": "object", "additionalProperties": true}, {"type": "null"}]}}}, {"type": "null"}]},
-                  "extras": {"anyOf": [{"type": "object", "properties": {"links": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "imageLinks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "richLinks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "richImageLinks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}, "codeBlocks": {"anyOf": [{"type": "integer"}, {"type": "null"}]}}}, {"type": "null"}]},
-                  "maxAgeHours": {"anyOf": [{"type": "integer"}, {"type": "null"}], "description": "Cache age: 0 fetches fresh content; -1 uses cache; positive values in hours."},
-                  "livecrawlTimeout": {"anyOf": [{"type": "integer"}, {"type": "null"}], "description": "Fetch timeout in milliseconds."},
-                  "snapshotAsOf": {"anyOf": [{"type": "string"}, {"type": "null"}], "description": "Stored version as of ISO date/time."},
-                  "subpages": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-                  "subpageTarget": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}, {"type": "null"}]}
-                }
-              },
-              {"type": "null"}
-            ]
-          }
+          "systemPrompt": {"type": "string", "description": "Additional synthesized-output instructions."}
         },
         "required": ["query"],
         "additionalProperties": true

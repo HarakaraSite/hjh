@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-quickjs/go-quickjs"
 	"hjh/internal/contracts"
+	"hjh/internal/host"
 )
 
 func (o *vmOwner) startHost(name, parent string, input json.RawMessage) (quickjs.Value, error) {
@@ -28,11 +29,18 @@ func (o *vmOwner) startHost(name, parent string, input json.RawMessage) (quickjs
 	go func() {
 		defer o.jobs.Done()
 		value, callErr := o.host.Call(ctx, name, input)
+		var observation json.RawMessage
+		if projected, ok := value.(host.ObservedResult); ok {
+			value = projected.Value
+			var err error
+			observation, err = json.Marshal(projected.Observation)
+			callErr = errors.Join(callErr, err)
+		}
 		encoded, encodeErr := json.Marshal(value)
 		if encodeErr != nil {
 			callErr = errors.Join(callErr, encodeErr)
 		}
-		o.queueCompletion(jobCompletion{id: id, value: encoded, err: callErr})
+		o.queueCompletion(jobCompletion{id: id, value: encoded, observation: observation, err: callErr})
 	}()
 	return promise.Value(), nil
 }
@@ -162,7 +170,7 @@ func (o *vmOwner) resolveHost(completion jobCompletion) error {
 		return nil
 	}
 	phase := completionPhase(completion.err)
-	endErr := o.end(completion.id, phase, completion.value, completion.err)
+	endErr := o.end(completion.id, phase, completion.observationValue(), completion.err)
 	if endErr != nil {
 		completion.err = errors.Join(completion.err, endErr)
 	}
@@ -271,7 +279,7 @@ func (o *vmOwner) recordCompletionsOnShutdown() {
 			_ = o.settleAgent(completion, false)
 			continue
 		}
-		_ = o.end(completion.id, completionPhase(completion.err), completion.value, completion.err)
+		_ = o.end(completion.id, completionPhase(completion.err), completion.observationValue(), completion.err)
 		delete(o.pending, completion.id)
 	}
 }

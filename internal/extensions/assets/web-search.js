@@ -9,44 +9,19 @@ export async function webSearch(args, api) {
     throw new Error("expected object with a non-empty query string");
   }
 
-  const highlights = isRecord(args.contents) ? args.contents.highlights : undefined;
-  const dynamicHighlights = isRecord(highlights) &&
-    (highlights.dynamic !== undefined || highlights.verbosity !== undefined);
-  const response = await api.requestProvider({
+  return api.webSearch({
     authProfile: "exa-api-key",
     endpoint: "https://api.exa.ai/search",
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(dynamicHighlights ? { "Exa-Beta": "dynamic-highlights-2026-08-28" } : {}),
     },
     body: {
       type: "auto",
-      contents: { highlights: true },
+      numResults: 10,
       ...args,
+      contents: { text: false, highlights: { maxCharacters: 1000 } },
       stream: false,
     },
   });
-
-  const failed = response.status < 200 || response.status >= 300;
-  let parsed;
-  try {
-    parsed = JSON.parse(response.body);
-  } catch {
-    if (failed) {
-      throw new Error(`web search provider request failed (${response.status})`);
-    }
-    throw new Error("web search provider response was not valid JSON");
-  }
-  if (failed) {
-    const details = isRecord(parsed)
-      ? [parsed.error, parsed.tag, parsed.requestId].filter(nonBlank).join(" · ")
-      : "";
-    throw new Error(`web search provider request failed (${response.status})${details ? `: ${details}` : ""}`);
-  }
-  if (!isRecord(parsed) || !Array.isArray(parsed.results)) {
-    throw new Error("web search provider response had no results array");
-  }
-
-  return parsed;
 }

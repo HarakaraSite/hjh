@@ -128,7 +128,7 @@ func (s *Store) AppendConversationMessage(ctx context.Context, input Conversatio
 				Kind: "assistant_message", Phase: base.Phase, Role: "assistant", Text: item.Text,
 				Request: base.Request, Thinking: []contracts.ThinkingItem{{Key: key, Text: item.Text, Kind: item.Kind}}, ThinkingKind: item.Kind,
 				Conversation: contracts.ConversationMetadata{RootExecutionID: input.RootExecutionID,
-					EntityKind: "thinking", LocalKey: base.Request.Lane + fmt.Sprintf("/%d/", base.Request.RequestOrdinal) + key,
+					EntityKind: "thinking", LocalKey: base.Request.AssistantKey(key),
 					ItemIndex: index}})
 		}
 	}
@@ -415,7 +415,7 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("history close assistant state for result: %w", err)
 	}
-	answerKey := request.Lane + fmt.Sprintf("/%d/answer", request.RequestOrdinal)
+	answerKey := request.AssistantKey("answer")
 	answerFirst := firstByLocalKey[answerKey]
 	if answerFirst == 0 {
 		answerFirst = input.Sequence
@@ -454,7 +454,7 @@ func (s *Store) SaveAssistantResult(ctx context.Context, input AssistantResultIn
 		if key == "" {
 			key = fmt.Sprintf("item/%d", index)
 		}
-		localKey := request.Lane + fmt.Sprintf("/%d/", request.RequestOrdinal) + key
+		localKey := request.AssistantKey(key)
 		firstSequence := firstByLocalKey[localKey]
 		if firstSequence == 0 {
 			firstSequence = input.Sequence
@@ -634,7 +634,7 @@ func (s *Store) SaveAssistantProgress(ctx context.Context, input AssistantProgre
 	}
 	updates := make([]update, 0, 1+len(input.Thinking))
 	if input.Text != "" {
-		updates = append(updates, update{stateLane: request.Lane, entityKind: "assistant", localKey: request.Lane + "/" + fmt.Sprint(request.RequestOrdinal) + "/answer", text: input.Text})
+		updates = append(updates, update{stateLane: request.Lane, entityKind: "assistant", localKey: request.AssistantKey("answer"), text: input.Text})
 	}
 	for index := range input.Thinking {
 		item := input.Thinking[index]
@@ -646,7 +646,7 @@ func (s *Store) SaveAssistantProgress(ctx context.Context, input AssistantProgre
 		}
 		copy := item
 		updates = append(updates, update{stateLane: "thinking/" + item.Key, entityKind: "thinking",
-			localKey:  request.Lane + "/" + fmt.Sprint(request.RequestOrdinal) + "/" + item.Key,
+			localKey:  request.AssistantKey(item.Key),
 			itemIndex: index, text: item.Text, thinking: &copy})
 	}
 	facts := make([]contracts.ExecutionFact, 0, len(updates))

@@ -16,6 +16,9 @@ func (m *model) displayEntities() []api.ConversationEntity {
 	entities := m.mergedEntities()
 	visible := make([]api.ConversationEntity, 0, len(entities))
 	for _, entity := range entities {
+		if entity.Status == "superseded" {
+			continue
+		}
 		if entity.ParentExecutionID != "" {
 			if entity.Kind != "execution" {
 				continue

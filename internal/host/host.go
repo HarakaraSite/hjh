@@ -109,11 +109,29 @@ func (h *Host) Call(ctx context.Context, name string, input json.RawMessage) (an
 		}
 		return filepath.Abs(path)
 	case "grepCommand":
-		var args CommandArgs
+		var args GrepCommandArgs
 		if err := json.Unmarshal(input, &args); err != nil {
 			return nil, err
 		}
 		return h.grepCommand(ctx, args)
+	case "gitInspect":
+		var args GitInspectArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.gitInspect(ctx, args)
+	case "editFile":
+		var args EditFileArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.editFile(args)
+	case "webSearch":
+		var args ProviderRequestArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, err
+		}
+		return h.webSearch(ctx, args)
 	case "requestProvider":
 		var args ProviderRequestArgs
 		if err := json.Unmarshal(input, &args); err != nil {

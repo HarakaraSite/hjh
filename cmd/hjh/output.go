@@ -60,7 +60,7 @@ func (out *runOutput) observe(o contracts.Observation) error {
 			}
 		}
 	}
-	if o.Kind == "context" && strings.HasPrefix(o.Name, "hook/") {
+	if o.Kind == "context" && (strings.HasPrefix(o.Name, "hook/") || o.Name == "provider_retry") {
 		_, err := fmt.Fprintln(out.stderr, "[notice] "+o.Preview)
 		return err
 	}

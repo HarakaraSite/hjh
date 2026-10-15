@@ -46,6 +46,10 @@ func failureNotice(diagnostic *contracts.FailureDiagnostic, outcome, detail stri
 		switch diagnostic.Code {
 		case contracts.FailureResponse, contracts.FailureTransport, contracts.FailureProviderTimeout:
 			text += " · try /recall"
+		case contracts.FailureHTTP:
+			if diagnostic.RetryAttempt != 0 {
+				text += " · try /recall"
+			}
 		}
 	}
 	return text

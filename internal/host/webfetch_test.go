@@ -68,11 +68,11 @@ func TestWebFetchCapsTextAndOmitsNonTextBody(t *testing.T) {
 
 	text := callWebFetch(t, h, context.Background(), map[string]string{"url": server.URL + "/text"})
 	body, ok := strings.CutPrefix(text, "URL: "+server.URL+"/text\nStatus: 200\nContent-Type: text/plain\ntruncated: true\n\n")
-	if !ok || len(body) != 1_048_576+len("\n\n[body truncated]") || !strings.HasSuffix(body, "\n\n[body truncated]") {
+	if !ok || len(body) != 65_536+len("\n\n[body truncated]") || !strings.HasSuffix(body, "\n\n[body truncated]") {
 		t.Fatalf("web_fetch did not return exactly the bounded body and marker: prefix=%t bodyBytes=%d suffix=%q", ok, len(body), body[len(body)-min(len(body), 40):])
 	}
-	if strings.TrimSuffix(body, "\n\n[body truncated]") != strings.Repeat("x", 1_048_576) {
-		t.Fatal("web_fetch body was not capped at 1 MiB")
+	if strings.TrimSuffix(body, "\n\n[body truncated]") != strings.Repeat("x", 65_536) {
+		t.Fatal("web_fetch body was not capped at 64 KiB")
 	}
 	for _, test := range []struct {
 		path string

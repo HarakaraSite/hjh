@@ -8,18 +8,7 @@ export async function writeFile(args, api) {
 
 export async function editFile(args, api) {
   if (!Array.isArray(args.edits)) throw new Error("edit_file requires an edits array of {oldText, newText} replacements");
-  const original = await api.readFile({ path: args.path });
-  let text = original.text;
-  const edits = [];
-  let replacements = 0;
-  for (const edit of args.edits) {
-    const count = edit.oldText === "" ? 0 : text.split(edit.oldText).length - 1;
-    if (count > 0) text = text.split(edit.oldText).join(edit.newText);
-    edits.push({ replacements: count });
-    replacements += count;
-  }
-  const saved = await api.writeFile({ path: args.path, text });
-  return { path: args.path, replacements, edits, bytes: saved.bytes };
+  return api.editFile(args);
 }
 
 export async function command(args, api) {

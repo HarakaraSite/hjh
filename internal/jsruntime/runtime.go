@@ -15,10 +15,18 @@ import (
 )
 
 type jobCompletion struct {
-	id    string
-	value json.RawMessage
-	err   error
-	agent bool
+	id          string
+	value       json.RawMessage
+	observation json.RawMessage
+	err         error
+	agent       bool
+}
+
+func (c jobCompletion) observationValue() json.RawMessage {
+	if c.observation != nil {
+		return c.observation
+	}
+	return c.value
 }
 
 type agentJob struct {
