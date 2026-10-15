@@ -144,3 +144,19 @@ provider/credential/model/role/tools/hook/独自description等は維持する。
 既存DBを変換せず、稼働中Core/TUIは停止しない。新binaryのhelp/schema/方針読込みが常用Coreへ有効になるのは再起動後。
 配置確認は新binaryのversion、config固有設定の保持、全選択toolのcaptured help、実方針sourceをローカルで照合する。
 実providerは呼ばず、既存Coreの稼働とPIDが維持されていることを確認する。
+
+配置結果：機能commit `3fbd050e6a4d1c88a4eb4292f28c56690bb698dc`をorigin/mainへpush済み。
+
+- dist/hjh SHA-256：`48b7357a4e9e6f00facbbe1f57cd1a15812dc194fb5bf107b33c3505c1c9538b`
+- dist/hjh-tui SHA-256：`8f85eef1c01c8671986ffa5df5a88652e62efb6f3c1b7960010813dee2954d57`
+- config backup：`.hjh/backups/config-before-tool-help-2026-10-15T11-27-17-155Z.json`
+- binary backup：`.hjh/backups/binaries-before-tool-help-20261015T202755`
+- policy：`/home/agent/.config/hjh/instructions/tool-usage.md`
+  （digest `sha256:2f09f6231002ef2022362c84ae519d5f74c8fc1be0783104361cc76ead407971`）
+- 配置設定をcaptureした実Workerで全19toolのhelp取得成功。検証はprovider呼出し/DB openなし。
+- configのhelpFile/runJSHelpFile/promptGuidelines以外が元の値と一致することを照合した。
+- Core PID `420299`は維持。旧inodeで動作しており、新binaryへの切替にはCore再起動が必要。
+- buildのdirty表示は既存の無関係な文書/未追跡fileが残るworkspaceからbuildしたことを正直に表す。
+  今回の製品sourceは上記機能commitに含まれる。
+
+ローカル配置証跡は`dist/tool-help-build.jTnzia/deployment-result.json`。常用Coreの再起動・実provider検証は行っていない。
