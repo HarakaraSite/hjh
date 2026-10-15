@@ -216,3 +216,21 @@ gofmt・diff check通過、独立reviewも指摘なし。
 新usage保存経路が常用Coreへ有効になるのは、run終了後に新binaryで再起動した後。
 配置ではversion/hash、DB/config/selection維持、稼働Coreの同一PIDを確認し、実providerは呼ばない。
 pushは今回の指示に含まれないため行わない。
+
+配置結果（2026-10-15 21:34 JST）：
+
+- 機能commit：`52763cadd5511ad07b8d2f1542fcdf1e43adc5b4`。
+- コミットsourceをgit archiveで隔離展開し、source revisionを埋め込んだLinux/amd64 binaryをbuildした。
+  無関係の未commit製品sourceは含めず、SourceDirty=falseのcommit由来buildとした。
+- 配置する同一binaryでローカルCLI/Core/PTY検証scriptを再実行し、passed。
+  再実行理由は、最初のworkspace候補と異なるcommit-only配置binaryそのものを確認するため。
+- `dist/hjh` SHA-256：`09e1cb82988ee2597584ed068554707e00acd2857386eafa7c3d6620cc4cba45`。
+- `dist/hjh-tui` SHA-256：`52db34a08b73fe29901e9ea10450fbb79d0692df746240b78efc8eed9a897c27`。
+- 旧binary backup：`.hjh/backups/binaries-before-usage-storage-20261015T213414`。
+- Coreの同一ID/PIDと旧実行inodeを維持し、active runを中断していない。再起動は未実施。
+- config／selectionのSHA-256が前後一致し、DBは同じinodeを維持。
+  配置済みCLIのread-only historyで最新SessionのJSONを取得できた（216 entries）。
+- DB変換・削除・VACUUM、config変更、実provider呼出し、pushは行っていない。
+
+ローカル配置証跡：`dist/usage-storage-build.1kvaIF/deployment-result.json`。
+**バイナリ配置済み、稼働Coreへの新保存経路の有効化は再起動待ち。**
