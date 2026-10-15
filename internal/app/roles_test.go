@@ -130,21 +130,27 @@ func TestRoleToollessRunUsesNoImplicitRuntimeTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	provider := delegationProvider(func(ctx context.Context, req contracts.ModelRequest, obs contracts.Observer) (contracts.ModelResult, error) {
-		if len(req.Tools) != 0 || strings.Contains(req.Instruction, "run_js") {
-			t.Fatalf("implicit tools: %+v / %s", req.Tools, req.Instruction)
+		if len(req.Tools) != 0 {
+			t.Fatalf("implicit tools: %+v", req.Tools)
+		}
+		if !strings.Contains(req.Instruction, "Role instruction:\ntext-only") {
+			t.Fatalf("text-only role instruction missing: %s", req.Instruction)
 		}
 		return contracts.ModelResult{Text: "text answer"}, nil
 	})
 	result, err := Run(context.Background(), store, provider, RunOptions{Task: "answer", Workspace: workspace, ConfigPath: configPath, ModelID: "test/model"})
-	if err != nil || !result.Result.OK {
+	if err != nil || !result.Result.OK || result.Result.FinalText != "text answer" {
 		t.Fatalf("tool-less run %+v: %v", result, err)
 	}
 	configuration, err := store.Configuration(context.Background(), mustExecution(t, store, result.ExecutionID).ConfigurationID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var saved struct{ Tools []any }
-	if err = json.Unmarshal(configuration.Snapshot, &saved); err != nil || len(saved.Tools) != 0 {
+	var saved struct {
+		Agent struct{ Tools []string }
+		Tools []any
+	}
+	if err = json.Unmarshal(configuration.Snapshot, &saved); err != nil || len(saved.Agent.Tools) != 0 || len(saved.Tools) != 0 {
 		t.Fatalf("implicit saved tool %s: %v", configuration.Snapshot, err)
 	}
 }

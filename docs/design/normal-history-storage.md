@@ -240,6 +240,37 @@ active stateを削除する。messages/canonical会話には採用しない。�
 recall referenceの候補から除外する。再送の最後の失敗は従来どおりincompleteとして保存し、recallできる。
 新table・schema変更はない。retry noticeは既存context_update記録を使う。
 
+## Provider usageの通常保存（2026-10-15）
+
+利用者が[usage保存計画](../plans/usage-storage.md)の実装を指示した。
+実装・確認の到達点は[結果](../results/usage-storage.md)を参照する。
+この契約は新しい保存経路に適用し、既存DBの変換・削除やschema変更は行わない。
+
+- 通常の親・子のusageの正本は、既存`semantic_records`のDB kind=`model_result`、
+  payload kind=`usage`にある`result`とする。同じ要求の`model_result.result.usage`は保存しない。
+- 保存用usageは直下の`attribution`だけを除き、その他のfield・detail objectを値・構造のまま保持する。
+  入力・出力・合計・cached/cache_write・reasoning等を固定allowlistへ狭めず、
+  provider固有名の正規化、値の再計算、欠落値の0補完を行わない。
+- 通常要求の対応はexecution ID、`payload.parent`、既存`parent_call`の物理送信開始recordで辿る。
+  同じstepの再送は物理要求IDとretryAttemptで区別し、子は別executionとする。
+  新しいusageRecordId・relation種別・本文共有機構を追加しない。
+- projectRequest内の`api.model.generate`は通常loopの観測を保存せず、既存の
+  `context.model.generate` Host完了観測のusageを一度保存する。
+  既存resultRef/contentsの所有を使い、同じ保存用Resultへprojectionして渡す。
+  Host call ID・親hook／call_start関係は維持する。要約用の新executionや再試行は追加しない。
+- 変更はapp journalの保存用コピーに限定する。protocolのModelResult.Usage、元のライブObservation、
+  JS model.generateの返却値は完全usageのままとし、会話Message・provider継続情報・thinkingは変えない。
+- Records/Record/Inspect/RecallEvidenceは保存済みの集計usageを返し、
+  attributionやモデル結果内の重複usageを再構成しない。集計usageはexecutionの詳細から読む。
+  会話再開はMessage、TUIのctxと/contextはhjh推定を引き続き使う。
+
+調査用には既存Go Progress Observerで元usageを取得でき、要約hookも返却usageを扱える。
+ただし、標準raw-usage collectorや通常モデル応答後のJS専用hook、CLI/TUIの収集操作はない。
+JSでusageをapi.writeFileのtextへ渡すとHost開始観測が入力全文を保存するため、
+DB外だけのcollectorにはならない。明示的なtool/Hostの入出力を削る変更はしない。
+新規保存分のattributionを通常DBだけから後日取得することはできず、精密収集基盤は別テーマとする。
+既存payloadは汎用readがそのまま返す範囲で残り、migrationや新旧互換用の補完は追加しない。
+
 ## Git・編集・Web検索のHost境界（2026-10-15）
 
 [tool保存改善計画](../plans/tool-output-storage.md)により、git_inspectはnative出力を

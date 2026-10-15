@@ -89,6 +89,12 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		})
 		return facts, err
 	}
+	// persist receives a value copy; never project the live observation in observe.
+	var err error
+	o, err = observationForStorage(o)
+	if err != nil {
+		return nil, err
+	}
 	kind, started := observationKind(o)
 	if kind == "tool_call" {
 		o.Preview = toolactivity.Preview(o.Name, o.Input)
@@ -115,9 +121,10 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		if finishReason := observationFinishReason(o); finishReason == "length" {
 			phase = "incomplete"
 		}
+		payload := contracts.JSON(o)
 		facts, err := j.store.SaveAssistantResult(j.ctx, history.AssistantResultInput{
 			RootExecutionID: j.rootExecutionID, ExecutionID: j.executionID, Sequence: sequence,
-			Request: request, Payload: contracts.JSON(o), Relations: relations,
+			Request: request, Payload: payload, Relations: relations,
 			Text: o.Text, Thinking: o.Thinking, Phase: phase,
 			ObservedAt: o.Time.UTC().Format(time.RFC3339Nano),
 		})
@@ -132,10 +139,7 @@ func (j *journal) persist(o contracts.Observation, sequence uint64) ([]contracts
 		}
 		return facts, err
 	}
-	payload, err := observationPayload(o)
-	if err != nil {
-		return nil, err
-	}
+	payload := contracts.JSON(o)
 	if o.Kind == "context" {
 		var notice map[string]any
 		if err := json.Unmarshal(payload, &notice); err != nil {

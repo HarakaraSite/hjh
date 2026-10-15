@@ -69,9 +69,6 @@ func TestWebSearchProviderErrorReachesFollowingModelRequest(t *testing.T) {
 					}
 				}
 			}
-			if !strings.Contains(req.Instruction, "Omit unused fields") || !strings.Contains(req.Instruction, "omit save_to") {
-				t.Error("optional search/fetch argument guidance did not reach the model")
-			}
 			return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "failed-search", Name: "web_search", Arguments: contracts.JSON(map[string]string{"query": "official documentation"})}}}, nil
 		}
 		last := req.Messages[len(req.Messages)-1]

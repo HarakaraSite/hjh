@@ -178,6 +178,37 @@ JSON escape・索引等を含む削減可能量ではない。両fieldは用途�
 会話再開、provider継続情報、thinking表示、履歴調査を維持して重複を減らせるか確認する。
 全詳細記録の容量をそのまま削減可能量と扱わない。現時点は改善メモのみで、実装・schema・実DBは変更しない。
 
+### 2026-10-15追記：usage詳細の二重保存と調査用記録への分離
+
+利用者指示で改善候補として記録する。17:46 JSTにSession `64bbc534`を親子込みで
+読取り専用集計したところ、親8実行・子4実行の主要な本文・JSONは17,564,930 bytes
+（約16.75 MiB）だった。索引・SQLite管理領域等を含まず、Session専用の物理占有量ではない。
+
+`semantic_records`の`kind=model_result`には、payloadの`kind=usage`と`kind=model_result`が
+それぞれ113件あり、providerが返した同じusageを両経路に保存していた。
+片側のusage JSONは合計2,599,487 bytes、そのうち項目別トークン内訳の`attribution`は
+2,577,625 bytes（約2.46 MiB）。二重分を合わせた`attribution`は約4.92 MiBで、
+Sessionの主要データの約29%に相当した。
+これらのusage内訳は、保存JSONをPythonで空白なし・非ASCII文字をそのまま出力して
+再直列化したサイズであり、実DBの物理削減量を保証する値ではない。
+
+検討案：
+
+- 同じusageの保存を一箇所へ集約し、必要な経路から参照する。
+  今回の片側usage相当は約2.48 MiBで、その大半が`attribution`だった。
+- 入力・出力・キャッシュ・reasoningの合計値は通常履歴へ残し、
+  項目別の`attribution`は通常保存から外して開発・調査用の収集へ分ける。
+  今回は二重分で約4.92 MiBが対象候補となる。二重保存解消の削減量と加算しない。
+- 採用前にusageの生成・保存・読戻し経路と、項目別内訳を利用する現行機能を確認する。
+  通常利用の記録と精密な調査記録を分ける既存方針に沿って扱う。
+
+この追記時点では改善メモのみで、保存方式・収集hook・schema・既存DBは変更していなかった。
+その後、利用者が[usage保存計画](../plans/usage-storage.md)の独立レビュー後に実装を指示した。
+新規保存では既存usage観測へ集約し、直下attributionを通常保存から外す。
+契約は[通常履歴の保存契約](normal-history-storage.md#provider-usageの通常保存2026-10-15)、
+到達点は[結果](../results/usage-storage.md)を参照する。
+schema v4・table/indexは変更せず、既存DBの変換・削除は行わない。精密collector追加は別テーマとする。
+
 ## 2026-10-14：モデル送信本文の二重保存を削減
 
 利用者が現在のDB容量の最適化を指定した。読取り専用で確認した44Sessionは、0turnが2、1turnが33、
