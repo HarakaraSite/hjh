@@ -3,6 +3,9 @@
 この文書はJSON設定、外部ESM tool／hook、Worker runtimeの境界を定める。
 拡張directoryは実行時に編集でき、各Workerは開始時に読んだsource bytesだけを実行する。
 
+将来の構成候補として[go-quickjsのstdlib活用とtool実装のJS化](../notes/quickjs-stdlib-tools.md)
+を記録した。以下の現行契約とは別の検討メモであり、stdlibの導入はまだ行っていない。
+
 ## 設定と外部source
 
 拡張directoryには `config.json` と相対import可能なJavaScript moduleを置く。
