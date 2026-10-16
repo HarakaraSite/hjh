@@ -102,3 +102,16 @@ turn-{1,2,3}.stdout/stderr、workspace/.hjh/observations/。
 この追加変更の前に利用者指示で常用workspaceのhookを有効化し、バイナリとCoreを更新済み。
 今回も`.hjh/extensions/compaction.js`へ反映し、既存runtimeStartとprojectRequestの両exportが
 常用設定から読み込めることを確認した。JSのみの変更なので再ビルド・Core再起動は不要で、次の実行から反映される。
+
+## 追加変更：有効入力予算の90%で発動
+
+2026-10-16の利用者指示で`triggerRatio`を0.8から0.9へ変更した。
+既定inputRatioは0.9のままなので、他の制約が効かない場合の発動位置はウィンドウ全体の81%となる。
+原文目標`rawTargetRatio: 0.6`と予算不明時の`fallbackInputTokens: 800000`は維持する。
+不明時は720,000推定tokens超で要約を検討し、原文目標は480,000推定tokensのまま。
+予算に収まらない場合も要約を検討する既存条件は変更していない。
+
+実QuickJSと共通app経路のfocused testで、予算の80〜90%では原文を保持し、90%超で履歴を要約することを確認した。
+既存の予算既知・不明、ターン内要約、次ターンへの引継ぎ、原文参照の確認も成功した。
+常用`.hjh/extensions/compaction.js`はbackup後、triggerRatioだけを更新した。
+JSのみの変更なので再ビルド・Core再起動は不要で、次の実行から反映される。

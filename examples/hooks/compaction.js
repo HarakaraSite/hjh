@@ -1,7 +1,7 @@
 // Summarize new source ranges with the parent model, then select and replace.
 export const policy = {
   fallbackInputTokens: 800000,
-  triggerRatio: 0.8,
+  triggerRatio: 0.9,
   rawTargetRatio: 0.6,
   keepRecentTurns: 1,
   summaryCharacters: 1200,

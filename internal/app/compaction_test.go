@@ -238,6 +238,59 @@ func TestJSCompactionUsesEffectiveBudgetOrUnknownDefault(t *testing.T) {
 	}
 }
 
+func TestJSCompactionTriggersAboveNinetyPercentOfBudget(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		rawCharacters int
+		wantSummaries int
+	}{
+		{"between-eighty-and-ninety-percent", 21000, 0},
+		{"above-ninety-percent", 24000, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, workspace := delegationStore(t)
+			const limit = 10000
+			installCompaction(t, workspace, map[string]any{"inputTokens": limit})
+			raw := strings.Repeat("a", tc.rawCharacters)
+			mainCalls, summaries := 0, 0
+			provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+				if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+					summaries++
+					return contracts.ModelResult{Text: "COMPACTED_HISTORY_NOTE"}, nil
+				}
+				mainCalls++
+				if mainCalls == 1 {
+					return contracts.ModelResult{Text: raw}, nil
+				}
+				encoded := string(contracts.JSON(request.Messages))
+				if tc.wantSummaries == 0 && !strings.Contains(encoded, raw) {
+					t.Error("original history was not retained below the trigger")
+				}
+				if tc.wantSummaries == 1 && (!strings.Contains(encoded, "COMPACTED_HISTORY_NOTE") || strings.Contains(encoded, raw)) {
+					t.Error("history was not summarized above the trigger")
+				}
+				return contracts.ModelResult{Text: "done"}, nil
+			})
+			service := NewService(store, provider, RunOptions{Workspace: workspace})
+			defer service.Close()
+			first, err := service.Run(t.Context(), RunRequest{Task: "produce history", ModelID: "test/model"})
+			if err != nil || !first.Result.OK {
+				t.Fatalf("seed history: %+v %v", first, err)
+			}
+			second, err := service.Run(t.Context(), RunRequest{SessionID: first.SessionID, Task: "continue"})
+			if err != nil || !second.Result.OK || summaries != tc.wantSummaries {
+				t.Fatalf("threshold: %+v %v; summaries %d, want %d", second, err, summaries, tc.wantSummaries)
+			}
+			if tc.wantSummaries == 0 {
+				_, fact := budgetFact(t, store, first.SessionID)
+				if fact.EstimatedTokens <= limit*8/10 || fact.EstimatedTokens > limit*9/10 {
+					t.Fatalf("retained input was not between 80%% and 90%%: %d", fact.EstimatedTokens)
+				}
+			}
+		})
+	}
+}
+
 func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T) {
 	store, workspace := delegationStore(t)
 	installCompaction(t, workspace, map[string]any{"inputTokens": 4000})
