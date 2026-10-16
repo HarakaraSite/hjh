@@ -70,6 +70,8 @@ func TestEditorDockStableDuringGenerationAndPickerReturn(t *testing.T) {
 	m.headerPrinted = true
 	update(m, tea.WindowSizeMsg{Width: 80, Height: 24})
 	m.textarea.SetValue("draft\nsecond line")
+	m.sessionID, m.sessionTitle = "b71a29a6-session", "Footer layout"
+	m.setContextBudget(contextUsageBudget(2400, contextLimit(10000), "config/defaults"))
 	initialPanelRow := -1
 	check := func() {
 		t.Helper()
@@ -82,6 +84,16 @@ func TestEditorDockStableDuringGenerationAndPickerReturn(t *testing.T) {
 		}
 		if physicalPanelStart != initialPanelRow {
 			t.Fatalf("editor panel moved: row=%d, initial=%d", physicalPanelStart, initialPanelRow)
+		}
+		dividerRow := panelStart - 2
+		divider := ansi.Strip(frame.LiveRows[dividerRow])
+		if divider != ansi.Strip(m.footerDivider(m.width)) || !strings.HasSuffix(divider, "ctx 24%") || !strings.Contains(divider, "Footer layout · b71a29a6") {
+			t.Fatalf("separator metadata moved or disappeared: %q", divider)
+		}
+		for _, row := range frame.LiveRows[panelStart:] {
+			if strings.Contains(ansi.Strip(row), "ctx 24%") || strings.Contains(ansi.Strip(row), "Footer layout") {
+				t.Fatalf("separator metadata duplicated below controls: %q", row)
+			}
 		}
 		if got := ansi.Strip(frame.LiveRows[panelStart]); got != strings.Repeat(" ", m.width) {
 			t.Fatalf("top padding lost: %q", got)

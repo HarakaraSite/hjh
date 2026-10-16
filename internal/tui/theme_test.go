@@ -43,10 +43,20 @@ func TestThemeShowsNotificationsFailuresAndOrdinaryFooterMetadata(t *testing.T) 
 	m.sessionID = "b71a29a6-7552-485d-9922-a1d7ae426706"
 	m.footerSelectionSet = true
 	m.footerSelection.Selection = contracts.ModelSelection{Provider: "openrouter", ModelID: "model", Effort: "high"}
-	row := m.sessionFooter()
-	if !strings.Contains(row, blueSGR+"● ready"+resetSGR+"   /work/hjh") || !strings.HasSuffix(row, " · b71a29a6") {
-		t.Fatalf("workspace/short ID were not ordinary text: %q", row)
+	m.sessionTitle = "README要約"
+	m.setContextBudget(contextUsageBudget(2400, contextLimit(10000), "config/defaults"))
+	if row := m.sessionFooter(); row != "/work/hjh" {
+		t.Fatalf("workspace was not ordinary text: %q", row)
 	}
+	row := m.footerDivider(100)
+	if !strings.HasPrefix(row, blueSGR+"● ready"+resetSGR) || !strings.Contains(row, "README要約 · b71a29a6") || !strings.HasSuffix(row, "ctx 24%") || strings.Count(row, "\x1b[") != 2 {
+		t.Fatalf("divider identity/context were not ordinary text: %q", row)
+	}
+	m.activeRun = &activeRun{}
+	if row := m.footerDivider(100); !strings.HasPrefix(row, yellowSGR+"⠋ working"+resetSGR) {
+		t.Fatalf("working activity lost its style: %q", row)
+	}
+	m.activeRun = nil
 	if row := m.footerModel(120); row != "openrouter / model / high" {
 		t.Fatalf("provider/model/effort were styled: %q", row)
 	}

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"hjh/internal/api"
 	"hjh/internal/tui/renderer"
 )
@@ -133,9 +134,8 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 			t.Fatalf("footer did not follow the editor controls: rows=%v", frame.LiveRows)
 		}
 		actualHelp := renderer.ReceiptText(frame.LiveRows[helpStart])
-		actualFooter := strings.ReplaceAll(renderer.ReceiptText(strings.Join(frame.LiveRows[footerStart:], "\n")), "\n", "")
-		if !strings.Contains(actualHelp, "Enter send") || !strings.Contains(actualFooter, "ready") {
-			t.Fatalf("controls above or metadata below the editor misplaced: rows=%v", frame.LiveRows)
+		if !strings.Contains(actualHelp, "Enter send") || !strings.Contains(ansi.Strip(frame.LiveRows[helpStart-1]), "ready") {
+			t.Fatalf("separator metadata or controls above the editor misplaced: rows=%v", frame.LiveRows)
 		}
 		if cursor.Position.X != wantX || frame.Cursor.Cell != wantX {
 			t.Fatalf("cursor x for %q = %d/frame %d, want %d", value, cursor.Position.X, frame.Cursor.Cell, wantX)
@@ -165,7 +165,7 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 		t.Fatalf("scrolled editor cursor row=%d, relative cursor=%v", cursor.Position.Y, textareaCursor)
 	}
 	if strings.Index(content, "Enter send") > strings.Index(content, "line 6") ||
-		strings.Index(content, "ready") < strings.Index(content, "line 6") || cursor.Position.Y >= len(frame.LiveRows)-2 {
+		strings.Index(content, "ready") > strings.Index(content, "Enter send") || cursor.Position.Y >= len(frame.LiveRows)-2 {
 		t.Fatalf("input, controls, footer, and cursor are not ordered in the live frame: %q", content)
 	}
 }

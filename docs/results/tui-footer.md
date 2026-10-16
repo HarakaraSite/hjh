@@ -36,3 +36,31 @@ nvidia/nemotron-3.5-lightning:freeをTUIから実行し、working 00:01とF1/F2/
 
 dist/hjhとdist/hjh-tuiをCGO_ENABLED=0・trimpathで更新した。
 反映にはCoreとTUIの再起動が必要。色付けは従来方針に従って後回しとした。
+
+## 2026-10-16：区切り線へ状態・Session・ctxを集約
+
+利用者指定により、操作案内の上の区切り線へ状態を左寄せ、タイトルとSession短縮IDを
+中央、ctxを右寄せで表示した。メタデータ間は横線でつなぎ、タイトルは端末cell幅で省略する。
+左右の表示へ重なる場合だけ中央位置を調整する。狭幅では状態・短縮IDを優先する。
+入力欄の下はworkspace、provider / model / effortの2行とし、移動した情報を重複表示しない。
+操作案内・通知、上下の背景付き余白、本文高さ・dock・カーソル計算の行数は維持した。
+状態・Session情報・ctxの取得元や更新経路、保存契約は変更していない。
+
+確認：次のfocused testと差分checkが成功した。
+
+```sh
+go test ./internal/tui -run 'Test(Footer|Theme|Header|SavedHeader|ContextDetails|ConversationTheme|Editor|RealEditorCursor|JapaneseEditor|SlashMenuDock|InlinePicker|AuthenticationOverlay|PickersShare|ResizeCursor|APIKeyInputIsMasked|ChatGPTCallbackUsesMasked)' -count=1
+git diff --check
+```
+
+表示幅・中央揃え・長いタイトル・狭幅省略・ctx形式とSession復元・actual/next selection、
+生成進行・picker復帰・入力欄の余白とカーソルを確認した。差分レビューで追加findingはなかった。
+
+PTYでは実際のRunをfake Backendと100×24のpyte端末で動かし、ready、workingのspinner・
+00:00から00:01への経過時間、完了後のready復帰、中央のタイトル・IDと右端のctx 24%を確認した。
+日本語複数行・背景色237・F4→Esc復帰・Alt+Enter・Ctrl+Dも確認した。
+証跡は一時領域 `/tmp/hjh-footer-pty-ha1251iv/` に保持する。
+fake生成は1件、Core停止呼出しは0件。実プロバイダ、実保存DB、物理端末の目視は未確認。
+実装確認時点では稼働Coreの停止・常用バイナリ更新・コミット・プッシュは行っていない。
+後続の利用者指示で、本変更のコミットと`dist/hjh`・`dist/hjh-tui`の更新を行う。
+今回の表示変更はTUIの再起動で反映され、Coreの再起動は不要。プッシュは行わない。

@@ -226,7 +226,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	if m.pickerOpen && !m.screenOverlayOpen() {
 		commandRows = m.pickerRows(available)
 	}
-	divider := strings.Repeat("─", columns)
+	divider := m.footerDivider(columns)
 	var committed []string
 	var bodyRows []string
 	committedThrough := doc.startRow

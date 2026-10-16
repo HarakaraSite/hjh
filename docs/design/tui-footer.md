@@ -4,7 +4,8 @@
 effortは右端へ分離せず、`openrouter / model-name / high`のようにmodelの直後へ並べる。
 
 操作案内・通知の行は区切り線の下、入力欄の上へ表示する。
-状態・workspace／Sessionとprovider／model／effortの2行は入力欄の下へ表示する。
+区切り線には左端に状態、中央にタイトル・Session短縮ID、右端にctx使用率を表示する。
+workspaceとprovider／model／effortの2行は入力欄の下へ表示する。
 これらはlive bandだけに属し、会話へ保存・確定出力しない。
 Slash command候補を開いている間は上下・Enter・Tab・Escの案内へ切り替える。
 候補は区切り線の上に置き、入力欄と情報footerの下部固定を維持する。
@@ -16,8 +17,7 @@ resizeでは端末のcursor position reportから既存live bandの位置を確�
 
 1. 現在使えるキー操作と通知。待機中はEnter send、実行中はF1 cancel、受付可能な期間は
    F2 queue／F3 steer。Session・接続・認証の選択画面では操作案内を切り替える。
-2. 左に状態・workspace、右にタイトル・Session短縮ID。実行中はスピナーと経過時間。
-   狭幅ではタイトル・workspaceを省略し、状態とIDを優先する。
+2. 入力欄の下にworkspaceを表示する。状態とSession情報は区切り線へ移動する。
 3. provider / model / effortを左から連続表示する。長いmodelはeffortの幅を確保して省略する。
 
 次回の実効接続は既存CoreのGET /selectionで取得する。TUIに設定解決規則を複製しない。
@@ -31,6 +31,17 @@ roleの常時表示は廃止し、既存の/role・/rolesで確認・指定す�
 TUIの時計更新は表示だけを更新し、モデル呼出し・会話保存・history生成へ処理を戻さない。
 操作・情報の行はterminal cell幅で1行へ収め、狭幅でも折返しで会話領域を消費しない。
 配色は[Markdown整形・色契約](tui-rendering.md)に従う。workspace・短縮ID・provider・effortは通常表示。
+
+## 区切り線へ状態・Session・ctxを集約
+
+2026-10-16、利用者指定。操作案内の上の区切り線へ、左端にready／working等の状態、
+中央にタイトルとSession短縮ID、右端にctxを移す。実行中のスピナー・経過時間、
+ctxの計測元・更新経路・表示形式は維持する。メタデータ間は`─`でつなぐ。
+タイトルは端末の中央へ配置し、左右の表示へ重なる場合は位置・表示幅を調整する。
+操作案内・通知は区切り線の直下に残す。入力欄の上下余白と、入力欄の下のworkspace・
+provider／model／effortの2行を維持し、行数・本文高さ・カーソル計算は変えない。
+状態・Session・ctxを元の行にも重複表示しない。
+実装済み。focused test・PTY確認・差分レビューの範囲は[確認結果](../results/tui-footer.md)を参照する。
 
 ## 改善メモ Alt+Enterの操作案内を省略
 
@@ -59,7 +70,7 @@ PTYでは実際の`Run`とfake Backendを100×24端末で動かし、pyteで全c
 
 ## コンテキスト使用率
 
-モデル表示行の右端へ、直近の通常の親モデル入力の使用率を右寄せする。
+区切り線の右端へ、直近の通常の親モデル入力の使用率を右寄せする。
 表示は`ctx 24%`で、分子は指示・tool定義・履歴・現在turnを含む入力のhjh推定tokens、
 分母はCoreが解決した有効入力予算Limit。整数%に切り捨て、provider実測usageは混ぜない。
 未送信draftや、これから生成される応答の量は含まない。
@@ -67,7 +78,7 @@ PTYでは実際の`Run`とfake Backendを100×24端末で動かし、pyteで全c
 - Limitがhook policy由来なら`ctx 38%*`。`*`はモデルの容量ではなくhook予算が基準である印。
   `/context`に由来と凡例を表示する。80万の既定予算もこの扱い。
 - Limitが不明なら`ctx 3.0k tok`のように推定量だけを表示する。
-- 計測がなければ断片を表示しない。狭幅ではselectionの幅を優先して断片を省略する。
+- 計測がなければ断片を表示しない。狭幅では状態とSession短縮IDを優先し、収まらない断片を省略する。
 - 通常モデル入力の確定時に既存run eventで更新し、待機中も直近の値を維持する。
   予算超過で送信前に停止した場合は、その入力準備時点の値となる。
 - Session再開時は既存SessionContext.LatestBudgetで復元し、新規Session・切替時は古い値をclearする。

@@ -202,50 +202,70 @@ func (m *model) footerActivity() string {
 	return "● ready"
 }
 
-func (m *model) sessionFooter() string {
-	width := max(1, m.width)
+// footerDivider owns the live activity, Session identity, and context usage.
+// Activity and the short ID take priority over title and context on narrow rows.
+func (m *model) footerDivider(width int) string {
+	if width <= 0 {
+		return ""
+	}
 	activity := m.footerActivity()
 	activityStyle := yellowSGR
 	if activity == "● ready" {
 		activityStyle = blueSGR
 	}
-	activity = styledText(activity, activityStyle)
+	activity = styledText(ansi.Truncate(activity, width, "…"), activityStyle)
+	leftWidth := ansi.StringWidth(activity)
 	id := displayOr(m.shortSessionID(m.sessionID), "new")
-	title := displayOr(m.sessionTitle, "(untitled)")
+	idWidth := ansi.StringWidth(id)
+	// Three cells leave a horizontal rule with a space on either side.
+	const gap = 3
+	if leftWidth+gap+idWidth > width {
+		return activity + footerDividerGap(width-leftWidth)
+	}
+
+	right := m.footerContextUsage()
+	rightWidth := ansi.StringWidth(right)
+	if right != "" && leftWidth+gap+idWidth+gap+rightWidth > width {
+		right, rightWidth = "", 0
+	}
+	centerLeft, centerRight := leftWidth+gap, width
+	if right != "" {
+		centerRight -= rightWidth + gap
+	}
+	title := displayOr(strings.Join(strings.Fields(m.sessionTitle), " "), "(untitled)")
 	if m.sessionID == "" {
 		title = "new conversation"
 	}
-	// Preserve the state and short ID before spending cells on title/path.
-	if ansi.StringWidth(activity)+ansi.StringWidth(id)+3 > width {
-		return ansi.Truncate(activity, width, "…")
+	identity := id
+	if titleWidth := centerRight - centerLeft - idWidth - 3; titleWidth > 0 {
+		identity = ansi.Truncate(title, titleWidth, "…") + " · " + id
 	}
-	available := width - ansi.StringWidth(activity) - ansi.StringWidth(id) - 6
-	right := id
-	if available > 0 {
-		right = ansi.Truncate(title, available, "…") + " · " + id
+	identityWidth := ansi.StringWidth(identity)
+	// Center against the terminal, not the unequal space between side labels.
+	centerStart := min(max((width-identityWidth)/2, centerLeft), centerRight-identityWidth)
+	row := activity + footerDividerGap(centerStart-leftWidth) + identity
+	return row + footerDividerGap(width-rightWidth-ansi.StringWidth(row)) + right
+}
+
+func footerDividerGap(width int) string {
+	if width < 3 {
+		return strings.Repeat("─", max(0, width))
 	}
-	left := activity
-	pathWidth := width - ansi.StringWidth(left) - ansi.StringWidth(right) - 6
-	if pathWidth > 0 && m.workspace != "" {
-		path := m.workspace
-		if ansi.StringWidth(path) > pathWidth {
-			path = ansi.TruncateLeft(path, ansi.StringWidth(path)-pathWidth+1, "…")
-		}
-		left += "   " + path
+	return " " + strings.Repeat("─", width-2) + " "
+}
+
+// sessionFooter is the workspace row below the editor; live Session metadata
+// belongs on the divider above the controls.
+func (m *model) sessionFooter() string {
+	width := max(1, m.width)
+	path := m.workspace
+	if ansi.StringWidth(path) > width {
+		path = ansi.TruncateLeft(path, ansi.StringWidth(path)-width+1, "…")
 	}
-	return left + strings.Repeat(" ", max(3, width-ansi.StringWidth(left)-ansi.StringWidth(right))) + right
+	return path
 }
 
 func (m *model) footerModel(width int) string {
-	// The usage fragment is reserved first on the right edge; the selection
-	// keeps at least half the row and drops the fragment on very narrow rows.
-	if fragment := m.footerContextUsage(); fragment != "" {
-		fragmentWidth := ansi.StringWidth(fragment)
-		if selectionWidth := width - fragmentWidth - 3; selectionWidth >= width/2 {
-			left := m.footerModelSelection(selectionWidth)
-			return left + strings.Repeat(" ", width-ansi.StringWidth(left)-fragmentWidth) + fragment
-		}
-	}
 	return m.footerModelSelection(width)
 }
 

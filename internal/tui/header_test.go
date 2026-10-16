@@ -73,7 +73,7 @@ func TestSavedHeaderShowsMetadataAndFitsTerminal(t *testing.T) {
 			t.Fatalf("compact row overflow: %s", row)
 		}
 	}
-	if !strings.Contains(m.sessionFooter(), "b71a29a6") {
+	if !strings.Contains(m.footerDivider(m.width), "b71a29a6") {
 		t.Fatal("long title obscures short Session ID")
 	}
 }
