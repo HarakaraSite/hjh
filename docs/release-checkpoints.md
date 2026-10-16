@@ -37,7 +37,9 @@ does not recognize the Forgejo context.
 
 ## v1.0.0
 
-Preparation started on 2026-10-16. Release and CI results are pending.
+Published on 2026-10-16 from `8b5e8067f4b95bd771005f194ed4809fe80aace7`.
+[Release v1.0.0](https://forge.harakara.site/littleisland/hjh/releases/tag/v1.0.0)
+contains the Linux/amd64 archive and `SHA256SUMS`.
 
 - The release profile uses `apply-forgejo-go-release-profile`, contract version 2,
   required checksums, native logs, and the automatic Forgejo release token.
@@ -67,3 +69,17 @@ Preparation started on 2026-10-16. Release and CI results are pending.
   GNU grep 3.11, ripgrep and `/bin/sh` resolving to Dash. The app group took
   6.155 seconds and the JS runtime group 0.238 seconds. Scratch files used
   `/var/tmp` because the development VM's `/tmp` tmpfs was full.
+- Before any public Release existed, the tag created for the first failed CI
+  was moved from `28ddce5` to the corrected source `8b5e806`, using a lease
+  against the known remote tag value. No existing published asset was replaced.
+- The corrected [Actions run 3](https://forge.harakara.site/littleisland/hjh/actions/runs/3)
+  (API run 184/job 205) passed portable tests, vet, packaging, checksum creation,
+  and upload using the automatic workflow token. No extra system package or
+  repository secret was added.
+- The downloaded public archive is 38,761,602 bytes with SHA-256
+  `5e51ab444a641b24a4363a9f36246c36854d4e63899d97f68013636e7ee2f13e`.
+  Its 172 file hashes match the manifest; source revision is the release commit,
+  `dirty:false`, and both binaries report `v1.0.0` with Go 1.27.0. Both help
+  commands and loading the four roles from the bundled config also passed.
+  The local download verification record is
+  `/var/tmp/hjh-v1.0.0-verified-d4bdlpag/verification.json`.
