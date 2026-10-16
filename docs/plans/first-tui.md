@@ -1,5 +1,7 @@
 # 最初のTUI
 
+> **後続変更の案内（2026-10-16）**：以下は初版TUIの実装計画。同一processのhjh tui・旧停止キー・viewport方式は後続実装で置換済み。現在は独立hjh-tuiと[HTTP API](../design/http-api.md)、[現行TUI操作](../design/tui.md)を使う。
+
 2026-10-10。非対話runと `--stream` の実provider確認後、利用者の「では次の段階へ」に従い、
 [採用方針](../design/initial-product.md)の次段階であるTUIへ進む。
 

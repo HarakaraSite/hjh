@@ -1,20 +1,26 @@
 # hjhと旧Henjiの機能比較
 
-2026-10-14更新。初回の比較に、子agent、hook、読取りtool、標準role、認証保存先、基本指示の差替え、
-workspaceのモデル選択保存、CLIセッション削除、履歴保存とprovider互換性の後続改善を反映した。
+2026-10-14の比較を基に、2026-10-15〜16の後続変更を追記した。子agent、hook、読取りtool、標準role、
+認証保存先、基本指示の差替え、workspaceのモデル選択保存、CLIセッション削除、
+履歴保存とprovider互換性の改善に加え、標準日時注入停止・応答待ちtimeout・footer変更を反映した。
 通常の対話、Core、履歴、認証、コンテキスト予算管理はhjhにも揃っている。
 残る差は、コマンド途中出力・分割取得、要約checkpoint、
 設定管理CLIなどである。未実装の項目すべてを採用する方針ではない。
 
 この比較は未実装機能を検討するための調査結果であり、全機能の移植を要求する要件や実装計画ではない。
 採否は利用者の指定とhjhの採用済み設計に従う。
+現在の実装／未実装と元文書への入口は[実装状況](../implementation-status.md)を参照する。
+本書の過去の完了・確認記録は各increment時点の結果であり、現在の保存方式は
+[通常履歴保存](../design/normal-history-storage.md)、hookは[拡張契約](../design/extensions.md)、
+表示は[footer設計](../design/tui-footer.md)を正本とする。
 
 ## 比較対象と判定
 
 | 対象 | 比較時点 |
 | --- | --- |
-| hjh | `/home/agent/projects/hjh`。HEAD `9b99775`と、その上のinline picker・Session削除・最新Session再開の変更 |
-| 更新時の未コミット変更 | inline picker・TUI/Core APIのSession削除・最新Session再開と、この比較の更新を含む。slash候補と共通base.mdはコミット済み |
+| hjh（2026-10-14の比較時点） | `/home/agent/projects/hjh`。当時のHEAD `9b99775`と、その上のinline picker・Session削除・最新Session再開の変更 |
+| 2026-10-14時点の未コミット変更 | inline picker・TUI/Core APIのSession削除・最新Session再開と、当時の比較更新を含む。slash候補と共通base.mdは当時コミット済み |
+| 2026-10-16の追補 | 現行sourceで標準hook、request metadata／snapshot、応答待ちtimeout、footerを確認。上記HEADは現在のrevisionを表すものではない |
 | 旧Henji | `/home/agent/projects/henji-harness`。HEAD `2eb586316f80ec8297873a96122568d0088971eb`の現行実装 |
 
 旧Henjiの実行ファイルもCLI上では`hjh`と表示するが、本書の「旧Henji」はDeno版の
@@ -80,11 +86,11 @@ I-22で外部toolから非モデルサービスを呼ぶ認証付きHTTP共通�
 | 19 | 子の中間報告・最終回答と差分取得 | statusの拡張候補として検討されていた | **完了（I-19）**。保存済みassistant本文を`agent_status`のreportsで返し、after/nextCursorで差分を取得する。取得結果は親のtool結果・履歴・次requestへ残る |
 | 20 | 親から実行中の子へ追加指示 | 子への制御操作 | **完了（I-19）**。`steer_agent`と対応JS API、受付・適用・未適用理由の保存、子の続行を実装・確認済み。人間による子直接操作は対象外 |
 | 21 | ライフサイクルhook | runtime開始と終了、turn前後、tool前後の六種類 | **完了（I-20）**。親子共通の六hook、保存・採用後のafterTurn、終了記録とnoticeを実装・確認済み。加えて毎model要求前のprojectRequestと[コンテキストAPI](../design/request-context.md)を追加。afterToolは現行の成功時だけの契約を維持し、旧側のエラー結果加工は追加していない |
-| 22 | hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **完了（I-20）**。runtimeStart/beforeTurnの追加文脈、予算管理、hook結果と実requestのattributionを実装・確認済み。次turnへ累積しない |
+| 22 | hookによる文脈追加 | runtime開始とturn開始時に追加contextを返せる | **実装済み**。runtimeStart/beforeTurnの追加文脈と予算管理は維持し、次turnへ累積しない。I-20時点はhook結果と実requestの精密attributionも確認したが、現在はrequestごとの構成要素archiveを廃止。[保存契約](../design/normal-history-storage.md) |
 | 23 | 要約checkpointの保存と再利用 | `after_turn`から要約と対象turn境界を返し、後続会話へ渡せる | **メモリ方式で実装**。[opt-inのJS拡張](../design/js-compaction.md)が親modelで要約し、原文参照とcoverageをSessionメモリへ保持して後続入力へ使う。DB永続checkpointは追加せず、Core再起動後は原文から必要時に再要約する |
 | 24 | tool自身が持つ利用指示 | `promptGuidelines`を有効toolから集めて共通指示へ追加 | **完了（I-21）**。任意外部toolの宣言から親・子の有効tool分だけ収集し、run_js・子操作も同じ経路を使う。snapshot・実requestへ保存。[確認結果](i21-tool-guidelines.md) |
 | 25 | 基本指示全体の差替え | ユーザーの`instruction.md`で組込み基本指示を置換 | **実装済み**。`~/.config/hjh/instructions/base.md`（XDG対応）で組込み基本指示を置換。親・子・再開に適用し、role/tool/AGENTS/skillsは別に追加。原文・出典を保存し、headerと/contextに出典を表示。[確認結果](base-instructions.md) |
-| 26 | 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **完了（I-20）**。標準runtimeStart例がGo由来の開始日時・UTC offset・timezone表示名を文脈へ渡す。編集済みhookを自動上書きしない |
+| 26 | 開始日時の自動注入 | 同梱hookが日時とtimezoneをモデルへ渡す | **標準注入は停止済み（2026-10-15）**。I-20では開始日時・UTC offset・timezone名を文脈へ渡す標準runtimeStart例を実装したが、利用者指定で標準配布とこのworkspaceから外した。hook機構とruntime.startedAt／runtime.timeZoneは維持。文脈の追加位置APIは未決・未実装。[現行契約](../design/extensions.md#i-20execution-lifecycle-hooks) |
 
 ### 子agentの操作範囲
 
@@ -169,14 +175,15 @@ MiMo V2.6 Proはautoのみ。Goのmodel一覧APIの応答にeffort情報はな�
 | 38 | toolの登録と解除とinspect | `tool activate/deactivate/list/inspect` | **未実装**。現在はconfigとJSを編集する |
 | 39 | workspace全体の実行一覧CLI | `diagnostics executions list` | **未実装**。TUIの`/executions`やSessionのhistoryから参照する |
 | 40 | 失敗診断だけの一覧と最新と表示と削除 | `diagnostics list/latest/show/delete` | **専用入口なし**。失敗や実行記録は`inspect`等で確認可能 |
-| 41 | request単位の診断 | request番号から送信内容、HTTP status、parser失敗箇所を取得 | **一部対応**。送信内容、応答結果、usage、失敗記録はあるが、旧方式の短いrequest factと専用CLIはない |
+| 41 | request単位の診断 | request番号から送信内容、HTTP status、parser失敗箇所を取得 | **一部対応・方式差あり**。各requestの小metadataと予算summary、応答・usage・失敗記録を持つ。送信全文／完全予算Factはexecution最新1件をメモリ保持し終了時保存する。全requestの全文archiveと旧診断専用CLIはない。[保存契約](../design/normal-history-storage.md) |
 | 42 | runtime情報のまとめ表示 | `diagnostics runtime`でbuildとworkspaceや設定などのpathを表示 | **専用入口なし**。version、Core情報、保存構成などに情報が分かれている |
-| 43 | provider requestのtimeout指定 | `--provider-timeout-ms` | **指定機構なし** |
+| 43 | provider requestのtimeout指定 | `--provider-timeout-ms` | **設定方式で実装済み**。providerのresponseTimeoutで応答開始待ちとbody読取idleを別々に指定する。既定300秒／600秒、各0で無効。旧CLI flagや総実行時間上限ではない。[契約](../design/providers.md#model-response-waits)・[確認結果](provider-response-timeout.md) |
 | 44 | インストーラ | binary、外部tool、hookを配置と登録。既存編集を保持する再配置optionもある | **未実装**。配布archiveはあるが、配置と設定登録は手動 |
 
 実行の診断材料そのものがないわけではない。
 hjhの`inspect`はexecution、子実行、messages、records、保存構成、contextを返す。
-差は、失敗だけを探す操作やrequest単位で整理した参照入口と、診断factの粒度にある。
+差は、失敗だけを探す操作やrequest単位で整理した専用入口と、診断fact・全文保存の粒度にある。
+現在は小さな論理request記録を各回保存する一方、送信全文はexecutionの最新1件だけを対象とする。
 
 参照先：
 
@@ -203,7 +210,7 @@ hjhの`inspect`はexecution、子実行、messages、records、保存構成、co
 | 58 | コンテキスト予算 | ターン内、ターン間、Session再開、モデル変更、子agent | [予算契約](../design/i14-web-context-contract.md) |
 | 59 | 子agent | 非同期開始・並列実行・状態確認・回収・取消、model/provider/effort/tools指定、報告差分、親からの追加指示 | [I-19の完了結果](i19-child-agent-control.md) |
 | 60 | 外部拡張 | role、tool、七種類のhook、要求コンテキストAPI、開始文脈、実行開始時のメモリ上のsource固定、次実行への編集反映。実装ソース一式のDB自動保存は停止 | [外部拡張](../design/extensions.md)、[コンテキストAPI](../design/request-context.md)、[hookの完了結果](i20-lifecycle-hooks.md)、[ソース保存停止](initial-run.md#2026-10-13追補実装ソースの自動保存を停止) |
-| 61 | 表示 | ヘッダー、三行フッター、Markdown、途中のassistant本文、配色、run_js目的コメントと内側のtoolの階層表示。子の詳細は通常の親画面から省き、保存履歴は保持 | [ヘッダー](../design/tui-header.md)、[フッター](../design/tui-footer.md)、[Markdownと色](../design/tui-rendering.md)、[run_js目的表示](run-js-purpose.md) |
+| 61 | 表示 | ヘッダー、区切り線の状態・Session・ctxと入力欄下1行のworkspace＋接続表示、Markdown、途中のassistant本文、配色、run_js目的コメントと内側のtoolの階層表示。子の詳細は通常の親画面から省き、保存履歴は保持 | [ヘッダー](../design/tui-header.md)、[フッター](../design/tui-footer.md)、[Markdownと色](../design/tui-rendering.md)、[run_js目的表示](run-js-purpose.md) |
 
 認証の複数account機構は実装済みであるが、今回の比較で追加accountのブラウザ認証を
 実施したという意味ではない。過去の実確認範囲は認証UIの結果文書に従う。
@@ -221,7 +228,9 @@ DBは引き続き実行・メッセージ・詳細記録・使用構成とconten
 セッション削除では関連履歴に加え、他の記録から参照されなくなった本文・構成も回収する。
 実行中の追加指示は受付本文と適用後のメッセージを独立に保存する。
 ツール・hook・依存ファイル・元configのソース一式は自動保存しないが、AGENTS.md原文、
-使用指示・ツール定義、モデル送信内容、ツール呼出し・結果、外部base.mdの原文・出典は保存する。
+使用指示・ツール定義、ツール呼出し・結果、外部base.mdの原文・出典は保存する。
+モデル送信は毎requestの小metadataと予算summaryを記録し、execution最新wire／完全Factを終了時保存する。
+I-10/I-20当初の各request全文・精密出典archiveを維持する方式ではない。[現行保存契約](../design/normal-history-storage.md)を参照する。
 共有本文構造全体の廃止と、DBファイルの縮小は未対応。[保存契約](../design/history-schema.md)を参照する。
 
 ## 方式差と旧側も未完成の機能
@@ -251,7 +260,7 @@ hjhの方式は[初期製品の採用方針](../design/initial-product.md)、[wo
 作業の完了方法や日常操作への影響が大きい候補は、次のとおりである。実装順序は未決定。
 
 - コマンドの途中出力と、大量出力の分割取得。
-- 会話の要約checkpoint保存・再利用（利用者指定により、まだ実装しない）。
+- 要約状態のDB永続化・Core再起動後の復元。opt-inのJS要約と同一CoreのSessionメモリでの再利用は実装済みで、永続化は検討段階。
 - 設定管理CLI、runの機械向けイベント出力。
 - 会話browserなどの人間向け操作。Session削除と最新Session再開は実装済み。
 

@@ -4,6 +4,24 @@
 ツール利用方針・共通helpの実装後の課題候補とする。
 今回の範囲は調査・設計・計画まで。計画を利用者が確認する前に実装しない。
 
+## 現在の状態（2026-10-16 source照合）
+
+後続の[計画](../plans/usage-storage.md)に基づき実装済み。
+[通常履歴の保存契約](../design/normal-history-storage.md)・
+[履歴schema](../design/history-schema.md)と[実装・確認結果](../results/usage-storage.md)を参照する。
+
+- 通常保存はusage観測へ単一保存し、`model_result`から重複するusageを除く。
+  usage直下の`attribution`だけを外し、その他のprovider集計値を保持する。
+- `internal/app/observation_storage.go`と`usage_storage.go`が保存用projectionを所有する。
+  hook・live観測の元usageは維持し、要約等の補助生成にも保存用projectionを適用する。
+- 既存DBの変換・削除・VACUUMや新しい精密usage collectorは対象外のまま。
+  過去Sessionの測定値を現在の全実行の削減率・DB物理縮小保証とは扱わない。
+- 結果末尾の配置時点では「binary配置済み・Core再起動待ち」。
+  現在稼働中Coreへの新経路の有効化は今回確認していない。
+
+以下は2026-10-15の依頼原文であり、「調査・設計・計画まで」「実装しない」や着手順、
+「未コミット」の記述は当時の作業範囲・状態として保持する。
+
 ## 依頼文
 
 hjhの通常履歴に保存するprovider usageを調査し、二重保存の解消と、

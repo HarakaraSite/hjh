@@ -1,5 +1,7 @@
 # I-11：計画・契約review
 
+> **後続変更の案内（2026-10-16）**：以下の「未実装」は2026-10-11の計画review時点。I-11はその後実装済みであり、[実装・確認結果](i11-model-favorites.md)と[現行契約](../design/i11-model-favorites-contract.md)を参照する。
+
 2026-10-11。利用者が選択したモデルのお気に入り保存について、
 [計画](../plans/i11-model-favorites.md)を[保存・API・picker契約](../design/i11-model-favorites-contract.md)へ具体化した。
 通常・批判的review、採用指摘の修正、一回の限定再reviewを完了した。

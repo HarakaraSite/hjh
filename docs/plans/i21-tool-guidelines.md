@@ -1,5 +1,7 @@
 # I-21 toolごとの利用指示
 
+> **後続変更の案内（2026-10-16）**：toolごとの短い利用指示は実装済み。長い使用例は[各toolの共通help](../design/tool-usage-guidance.md)へ分離済み。以下の元config archive／詳細tools欄の保存は[通常保存整理](../design/normal-history-storage.md)で置換済み。
+
 2026-10-12。利用者は、任意toolの利用指示を有効toolから集める機構を実装し、
 run_js・子agent操作・今後追加するtoolもこの機構へ載せるよう指定した。
 

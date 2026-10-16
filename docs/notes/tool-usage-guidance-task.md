@@ -4,6 +4,23 @@
 Session `66c5cd0a`で応答待ちタイムアウトの作業が完了した後の課題とする。
 今回の依頼は調査・設計・計画まで。計画を利用者が確認する前に実装しない。
 
+## 現在の状態（2026-10-16 source照合）
+
+後続の[計画](../plans/tool-usage-guidance.md)・[現行設計](../design/tool-usage-guidance.md)で
+方式を決め、実装済み。[実装・確認結果](../results/tool-usage-guidance.md)を参照する。
+
+- 共通利用方針は外部`instructions/tool-usage.md`から読み、workspace・user・組込みの順で選択する。
+  `internal/extensions/tool_usage_policy.go`が所有する。
+- 詳しい使い方は、選択済みの各toolを`{help:true}`で呼ぶ共通helpとして実装した。
+  `internal/jsruntime/bootstrap.js`の共通分岐を使い、生成JS内からも取得できる。
+- 原依頼の独立した名前・keyword検索辞書は後続設計で設けないと決めた。
+  これは辞書toolの実装漏れではなく、共通helpへの方式変更である。
+- 実providerによる最新help schemaの受理・自然なtool選択の改善効果は未確認。
+  常用配置の経緯は結果の続報に記録されているが、現在稼働中Coreの状態は今回確認していない。
+
+以下は2026-10-15の依頼原文であり、「調査・設計・計画まで」「実装しない」や着手順は
+当時の作業範囲・指示を保持したもの。現在の未実装を意味しない。
+
 ## 依頼文
 
 hjhの「ツール利用インストラクションの外部化」と「詳しい使い方を検索・取得する辞書ツール」を

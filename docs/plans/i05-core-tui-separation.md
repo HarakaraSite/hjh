@@ -1,5 +1,7 @@
 # I-05：コアとTUIの分離
 
+> **後続変更の案内（2026-10-16）**：Core/TUI分離は実装済み。以下のAPI v1・終了キー・選択の非永続化は当時の契約。現行は[API v2](../design/http-api.md)、[TUI契約](../design/tui.md)、[detach／Core停止](../results/i07-session-management.md)、[workspaceの記憶selection](../results/remembered-model-selection.md)に従う。
+
 2026-10-10。利用者はTUIを独立したコンポーネントにし、コアを軽くすることを指定した。
 将来のWeb UIと独立した別クライアントからの接続も想定し、通信方式は**HTTP＋JSON＋SSE**に確定した。
 従来のTUI操作改善案を、この計画へ置き換える。

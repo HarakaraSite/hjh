@@ -1,14 +1,21 @@
 # I-10：context参照と停止executionのrecall契約
 
 2026-10-11。[I-10計画](../plans/i10-context-recall.md)の操作・保存境界を具体化する。
-通常・批判的reviewと限定再reviewの修正確認を完了し、I-10の実装入力とする。
-[確認結果](../results/i10-plan-contract-review.md)を参照する。機能はまだ未実装。
-既存の[会話契約](i06-conversation-contract.md)、[入力契約](i09-runtime-input-contract.md)、
-[HTTP API](http-api.md)、[保存payload](history-payloads.md)を以下の範囲で拡張する。
+当初は通常・批判的reviewと限定再reviewの修正確認を完了した実装入力として作成した。
+契約reviewの[確認結果](../results/i10-plan-contract-review.md)はその時点の記録である。
+その後、`/context`・`/recall`からprepare・admission・参考入力・次requestまで実装した。
+I-10時点の実provider確認と留保は[実装結果](../results/i10-context-recall.md)を参照する。
+
+2026-10-16、現行sourceに合わせてrequest記録の説明を更新した。以下の操作・消費境界は維持するが、
+I-10当初のschema v3・毎request全文／精密attribution保存は後続変更で置き換えられている。
+現在の保存方式は[通常履歴保存](normal-history-storage.md)、DDLは[schema契約](history-schema.md)、
+公開DTOは[HTTP API](http-api.md)・[保存payload](history-payloads.md)を正本とする。
+既存の[会話契約](i06-conversation-contract.md)、[入力契約](i09-runtime-input-contract.md)と併せて読む。
+全体の実装／未実装一覧は[実装状況](../implementation-status.md)を参照する。
 
 ## 人間が行う操作
 
-- `/context`：実際に保存された直近の親model requestと、現在のrecall準備を読む。実行中にも使える。
+- `/context`：保存された直近の親model request metadata・予算summaryと、現在のrecall準備を読む。最新詳細の保存状態も表示する。実行中にも使える。
 - `/recall`または`/recall latest`：同Sessionの終了済み・非採用の停止rootを選び、次の依頼へ準備する。
 - `/recall ID`：同じ条件のexecutionを完全IDまたは一意なprefixで選ぶ。明示指定では子も選べる。
 - `/recall clear`：次の依頼に向けた準備を解除する。過去の使用関係や元executionは変更しない。
@@ -35,7 +42,7 @@ POST bodyは`{coreId,operationId,action,selector?}`。actionは`prepare`また�
 prepareのselector省略または`latest`は直近の停止root。clearにはselectorを付けない。
 対象Sessionはpathで固定する。coreIdは既存のCore identityと同じ扱いにする。
 
-context response：
+context responseのI-10基本部分（後続のlatestBudget・snapshotSave等は[通常履歴保存](normal-history-storage.md)と[HTTP API](http-api.md)を参照）：
 
 ```text
 {
@@ -56,7 +63,9 @@ context response：
 }
 ```
 
-latestRequestは保存されたschemaVersion=2、lane=parent、purpose=user_turnのmodel_requestから読む。
+latestRequestはroot executionに保存されたschemaVersion=1の小さなmodel_request metadataから読む。
+I-10当初のschemaVersion=2、lane=parent、purpose=user_turnとoccurrencesを辿る方式は、
+[通常履歴保存](normal-history-storage.md)への変更で置き換えた。
 Session内のroot実行順で最後にrequestを保存したrootを選び、そのroot内の最後のrequestを返す。
 子やrun_jsの独立model呼出しを親requestと混ぜない。providerのHTTP開始通知とappが保存する
 入力構成recordも区別する。最新rootがまだrequestを持たない場合、latestRootExecutionと
@@ -67,10 +76,14 @@ selectionはそのrequestの実使用modelであり、Session.activeModelやTUI�
 referenceMessageOrdinalは参考messageが保存された場合、requestRecordOrdinalはそれを含む親requestが
 保存された場合に付け、admissionだけで「モデルへ引継ぎ済み」と表示しない。
 
-itemCountは既存resultItemCountで、system/message/tool_contract/provider_wire_bodyを含む。
-instructionCountは現行保存kind=systemの件数に対応する。
-messageCount等はそのrequestのoccurrencesのkind別件数。wireBytesはprovider_wire_bodyの
-content.byteLength。token数やcontext残量はこの値から表示しない。I-10はtoken予算を追加しない。
+itemCountは準備済みのmessage数・tool定義数・instructionCount・wire相当1件の合計。
+instructionCountは組立済み指示が空なら0、それ以外は1。messageCount・toolContractCount・wireBytesは
+同じ準備済みrequestからmetadataへ保存した件数・WireBodyのbyte数であり、occurrencesを数え直さない。
+最新wire全文はexecutionごとにServiceのsnapshot ownerへ保持し、終了確定後に
+execution_latest_requestsへ保存する。予算も各回summaryと最新の完全Factを分けて扱う。
+詳細取得時は同じrecord IDのsnapshotだけを対応させ、metadata保存を本文のDB保存完了と混同しない。
+I-10自体はtoken予算を追加しなかったが、後続では[コンテキスト管理](i14-web-context-contract.md)が
+推定値と予算判断を追加した。wireBytesだけからtoken実測値や残量を算出したものではない。
 canonicalの件数・選択とlatestRequestは一つの短いSQL読取transactionで取得する。
 pending/activeはCoreの短い同期でsnapshotする。保存側とCore側を単一の原子的snapshotとは表示しない。
 recallRevisionはこのCore・Sessionのrecall状態の世代であり、I-09の入力revisionとは別系列。
@@ -118,8 +131,8 @@ recall操作の処理中登録、pending reference、通常StartRunのclaimを�
 5. app.RunのBeginExecutionが、次rootの開始とrecall relationを同じSQL transactionで保存する。
    このcommitが消費境界である。直後の型付きadmission通知でCoreの同じgenerationのpendingを消費する。
    execution.startedの描画・SSE通知・provider応答を消費の条件にしない。
-   現行BeginExecutionはcommit後に取消可能ctxでexecutionを再読取している。このままでは
-   commit後のF1/Core停止でadmission成功を見失い得るため、I-10のroot開始経路ではreturnに必要な
+   I-10着手前のBeginExecutionはcommit後に取消可能ctxでexecutionを再読取していた。
+   commit後のF1/Core停止でadmission成功を見失わないよう、実装済みのroot開始経路はreturnに必要な
    execution/recall record metadataをtransaction内で確定し、commit後に再読取せず返す。
    appはそのreturn直後に型付きadmission通知を呼び、VM初期化やprogress通知より前に消費を確定する。
    通知は{executionId,recallRecordId?,recallGeneration?}とし、commit結果とrunへ捕捉したcandidate IDを
@@ -199,9 +212,11 @@ recall={sourceExecutionId,relationRecordId,operationId,generation}と短い表�
 モデル入力のConversation読取は元Message JSONを使い、人間の会話walk/replayはこの軽いmarkerを使う。
 Core/TUIの会話viewへ参考JSON全文を展開せず、表示・再recallの判別に同じmarkerを使う。
 
-## schema v3・attribution・費用
+## 保存・attribution・費用
 
-DDLと既存payloadのfieldは維持する。新規payloadだけを以下に定める。
+I-10ではschema v3のDDLを維持してrecall payloadを追加した。現在のGo DBはschema v4であり、
+requestごとのcontext_item・occurrences・精密attribution archiveは廃止した。
+下表は維持されるrecallの保存境界と、後続変更後のrequest記録を示す。
 
 | 保存先 | 内容と保存境界 |
 | --- | --- |
@@ -209,7 +224,7 @@ DDLと既存payloadのfieldは維持する。新規payloadだけを以下に定�
 | semantic_records | target開始transaction内でkind=recall_relation、payload={schemaVersion:1,sourceExecutionId,targetExecutionId,coreId,operationId,generation}。元task/本文を複製しない。 |
 | recall_relations | source_execution_id、target_execution_id、上記record_id。同じBeginExecution transactionで保存する。 |
 | messages/contents | targetで実際に使う参考messageを既存serializerで一回保存。digest参照を共用する。通常userの全文mirrorを作らず、上記の軽いrecall markerをsemantic_recordsへ保存する。 |
-| context_item/model_request | 参考messageを実入力として記録する。sourceRelationsに元executionのsourceLocatorとrecall_relation record locatorを付ける。 |
+| model_request | 小さなrequest metadataへ、recall参考messageを選択したrequestのrecallRelationRecordIdを付ける。I-10当初のcontext_item/sourceRelationsによる精密出典archiveは生成しない。最新wire全文はメモリ保持し、終了時にexecution_latest_requestsへ保存する。 |
 | execution_contexts | externalRelationsに{kind:recall,sourceExecutionId,targetExecutionId,recordId}を含める。credentialやprivate providerStateを含めない。 |
 
 親loopはSQLを知らず、appがroot入力を構築する。childの独立入力へ親のpendingを暗黙挿入しない。
@@ -219,7 +234,9 @@ pending、receipt、Session viewへ参考本文を重ねて常駐させず、使
 context読取はSQLで必要なscalar/件数を抜き、Inspection・会話全文・wire body・configurationをGoへ展開しない。
 metadataを抜くために既存JSONをSQLiteが読む費用までゼロであるとは扱わない。
 
-## 確認範囲と今回扱わないこと
+## I-10当時の確認範囲と対象外
+
+以下は2026-10-11の契約review・実装確認方針を記録する。実施結果は[I-10結果](../results/i10-context-recall.md)を参照する。
 
 契約reviewでは、旧Henjiのprepare/admission/projectorの現行経路と対比し、Goの既存所有者で
 一度だけの消費・全文保持・公開情報のprovider切替が成立することを確認する。
@@ -230,6 +247,9 @@ metadataを抜くために既存JSONをSQLiteが読む費用までゼロであ�
 途中応答と適用指示が欠けず、会話replayには短いrecall表示だけが出ることも確認する。
 単発・反復recallのDB本文/参照/request量とGC後保持heap・投影割当を分けて測定する。
 
-自動compact/要約、token予算、ターン中の切り詰め、HTTP生本文の加工は今回実装しない。
-後者の二つは[後続課題メモ](../notes/http-response-context-overflow.md)に保管している。
-I-10のrecallで巨大な元結果を渡せば同じcontext超過が起こり得ることを未解決事項として残す。
+I-10では自動compact/要約、token予算、ターン中の切り詰め、HTTP生本文の加工を実装対象外とした。
+当時の問題は[後続課題メモ](../notes/http-response-context-overflow.md)に記録した。
+その後、[コンテキスト管理](i14-web-context-contract.md)で予算と送信範囲選択、
+[JSコンパクション](js-compaction.md)でopt-inの要約拡張を実装した。
+これは生`http`本文の全文取得や巨大結果の問題すべてを解消したという意味ではなく、
+現在の挙動・制約はそれぞれの現行契約に従う。

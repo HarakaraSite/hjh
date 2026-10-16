@@ -1,5 +1,7 @@
 # I-18：AGENTS.mdとPi方式skillsの実装・確認
 
+> **後続変更の案内（2026-10-16）**：以下はI-18実装当時の確認記録。extension treeや元configの自動archiveは後続で停止した。AGENTSの原文・出典、使用指示、実行時captureは維持する。現行の所有・保存は[拡張契約](../design/extensions.md)・[通常履歴の保存契約](../design/normal-history-storage.md)を参照。
+
 2026-10-12。[採用計画](../plans/i18-workspace-instructions-skills.md)と
 [読込み・表示契約](../design/workspace-instructions-skills.md)に沿って実装した。
 

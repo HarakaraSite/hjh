@@ -1,8 +1,18 @@
 # I-06：保存位置・会話ID・同期・結果取得
 
 2026-10-11。利用者の契約確定指示に基づく[I-06計画](../plans/i06-conversation-tui.md)の実装契約。
-設計確定・製品実装前。現在のI-05製品がこの動作へ切り替わったという記録ではない。
-DDL v3は維持する。保存payloadとHTTPのI-06差分は本書を優先し、I-05の実行証拠は書き換えない。
+以下は2026-10-11の設計確定・製品実装前の契約であり、その時点のI-05製品が切り替わった記録ではない。
+I-06ではDDL v3を維持する方針だった。保存payloadとHTTPのI-06差分は本書を優先し、I-05の実行証拠は書き換えない。
+
+## 現行状態への案内（2026-10-16 source照合）
+
+I-06の会話保存・安定ID・snapshot／upsert・HTTP v2は実装済み。実装と当時の確認範囲は
+[I-06結果](../results/i06-conversation-tui.md)を参照する。以下の実装予定形・確認項目は契約策定時の記録であり、現在の未実装一覧ではない。
+後続で保存契約は[schema v4](history-schema.md)と[通常履歴整理](normal-history-storage.md)へ更新され、
+file-backed writable Openは[WAL／FULL](../results/history-wal-first-sequence.md)を使う。
+「DDL v3維持」「WALを先に決めない」はI-06時点の範囲で、現行Storeの説明ではない。
+現在の画面・描画方式は[統合TUI](tui.md)と[Markdown整形](tui-rendering.md)を参照する。
+過去の性能値・実provider／端末の確認記録を、現行環境で再確認したという意味にはしない。
 
 ## 操作と結果
 
@@ -158,7 +168,8 @@ execution ordinalとsemantic ordinal、最初の途中観測から位置を導�
 
 ## 読取cutとSQLite
 
-SQLiteは現行の一つのStore/1connectionを維持する。WAL・reader connection追加は先に決めない。
+I-06時点ではSQLiteの一つのStore/1connectionを維持し、WAL・reader connection追加は先に決めない方針とした。
+現行も1connectionだが、WALは後続で採用済み（冒頭の現行状態案内を参照）。
 長い本文復元でread transaction/rowsを保持し続ける方式は採用しない。
 
 1. 短いread transactionで対象root/子のmetadata、各executionのsemantic/message上限、

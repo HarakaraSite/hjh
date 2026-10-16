@@ -1,6 +1,9 @@
 # 初期runの操作契約
 
 2026-10-10。[採用範囲](initial-product.md)と[実装計画](../plans/initial-run.md)に基づく。
+2026-10-16、現行のselection・credential・認証attempt APIへ記述を更新した。
+現在の接続設定は[provider設計](providers.md)、認証操作は[認証契約](i12-authentication-contract.md)、
+保存方式は[通常履歴保存](normal-history-storage.md)を正本とする。機能全体の現在地は[実装状況](../implementation-status.md)を参照する。
 
 CLIは共通Go操作を呼び、SQL・VM・モデルloopを所有しない。
 `hjh run` に依頼を引数またはstdinで渡す。引数があればstdinを待たない。
@@ -20,12 +23,18 @@ workspaceは新規時 `--workspace` またはcwd、再開時は保存したworks
 閲覧用の操作はread-onlyで開き、存在しないDBを作成しない。
 
 接続は `--provider`・`--model`・`--effort`・`--auth-profile` と外部JSONから解決する。
-新規は明示selection、role.model、全体modelの順。再開は明示selection、Session保存selectionの順。
+新規は明示selection、workspaceの記憶selection（`.hjh/selection.json`）、role.model、全体modelの順。
+再開は明示selection、Session保存selectionの順とし、workspaceの記憶selectionで保存Sessionを上書きしない。
+TUIの接続選択はworkspaceへ即時保存するが、Session保存selectionの更新は正常rootの会話採用時に行う。
 providerが変わると未指定fieldは変更先の既定値、同じproviderなら基準から継承する。
+明示model変更時にeffortを省略するとautoへ戻し、同じmodelなら継承する。
 API種別はprovider定義から取得し、model名から推定しない。
-APIキーはcredential profileのenv、fileの順に読み、`--credential-file` 指定は選択profileを上書きする。
-OpenRouter、OpenCode Go、OpenAIの標準file参照は利用者が指定した旧Henjiと同じ場所。
-ChatGPT認証はhjh自身の保存先・発行client・accountを使う。
+APIキーは明示`--credential-file`、TUIで登録したkey、profileの空でないenv、fileの順に解決する。
+OpenRouter、OpenCode Go、OpenAIの標準file参照は`${XDG_CONFIG_HOME}/hjh/credentials/<profile>`。
+LinuxでXDG_CONFIG_HOME未指定なら`~/.config/hjh/credentials/`を使う。
+I-04当初は旧Henjiと同じfile参照を採用したが、[保存先集約](../results/credential-config-directory.md)で変更した。
+登録API keyとChatGPTの認証状態もユーザーconfig配下へ保存し、`--credential-state-dir`で明示変更できる。
+ChatGPT認証はhjh自身の発行client・accountを使う。
 keyやAuthorization headerはVM・構成snapshot・観測へ渡さない。
 [provider設定](providers.md)にJSONとAPI別model候補、ログインの操作を記載する。
 
@@ -114,7 +123,12 @@ executionのagentNameと使用snapshotに実roleを保存し、inspectで親子�
 ## I-04：接続選択・catalog・認証
 
 Service.RunRequestのProviderID・ModelID・Effort・AuthProfileは実行ごとのpartial selection。
-Service.Providers／Models／BeginLogin／CompleteLogin／LoginStatusをCLIとTUIで共有する。
-送信requestはadapter.Prepareで一度生成し、context・model_request保存とtransportで同じbytesを使う。
+Service.Providers／ModelsをCLIとTUIで共有する。I-04当初のBeginLogin／CompleteLogin方式は、
+I-12でCore所有の認証attempt方式へ置き換えた。現行操作はRegisterAPIKey、AuthAccounts／SelectAuthAccount、
+BeginAuthAttempt／AuthAttempt／CompleteAuthAttempt／CancelAuthAttempt／DeleteAuthAttemptである。
+CLIはServiceを使い、独立TUIは[HTTP API](http-api.md)経由で同じ認証ownerを使う。
+送信requestはadapter.Prepareで一度生成する。同じWireBodyをtransportと最新snapshotへ渡し、
+model_requestにはAPI呼出し前に小さなmetadataを保存する。全文はexecutionごとの最新1件をメモリ保持し、
+終了確定後に専用tableへ保存する。毎request全文のarchiveは行わない。[保存契約](normal-history-storage.md)を参照する。
 成功rootだけが会話と実selectionを同じ採用transactionで更新する。
 取消・失敗・子は成功済みSession selectionを更新しない。

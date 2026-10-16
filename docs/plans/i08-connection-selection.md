@@ -1,5 +1,7 @@
 # I-08：接続先・model・effortの選択
 
+> **後続変更の案内（2026-10-16）**：接続pickerは実装済み。新規Sessionの接続解決には[workspaceの記憶selection](../results/remembered-model-selection.md)も入る。選択の永続化を成功runまで待つ以下の説明は後続変更前のもの。現行の解決・操作は[provider設計](../design/providers.md)に従う。
+
 2026-10-14追記：TUIの`/providers`・`/models`は利用者の指定で廃止し、一覧確認と選択を
 `/provider`・`/model`へ集約した。以下の一覧コマンドの記載はI-08当時の動作。
 現在の契約は[inline pickers](../design/inline-pickers.md)を参照。

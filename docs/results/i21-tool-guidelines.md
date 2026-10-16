@@ -1,5 +1,7 @@
 # I-21 toolごとの利用指示：完了結果
 
+> **後続変更の案内（2026-10-16）**：以下はI-21実装当時の確認記録。元config／詳細tools欄の自動保存は[通常保存整理](../design/normal-history-storage.md)で置換した。共通方針・短いtool指示と長い例の配置は[利用方針と共通help](../design/tool-usage-guidance.md)へ更新済み。
+
 2026-10-12。[計画](../plans/i21-tool-guidelines.md)に従い、任意toolの利用指示を宣言して
 有効toolから共通model instructionへ集める機構を実装した。
 

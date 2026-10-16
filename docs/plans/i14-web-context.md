@@ -1,5 +1,7 @@
 # I-14: Web読取りとCoreのコンテキスト予算管理
 
+> **後続変更の案内（2026-10-16）**：I-14は実装済み。以下の「現在」の経路は着手前の状態。通常Web受信1 MiBは後続で64 KiBへ変更し、毎requestの精密archiveは小metadata／summaryと最新snapshotの終了時保存へ置換した。[現行契約](../design/i14-web-context-contract.md)・[Web defaults](../results/web-retrieval-defaults.md)・[保存契約](../design/normal-history-storage.md)を参照。
+
 利用者はWeb読取りの改善と、ターン内だけでなく全てのコンテキスト予算管理を依頼した。
 通常のWeb受信上限は、利用者が旧Henjiと同じ1MiBを明示採用した。
 管理の所有者はCoreであり、TUIは管理結果を表示する。

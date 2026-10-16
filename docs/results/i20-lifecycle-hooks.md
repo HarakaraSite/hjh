@@ -1,5 +1,7 @@
 # I-20 ライフサイクルhookの実装と確認
 
+> **後続変更の案内（2026-10-16）**：hook機構は実装済み。以下の配布・確認時には日時を注入したが、標準runtimeStartの日時注入はキャッシュprefix維持のため後続で停止済み。開始時刻情報とhook機構は維持する。[現行契約と停止理由](../design/extensions.md#i-20execution-lifecycle-hooks)を参照。
+
 2026-10-12。状態：S1–S5の実装・test・reviewと総合実利用確認完了。
 [五スライス計画](../plans/i20-lifecycle-hooks.md)に沿って実装した。
 利用者指定により要約checkpointの生成・保存・再利用は実装していない。

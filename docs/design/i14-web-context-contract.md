@@ -12,6 +12,8 @@ I-18で追加したAGENTS.mdとskill manifestはinstructionの一部として同
 
 `web_fetch({url, save_to?})`は最終URL、HTTP status、Content-Typeと本文を可読文字列で返す。
 通常受信本文は64 KiB（65,536 bytes）までで、超過を`truncated: true`と`[body truncated]`で示す。
+この上限は[Web取得の既定値整理](../plans/web-retrieval-defaults.md)による現行契約で、
+初期I-14の1 MiBを置き換える。[確認結果](../results/web-retrieval-defaults.md)も参照する。
 上限はHTML変換前の受信bytesに適用し、metadataや切詰めmarkerは上限の外へ付加する。
 HTMLはscript/style/comment/tagを除き、block改行とentityを整える。JS描画は行わない。
 text/*、JSON、XML(+json/+xml含む)は文字列、その他はmetadataを返す。
@@ -84,15 +86,28 @@ taskとsteering、最新assistant応答、最新の完全なtool交換、未完�
 
 ## 確認できる記録
 
-`context_budget` recordはrequestごとの予算と出典、推定cost、元execution/turn/message ordinal、
-現在turnの除外index、履歴turnの選択/除外と理由を持つ。Contentは準備したwireであり、
-超過時は未送信の候補である。実送信準備は従来の`model_request`に同じwireと予算factを保存する。
-`context_item.sourceRelations`から保存元messageを照合できる。DDL変更はない。
+保存粒度は後続の[通常履歴の保存契約](normal-history-storage.md)に従う。
+初期I-14の各requestのwire・精密出典archiveは置換済みで、`context_item.sourceRelations`は生成しない。
+
+- 各回の`context_budget` recordには予算値と設定出所、推定cost、選択/除外件数などのsummaryを保存する。
+  元execution/turn/message ordinal、除外index、turn別の選択/除外理由を含む完全なFactは、
+  executionごとに最新1件だけ保持する。過去recordは`detailAvailable:false`であり、詳細を復元しない。
+- 各回の`model_request`は件数・model・step・wire bytes等の小さなmetadataを保存する。
+  正確なwireはexecutionごとに最新の送信準備済み1件だけ保持し、予算recordへ重複保存しない。
+  予算超過の未送信候補wireは保存せず、前の準備済みwireがあれば保持する。
+- 最新wireと完全なFactは実行中にはServiceのsnapshot ownerがメモリ保持し、
+  モデル終了確定後にschema v4の専用tableへ保存する。親子は別execution IDで保持する。
+  inspect/Recordは同じrecord IDに対応する最新詳細だけを返し、
+  `memory / saved / failed / unavailable`で保存状態を区別する。
+
+詳細は[終了時保存の計画](../plans/history-terminal-snapshots.md)と
+[確認結果](../results/history-terminal-snapshots.md)を参照する。
 
 Coreは現在turnの削減と履歴部分選択/省略を種類ごとに一度通知し、再接続でも読み戻せる。
-`/context`の`latestBudget`は最後のrootの予算選択を示し、送信前超過も確認できる。
+`/context`の`latestBudget`は予算recordを持つ最新rootの選択を示し、送信前超過も確認できる。
 `latestRequest`は最後に送信準備まで進んだrequestなので、両者のexecutionが異なる場合がある。
-TUIは有効なC/I/R/q/Hとfieldごとの出典、履歴turnごとの保存元と選択/除外message ordinalを
-表示する。予算recordとwireのinspection先も示す。履歴全文が予算を満たす場合にそれより古い
+TUIは有効なC/I/R/q/Hとfieldごとの出典を表示し、最新の完全なFactが利用可能な場合は
+履歴turnごとの保存元と選択/除外message ordinalも表示する。予算recordとwireのinspection先も示す。履歴全文が予算を満たす場合にそれより古い
 turnを読み進め、入らないturn以降の本文は展開しない。
-CLIの`inspect`では子を含む詳しいfactと実wireを参照できる。
+CLIの`inspect`では子を含む各回summaryと、利用可能な最新の完全なFact・実wireを参照できる。
+全requestの全文・精密出典が残る契約ではない。

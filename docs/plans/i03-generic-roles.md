@@ -1,5 +1,7 @@
 # I-03：親子共通genericと外部role定義
 
+> **後続変更の案内（2026-10-16）**：I-03は実装済み。子のmodel/tools指定は[I-19結果](../results/i19-child-agent-control.md)・[現行拡張契約](../design/extensions.md)に従う。実装sourceの自動archiveと保存snapshotの詳細tools欄は、[通常履歴の保存契約](../design/normal-history-storage.md)で廃止・整理済み。以下の計画はI-03時点の方式を含む。
+
 2026-10-10。状態：**実装・test・実provider／PTY／Linux配布確認・実装reviewと指摘修正完了**。
 I-02は[実装・実provider・review・利用者の子Agent呼出し確認](../results/i02-child-agents.md)まで完了した。
 この文書は利用者が指定したI-03の方式を具体化する実装計画。

@@ -1,5 +1,7 @@
 # 通常履歴の保存整理：実装結果
 
+> **後続変更の案内（2026-10-16）**：以下は最初の通常保存整理の実装・測定記録。最新wireのcontents参照／GCは[v4専用表](history-snapshot-overwrite.md)で置換し、毎requestのwire保存は[終了時snapshot保存](history-terminal-snapshots.md)へ変更済み。各時点の測定値はその条件に限定し、現行契約は[通常履歴の保存契約](../design/normal-history-storage.md)を参照。
+
 2026-10-14。[計画](../plans/normal-history-storage.md)の改訂案に対し、利用者が実装・各スライスのtest/review・
 最後の総合testを指示した。常用DB・backup・起動中Coreは変更しない。
 

@@ -1,5 +1,7 @@
 # I-17: go-quickjsへの移行結果
 
+> **後続変更の案内（2026-10-16）**：engine移行は実装済み。本文の1 MiB Web上限は当時の値であり、現在は[Web defaults](web-retrieval-defaults.md)で通常64 KiBへ変更済み。engine移行と[stdlibへの移行検討](../notes/quickjs-stdlib-tools.md)は別の作業。
+
 2026-10-12。JS実行基盤を`github.com/go-quickjs/go-quickjs v0.25.2`へ移行した。
 [採用計画と確認対象](../plans/i17-go-quickjs.md)を参照する。
 

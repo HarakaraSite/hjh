@@ -1,5 +1,7 @@
 # I-22 Exa Web検索の移植
 
+> **後続変更の案内（2026-10-16）**：検索は実装済み。以下の自由なcontents・beta指定は[Web defaults整理](../results/web-retrieval-defaults.md)で置換した。現行は検索・本文取得を分離し、検索既定10件・text:false・抜粋1,000文字、JSON解析はGo Hostが所有する。[検索契約](../design/web-search.md)を参照。
+
 2026-10-12。利用者は旧HenjiのExa版web_searchをhjhへ移植し、既存のキー保存先を使うよう指定した。
 
 ## 利用動作・根拠

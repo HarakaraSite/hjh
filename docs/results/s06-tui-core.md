@@ -1,5 +1,7 @@
 # S-06：通常画面TUIとCore応答性
 
+> **後続変更の案内（2026-10-16）**：以下はS-06時点の調査・測定記録。累積保存・全Inspect復元・標準rendererの方式は後続の[会話TUI](i06-conversation-tui.md)・[現行保存契約](../design/normal-history-storage.md)・[footer描画](tui-footer.md)で置換済み。当時のresize未解決や性能値を現在の状態と扱わない。
+
 2026-10-11。利用者は旧Henji TUIの操作・表示仕様の踏襲、段階的実装、検証用スパイクを指定した。
 利用経路はGhostty → SSH → tmux。Alt+Enterは旧Henjiで設定調整後に利用できていたとの明示がある。
 Core拡張も対象とし、旧HenjiのData Workerと`_refs`を必ず参照する。

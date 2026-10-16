@@ -1,5 +1,7 @@
 # 最新送信全文と予算記録の保存改善
 
+> **後続変更の案内（2026-10-16）**：v4専用表・小さな予算summaryは現行でも使用する。以下の毎request UPSERTと専用行からのlocator生成は、[終了時snapshot保存](history-terminal-snapshots.md)で置換済み。最新wire／完全FactはService ownerが保持し、終了確定後に保存する。[現行保存契約](../design/normal-history-storage.md)を参照。
+
 2026-10-14。状態：実装・各スライスのtest/review・総合test・最終批判的レビュー完了。
 利用者が[改訂計画](../plans/history-snapshot-overwrite.md)に沿った各スライスの実装・test・reviewと、
 最後の総合test・変更全体の批判的コードレビューを指示した。起点は`aae542e`。

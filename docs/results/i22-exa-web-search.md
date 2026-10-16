@@ -1,5 +1,7 @@
 # I-22 Exa Web検索：完了結果
 
+> **後続変更の案内（2026-10-16）**：以下はI-22移植時点の確認記録。検索の自由なcontents／beta指定は[Web defaults](web-retrieval-defaults.md)で、JSによるJSON解析とHost全文観測は[tool出力保存整理](tool-output-storage.md)で置換済み。[現行検索契約](../design/web-search.md)では検索要求をJSが組み立て、Hostが応答解析を担当する。
+
 2026-10-12。[計画](../plans/i22-exa-web-search.md)に従い、旧HenjiのExa版web_searchを移植した。
 利用者指定の既存キー参照を使い、親の直接tool call、run_js、選択した子から検索結果を利用できる。
 

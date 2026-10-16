@@ -4,6 +4,22 @@
 solが進める「steerと同様の事象の調査・対応」の完了後に着手する課題とする。
 この文書は調査・計画の依頼であり、タイムアウト方式や時間の採用、実装の承認ではない。
 
+## 現在の状態（2026-10-16 source照合）
+
+後続の[調査・実装計画](../plans/provider-response-timeout.md)に基づき実装済み。
+現行の[provider設定契約](../design/providers.md#model-response-waits)と
+[実装・確認結果](../results/provider-response-timeout.md)を参照する。
+
+- Do直前から最初のBody非空readまで既定300秒、以後のBody read待ちは既定600秒。
+  親子共通で、既存の追加1回・固定2秒retryへ接続される。
+- `internal/provider/protocol/response_wait.go`が待機を所有し、
+  `internal/app/connections.go`がprovider設定を接続する。要求全体の経過時間制限ではない。
+- 既存結果はローカルHTTP・Core/PTY・開始300秒の実時間確認を含むが、
+  実providerでの改善効果・正常長考への影響は未実証。現在稼働中Coreへの有効化は今回確認していない。
+
+以下は2026-10-15の依頼原文であり、「まだ実装しない」等は当時の作業範囲を示す。
+冒頭の着手順も当時の指示として保持する。
+
 ## 依頼文
 
 hjhの「モデル応答待ちタイムアウト」を調査し、具体的な対応計画を作成してください。

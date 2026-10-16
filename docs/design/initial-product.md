@@ -5,6 +5,10 @@
 この文書はhjhの採用方針・初期製品範囲の正本とする。
 引継ぎ原文、旧Henjiの参考文書、スパイクの簡略schemaやCLIは、この決定を上書きしない。
 
+本書の初期経路・実装順序は2026-10-10の採用時点を記録する。TUI・子Agent・複数providerは
+後続incrementで実装済みであり、現在の実装／未実装一覧は[実装状況](../implementation-status.md)を参照する。
+後続で更新された操作・保存方式は各分野の現行設計に従う。
+
 ## 最初に使える動作
 
 非対話runに依頼を渡すと、OpenRouterのモデルが必要なtoolを呼び、生成JSでtoolを組み合わせ、
@@ -118,7 +122,10 @@ I-04では利用者指定のOpenCode GoとOpenAI API／ChatGPT認証を追加し
 同じSessionで接続を選ぶ操作・role.model・認証は[provider設計](providers.md)、
 実装と実確認の現在地は[I-04結果](../results/i04-provider-model-switching.md)を参照する。
 
-I-05では利用者の指定により、コアからTUIを独立したコンポーネントへ分離する。
-通信方式はHTTP＋JSON＋SSEに確定した。将来のWeb UIや独立クライアントも同じ公開APIを使う。
-これはI-01で採用した同一process方式を次段階で置き換える方針であり、現在の実装はまだ同一processである。
-具体化する操作・状態の所有者・受入条件は[I-05計画案](../plans/i05-core-tui-separation.md)を参照する。
+I-05では利用者の指定により、コアからTUIを独立したコンポーネントへ分離した。
+通信方式はHTTP＋JSON＋SSEとし、I-01で採用した同一process方式を置き換えた。
+現在は独立した`hjh-tui`が別processの`hjh serve`へ接続し、Coreが未起動なら起動する。
+将来のWeb UIや独立クライアントも同じ公開APIを使う方針であり、Web UI自体の実装完了を意味しない。
+当時の操作・状態の所有者・受入条件は[I-05計画](../plans/i05-core-tui-separation.md)、
+実装・確認記録は[I-05結果](../results/i05-core-tui-separation.md)を参照する。
+現在の公開操作は[HTTP API](http-api.md)、起動方式は[Core起動計画](../plans/i13-core-startup.md)を正本とする。

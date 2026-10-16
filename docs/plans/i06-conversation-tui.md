@@ -11,6 +11,16 @@
 Core会話経路の拡張より先に行う計画へ更新した。以下の契約変更はI-06の実装対象である。完成状態と実測・未確認点は
 [I-06結果](../results/i06-conversation-tui.md)へ記録する。
 
+## 現行状態への案内（2026-10-16 source照合）
+
+I-06は実装済み。以下の「現行経路」「実装前」「DDL v3維持」「WAL未採用」等は、
+2026-10-11の計画・比較対象を記録したもので、現在の未実装や保存方式を表さない。
+実装時の証拠は[I-06結果](../results/i06-conversation-tui.md)、現行保存契約は
+[schema v4](../design/history-schema.md)・[WAL採用結果](../results/history-wal-first-sequence.md)を参照する。
+原文描画・色やGlamourの後回し・旧footer配置も当時の範囲であり、現在は
+[Markdown整形](../design/tui-rendering.md)と[統合TUI](../design/tui.md)・[footer](../design/tui-footer.md)に従う。
+段階表には後続I-12の実装状態を補記するが、過去計画・実測・確認範囲そのものは書き換えない。
+
 ## 利用者の必要な動作
 
 2026-10-11追加指示：旧Henjiの表示を先に目指し、色・Glamourは後回しにする。
@@ -47,7 +57,7 @@ Core/TUIは独立processのまま、HTTP＋JSON＋SSEを使う。
 | 4 | I-09 | F2 follow-up、F3 steering、受付と適用状態、実行中draft保持。[実装結果](../results/i09-runtime-input.md)。利用者確認済み。 |
 | 5 | I-10実装・確認完了 | `/context`、`/recall`、停止した実行の内容を次の実行へ渡す操作。[結果](../results/i10-context-recall.md)。 |
 | 6 | I-11実装・確認完了 | 利用者が選択したモデルのお気に入り保存。[計画](i11-model-favorites.md)・[結果](../results/i11-model-favorites.md)。 |
-| 7 | I-12計画・契約review完了 | 利用者が選択したTUIの認証・アカウント選択画面。[計画](i12-authentication-ui.md)・[契約](../design/i12-authentication-contract.md)・[review結果](../results/i12-plan-contract-review.md)。実装未着手。 |
+| 7 | I-12実装済み（後続更新） | 利用者が選択したTUIの認証・アカウント選択画面。[計画](i12-authentication-ui.md)・[契約](../design/i12-authentication-contract.md)・[当時のreview結果](../results/i12-plan-contract-review.md)・[実装結果と実確認の限界](../results/i12-authentication-ui.md)。この表の旧「計画・契約review完了／実装未着手」は計画当時の状態。 |
 
 後続のincrement番号・詳細な区切りはその計画時に確定する。
 旧`/resume`はSession続行、`/recall`は次の実行に使う内容の準備であり、停止executionの再実行とは区別する。

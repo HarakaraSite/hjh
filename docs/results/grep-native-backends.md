@@ -4,7 +4,18 @@
 PATHにrgがあればrgを使い、なければgrepを使う。実行fileを初回callで解決し、
 Worker内では保持する。自動install・downloadは行わない。
 
-外部inspect.jsがbackend選択、引数とpagingを所有する。既存host.commandのprocess group・
+## 現行状態への案内（2026-10-16 source照合）
+
+backend選択とWorker内での保持は現在も外部inspect.jsが担当するが、pagingの所有は後続でHostへ移した。
+現在はrg／GNU grepとも`grepCommand`（`internal/host/grep.go`）内で出力を解析し、
+指定offset／limitのページとtotal／nextOffsetを作ってからHost観測へ返す。JSは引数を組み立て、
+ページ済み結果へbackend／ignoreApplied等を付して返す。
+[後続のページ処理・v4切替結果](grep-paged-results-and-v4-cutover.md)を参照する。
+以下はbackend対応時の実装・確認記録であり、当時のJS paging責務を現行仕様へ適用しない。
+
+## backend対応時の実装
+
+当初は外部inspect.jsがbackend選択、引数とpagingを所有した。既存host.commandのprocess group・
 キャンセル・stdout/stderr収集を使う。GNU出力はNUL区切りfilenameと一致／周辺行の形式を
 Go host側でJSON化前に解析し、改行入り・非UTF-8のfilenameを保持する。
 新しいhost primitiveはresolveExecutableとgrepCommandで、公開toolは増やしていない。

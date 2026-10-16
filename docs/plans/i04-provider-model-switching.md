@@ -1,5 +1,7 @@
 # I-04：Session内のprovider・model切替
 
+> **後続変更の案内（2026-10-16）**：接続切替は実装済み。認証保存先・選択操作は[現行provider設計](../design/providers.md)・[認証契約](../design/i12-authentication-contract.md)に従う。以下の実装source archive・各request全文保存の説明は、[通常履歴の保存契約](../design/normal-history-storage.md)による後続変更前の記録。
+
 2026-10-10。状態：**実装・テスト・通常／批判的reviewと修正・実provider確認完了**。
 I-03は[実装・実provider・reviewと修正](../results/i03-generic-roles.md)まで完了した。
 利用者は次のインクリメントへの進行と、旧Henjiと同様の接続先を指定した。

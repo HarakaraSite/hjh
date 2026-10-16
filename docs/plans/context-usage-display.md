@@ -6,6 +6,16 @@ TUIのfooterへ定常表示を追加する。利用者がSession `600ce255`で�
 provider実測usage表示は追加しないことを再確認済み。
 [結果](../results/context-usage-display.md)を参照する。
 
+## 現行状態への案内（2026-10-16 source照合）
+
+計測・Coreからの配信・Session再開時の復元・表示は実装済み。以下は初期実装時の計画を保存したもので、
+モデル行右端・3行footer・`footerModel`への組込み・selectionとctxの幅競合は当時の配置を指す。
+後続変更により、現在のctxは**区切り線の右端**、状態は左端、タイトル／Session短縮IDは中央に表示する。
+入力欄の下はworkspaceとprovider／model／effortの統合1行となり、ctxを接続行へ重複表示しない。
+狭幅では区切り線上の状態とSession短縮IDを優先し、収まらないctxを省略する。
+現行配置は[footer契約](../design/tui-footer.md)、変更・確認範囲は[footer結果](../results/tui-footer.md)を参照する。
+推定値の意味・更新経路は維持される。以下の利用者決定・実装手順・未確認事項は当時の記録として読む。
+
 ## 目的と利用経路
 
 人間が普段の作業中に、会話・入力欄を妨げず、次のモデル呼出しの入力が

@@ -1,15 +1,25 @@
 ---
 id: go-henji-successor
 title: GoによるHenji後継Harness
-status: researching
+status: historical
 concept_revision: 1
 created: 2026-10-10
-updated: 2026-10-10
+updated: 2026-10-16
 linked_repositories:
   - https://forge.harakara.site/littleisland/henji-harness
 ---
 
 # GoによるHenji後継Harness
+
+## 現在の文書案内（2026-10-16）
+
+- [実装済み・未実装の一覧](implementation-status.md)：元の設計・計画・結果へのリンク付き。
+- [採用方針・初期範囲](design/initial-product.md)、[現行の履歴schema](design/history-schema.md)。
+- [開発・確認記録への案内](development.md)、[利用手順](../README.ja.md)。
+
+以下は2026-10-10の構想・スパイク着手前の記録であり、現行の上位計画ではない。
+S-01〜S-05はその後実施され、初期製品・後続incrementも実装されている。
+[初期製品方針](design/initial-product.md)と[照合結果](results/documentation-implementation-audit.md)を優先する。
 
 ## 元の着想
 
@@ -19,8 +29,8 @@ linked_repositories:
 
 利用者は現行Henjiの設計思想、特に履歴保存の価値を引き継ぎ、ツールとAgent Workerを発展させたい。
 既存コードの再利用には拘らない。Go本体＋QuickJSを仮採用し、下記５点を上位計画へ載せてスパイクで確認する。
-このREADMEを後継構想の現在有効な上位計画とする。議論の経緯は
-[2026-10-10の議論メモ](../deno-self-revising-agent-harness/references/2026-10-10-go-quickjs-discussion-summary.md)を参照する。
+このREADMEは当時、後継構想の上位計画として作成した。現在の採用方針は上記の設計文書に従う。議論の経緯は
+[2026-10-10の議論メモ](2026-10-10-go-quickjs-discussion-summary.md)を参照する。
 
 ## 問題と背景
 
@@ -128,7 +138,9 @@ tool・hookだけの編集可能性でも利用者の要求を満たし得る。
 - **未決の引き継ぎ条件**：後継の対象開発リポジトリ・実行環境は未指定。具体的な引き継ぎ時にスパイクだけをplanner入力として切り出す。
 - **結果後の判断**：利用者が、採用するbinding・編集可能範囲・配布方針・初期製品の範囲を決める。
 
-現在は上位計画と検証方針の整理段階であり、スパイクはまだ実行していない。
+この記録を作成した2026-10-10の構想整理時点では、スパイクはまだ実行していなかった。
+その後の結果は[S-01](spikes/s01-results.md)〜[S-05](spikes/s05-results.md)、
+現在の実装状況は[実装状況一覧](implementation-status.md)を参照する。
 
 ## 変更履歴
 

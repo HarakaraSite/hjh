@@ -11,6 +11,7 @@
 
 - 作業規則と正本文書への入口：[AGENTS.md](../AGENTS.md)。
 - 製品方針・初期範囲：[initial-product](design/initial-product.md)。
+- 現行の[実装済み・未実装一覧](implementation-status.md)と[文書・コード照合結果](results/documentation-implementation-audit.md)。
 - 配布用の既定設定：[config.json](../internal/extensions/assets/config.json)。
   利用中workspaceの`.hjh/extensions/config.json`とは別で、編集済みの利用設定は自動上書きしない。
 - 実装計画は`docs/plans/`、完了結果は`docs/results/`、技術実験は`docs/spikes/`。
@@ -49,9 +50,12 @@ git diff --check
 - rg未導入時のGNU grep利用：[確認結果](results/grep-native-backends.md)。
 - Core停止後のCLIセッション削除：[確認結果](results/cli-session-delete.md)。
 - 通常履歴の保存整理：[保存契約](design/normal-history-storage.md)・[容量と総合確認](results/normal-history-storage.md)。
-- 今後の検討： [使い方辞書と遅延読込み](design/extensions.md#将来の改善候補ツールの使い方辞書と遅延読込み)、
-  [DB容量](design/history-schema.md#将来の改善候補db容量の最適化)、
-  [テーマ差替え](design/tui-rendering.md#将来の改善候補テーマの差し替え)。
+- ツール利用方針の外部化と詳細説明の遅延読込みは[各toolの共通help](design/tool-usage-guidance.md)として実装済み。
+- DB容量は[通常保存](design/normal-history-storage.md)・[usage](results/usage-storage.md)・
+  [assistant/thinking](results/assistant-thinking-storage.md)を改善済み。追加候補は[実装状況一覧](implementation-status.md)を参照。
+- 今後の検討：[テーマ差替え](design/tui-rendering.md#将来の改善候補テーマの差し替え)、
+  [コンパクションの保持・永続復元](design/js-compaction.md)、[意思決定モデル](notes/decision-model-uses.md)、
+  [QuickJS stdlib](notes/quickjs-stdlib-tools.md)。
 
 以下は旧READMEにあった経緯と詳細。旧prototypeの切替記述は当時の記録であり、
 新規利用の手順は現在の英語README、詳細な契約は各design文書に従う。
@@ -64,7 +68,7 @@ Henjiの構想・機能を引き継ぎ、Goの特性を活かして作る後継A
 Go＋QuickJS、複数provider、Linux/amd64向けの非対話runとTUIを実装した。
 DeepSeek v4.1 Flashでファイル作業・Session再開・HTTP・command、tool／hook編集を確認した。
 [初期製品の方針・範囲・実装順序](design/initial-product.md)と
-[旧henji-harnessと同一の履歴schema](design/history-schema.md)を正本とする。
+[履歴schema契約](design/history-schema.md)を正本とする。初期は旧schema v3を採用し、現在のGo製品はv4を使う。
 具体的な実装手順と各段階の完成条件は[非対話runの実装計画](plans/initial-run.md)に記載した。
 [実装・実モデル・配布・reviewの結果](results/initial-run.md)に確認した環境と実行記録をまとめた。
 以後の作業単位はインクリメントとする。I-01は非対話run・stream・履歴・再開・最初のTUIまでの

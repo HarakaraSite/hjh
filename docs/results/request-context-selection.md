@@ -1,5 +1,7 @@
 # JSからの要求予算・履歴選択
 
+> **後続変更の案内（2026-10-16）**：選択APIは実装済み。末尾の「自動要約・閾値未実装」はこのAPI実装時点の対象外であり、後続に[opt-in JSコンパクション](js-compaction.md)を実装した。標準有効化や要約状態の永続復元まで完了したという意味ではない。
+
 2026-10-15。[計画](../plans/request-context-selection.md)のS1〜S3を実装・確認した。
 現行契約は[Request context API](../design/request-context.md)。
 

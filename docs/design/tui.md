@@ -74,7 +74,8 @@ tool行は旧Henji同様、最初に出力した状態をscrollbackへ一度だ�
 結果全文を追記しないため、tool結果待ちは後続の子・親の本文を確定出力する妨げにならない。
 live previewは最初の未確定本文blockの末尾を追う。
 幅変更・終了時は安全に確定できる未出力本文を取りこぼさずにsealし、未確定部分とeditor/footerを描く。
-workspace／Session headerは通常scrollbackへ流す。更新するmodel／connection／実行状態は[3行footer](tui-footer.md)に置き、
+起動時のworkspace／Session headerは通常scrollbackへ流す。現在の状態・タイトル／Session短縮ID・ctxは
+[footerの区切り線](tui-footer.md)に置き、入力欄の下はworkspaceを左、provider／model／effortを右にした統合1行とする。
 遅れて変わるexecution outcomeを過去の本文位置へ挿入しない。footer／draftは会話として確定しない。
 変更のないbody・metadata・command entryの加工結果を再利用し、全会話のsource連結を毎更新で保持しない。
 HTTPの受信・終了保存は描画ACKを待たない。
@@ -84,7 +85,8 @@ HTTPの受信・終了保存は描画ACKを待たない。
 修飾Enterは端末がkey情報を渡す環境で使える。bracketed paste、矢印／Home／End編集、
 Tabのコマンド補完、Escの選択表示／補完closeを扱う。利用者のtmux設定を勝手に変更しない。
 editorは実端末cursorを文字幅・改行・表示windowと同じ計算結果で動かし、IMEの変換窓の基準位置にする。
-会話の下に区切り線・操作案内と通知・入力欄を置き、その下に状態・接続情報を置く。
+会話の下に状態・Session・ctxを載せた区切り線、操作案内と通知、上下に空行を伴う入力欄を置く。
+入力欄の下にはworkspaceと接続情報の統合1行を置く。
 F1は現在runの予約列をキャンセルしてCoreのterminalと列の保存完了を待ち、TUIを継続する。Ctrl+Cはdraftを消す。
 I-07では`/detach`／Ctrl+DがTUIの購読・通信を閉じ、Coreとrunは継続する。
 新Sessionの準備中は保存済みadmissionまで待ち、Session IDとrun IDをscrollbackへ残す。

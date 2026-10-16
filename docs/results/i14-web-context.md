@@ -1,5 +1,7 @@
 # I-14: Web読取り・Coreコンテキスト管理の結果
 
+> **後続変更の案内（2026-10-16）**：以下はI-14実装当時の実行記録。通常受信1 MiBは[64 KiB](web-retrieval-defaults.md)へ、requestごとの精密wire／出典保存は[通常保存](../design/normal-history-storage.md)と[終了時snapshot](history-terminal-snapshots.md)へ後続変更済み。実施時点の測定・確認結果は保持する。
+
 2026-10-12。[計画](../plans/i14-web-context.md)と[契約](../design/i14-web-context-contract.md)に対応する。
 管理はCoreの共通実行処理が所有し、TUIには計算・履歴選択を置かない。
 

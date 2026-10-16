@@ -1,5 +1,7 @@
 # I-10：入力contextの確認と停止した実行の引継ぎ
 
+> **後続変更の案内（2026-10-16）**：recallは実装済み。以下の各request全文・精密context attribution保存は後続で置換した。現在はrequest小metadata／予算summaryとexecution最新wire／完全Factの終了時保存に分かれる。[保存契約](../design/normal-history-storage.md)・[recall契約](../design/i10-context-recall-contract.md)を参照。
+
 2026-10-11。[計画](../plans/i10-context-recall.md)と
 [入力context・引継ぎ契約](../design/i10-context-recall-contract.md)に沿って実装した。
 focused test／race、通常・批判的reviewと限定再review、実provider／TUI、保存コスト、Linux配布物のcold再開を確認した。

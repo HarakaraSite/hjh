@@ -1,5 +1,7 @@
 # 最初のTUIの実装・確認結果
 
+> **後続変更の案内（2026-10-16）**：以下は初版TUIでの実行記録。同一process・Esc停止・Ctrl+C終了・旧viewportは現在の操作仕様ではない。後続の[Core/TUI分離](i05-core-tui-separation.md)・[Session管理](i07-session-management.md)・[現行TUI契約](../design/tui.md)を参照。
+
 2026-10-10、Linux/amd64、Go 1.27.2。
 利用者が選んだ「同じprocessで共通Go操作を呼ぶ」方式で `hjh tui` を実装した。
 [計画](../plans/first-tui.md)、[操作・責務](../design/tui.md)、

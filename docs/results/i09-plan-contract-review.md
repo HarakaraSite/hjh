@@ -1,5 +1,7 @@
 # I-09：計画・追加入力契約のreview
 
+> **後続変更の案内（2026-10-16）**：以下は実装前の契約review記録。機能はその後[I-09結果](i09-runtime-input.md)のとおり実装済み。本文共有案はsteering受付の独立保存へ置換済みで、[現行入力契約](../design/i09-runtime-input-contract.md)に従う。
+
 2026-10-11。[計画](../plans/i09-runtime-input.md)と
 [契約](../design/i09-runtime-input-contract.md)を具体化し、通常・批判的review、
 指摘反映、変更箇所に限定した再reviewを完了した。製品実装・実provider確認は未実施。

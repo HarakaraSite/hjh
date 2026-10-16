@@ -1,5 +1,7 @@
 # I-06：会話画面とCore会話経路
 
+> **後続変更の案内（2026-10-16）**：以下はI-06時点からの実装・確認記録。Glamour／色の対象外記述は[後続描画実装](tui-rendering.md)で解消し、保存方式は[現行通常保存](../design/normal-history-storage.md)へ更新済み。当時の実行条件・測定値を現在の未実装状態や性能保証と扱わない。
+
 2026-10-11。実装・テスト・通常／批判的review後、利用者の実端末確認で本文の分断を確認し、TUI描画を再修正した。正本は[計画](../plans/i06-conversation-tui.md)と
 [保存・会話・同期・結果取得契約](../design/i06-conversation-contract.md)。
 

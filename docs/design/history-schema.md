@@ -17,8 +17,9 @@ Go製品の新規DBはschema v4とし、`PRAGMA user_version`と`store_metadata.
 最新wire/完全FactをService ownerへ保持する。終了確定後にsnapshot-only transactionで両専用行を保存する。
 既存record IDを使い、新record・ordinal・モデル結果・会話採用を変更しない。
 具体的な所有・読戻し契約は[通常履歴の保存契約](normal-history-storage.md)を参照する。
-v3 DBのmigration・converter・互換読取りは追加しない。既存の常用DB・backupは操作しない。
-新v4 binaryでv3 DBを開くことはできないため、常用環境の切替は別途利用者が決める。
+v3 DBのmigration・converter・互換読取りは追加していない。新v4 binaryではv3 DBを開けない。
+導入時点では常用環境の切替を保留し、その後、利用者指示で[backup・v4切替](../results/grep-paged-results-and-v4-cutover.md)を実施した。
+これは当時の運用記録であり、現在の稼働Core・DBの状態を再確認したものではない。
 
 [WAL・初出位置改善](../plans/history-wal-first-sequence.md)により、file-backed writable Openは
 schema作成/検証後にWALへ切り替える。synchronousはFULL。schema version・table/indexは変更しない。

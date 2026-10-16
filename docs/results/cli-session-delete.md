@@ -1,7 +1,17 @@
 # CLIからのセッション削除
 
 機能比較27番について、利用者が指定した「まずCore停止後のローカルDB削除だけ」を実装した。
-TUIの削除操作とCoreの削除APIは後回しとする。
+この初期実装ではTUIの削除操作とCoreの削除APIを後回しとした。
+
+## 現行状態への案内（2026-10-16 source照合）
+
+後続でTUIのSession pickerのDel→Enter確認と`DELETE /api/v2/sessions/{id}`を実装済み。
+TUI→API→Core Manager→既存Store.DeleteSessionへ接続されている。操作・実行中Sessionの扱いは
+[inline picker契約](../design/inline-pickers.md)、実装と確認範囲は[後続結果](inline-pickers.md)を参照する。
+以下はCore停止後にローカルDBを操作するCLI経路と、その時点の確認記録であり、
+TUI／Core APIが現在も未実装という意味ではない。
+
+## CLI操作
 
 ```sh
 ./dist/hjh sessions

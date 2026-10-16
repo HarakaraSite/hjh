@@ -1,5 +1,7 @@
 # I-09：実行中の追加入力と次の依頼の予約
 
+> **後続変更の案内（2026-10-16）**：以下はI-09実装時点の保存方式・測定結果。現在のsteering受付MessageはreceiptのacceptedMessageへ直接保存し、適用時には通常Messageとして独立保存する。旧共有方式の測定値を現行容量と扱わない。[追加入力契約](../design/i09-runtime-input-contract.md)を参照。
+
 2026-10-11。[計画](../plans/i09-runtime-input.md)と
 [受付・適用・予約契約](../design/i09-runtime-input-contract.md)に基づき実装した。
 実装・focused test・通常／批判的review・実provider／PTY・保存コスト・配布物確認を行った。

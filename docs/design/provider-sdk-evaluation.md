@@ -13,7 +13,23 @@ date: 2026-10-11
 SQLiteの保存契約と、採用済みの履歴設計は
 [履歴schema契約](history-schema.md)を正本とする。
 
-## 調査した現行実装
+## 後続の到達点（2026-10-16 source照合）
+
+SDKは本体へ採用しておらず、手書きHTTP/JSON/SSEを維持している。
+ただし、以下のA-1〜A-3等の不足は**2026-10-11の調査時点**のもので、現在の未実装一覧ではない。
+
+| 評価項目 | 後続の実装・現在の境界 |
+| --- | --- |
+| A-1 リトライ | [最小リトライの計画](../plans/provider-single-retry.md)・[結果](../results/provider-single-retry.md)により、対象失敗に追加1回・固定2秒を実装。`internal/agent/retry.go`が所有する。`Retry-After`による待機や追加2回への増加は実装していない。 |
+| A-2 応答待ち | [タイムアウト計画](../plans/provider-response-timeout.md)・[結果](../results/provider-response-timeout.md)により、Do直前から最初のBody非空readまで既定300秒、以後のBody read待ち既定600秒を親子共通で実装。`internal/provider/protocol/response_wait.go`が所有し、要求全体の時間制限ではない。[設定契約](providers.md#model-response-waits)も参照。 |
+| A-3 エラー分類 | [失敗分類の計画](../plans/failure-classification-recall.md)・[結果](../results/failure-classification-recall.md)により、`FailureError` / `FailureDiagnostic`で分類・HTTP status等と元error chainを保持。SDK同等の全header・Request-ID・Retry-After保持まで実装した意味ではない。 |
+| 生wireの保存 | [通常履歴の保存契約](normal-history-storage.md)に置換。各requestは小metadata、execution最新のwire/完全予算Factはメモリ保持後に終了時保存する。毎requestの`provider_wire_body` occurrence archiveではない。 |
+| 履歴の送信選択 | [Web・context契約](i14-web-context-contract.md)により、保存全文を維持した送信projectionを実装済み。さらに[JSコンパクション](js-compaction.md)はopt-inであり、E節の「自動切捨てなし」を送信選択未実装や要約機能不在の意味に読まない。 |
+
+この照合はsourceの接続確認であり、実providerでのtimeout改善効果や正常長考への影響を
+今回再検証したものではない。以下は当時の調査・提案を保持し、新しい実装承認とは扱わない。
+
+## 調査時点の実装（2026-10-11）
 
 ### モデル接続層
 
@@ -69,11 +85,11 @@ SQLiteの保存契約と、採用済みの履歴設計は
 
 **結論（評価時点）**: 現行手書き実装の維持が妥当。SDK採用はOpenAI公式providerに限ったハイブリッドが現実的だが、その場合も`Prepare`/`Generate`契約への適合と生データ吸い上げの追加作業が必要。
 
-## 現行手書き実装のデメリット・改善候補
+## 調査時点の手書き実装のデメリット・改善候補（2026-10-11）
 
 優先度は「実利用の安定性に効くか」で整理する。
 なお[AGENTS.md](../../AGENTS.md)の方針により、依頼のないhardening・fallbackは足さない。
-以下は利用者判断で採用する候補である。
+以下は調査時点で利用者判断を求めた候補である。後続で到達した範囲は冒頭の表を参照する。
 
 ### A. 信頼性・運用（優先度高）
 
@@ -106,16 +122,16 @@ SQLiteの保存契約と、採用済みの履歴設計は
 - セキュリティ機構はAPIキー露出防止のみ（過剰なhardening/拒否matrixを足さない）。
 - 旧形式の互換reader・dual-read/writeを足さない破壊的変更の既定。
 
-## 改善の優先順位（提案）
+## 調査時点の改善の優先順位（提案）
 
 1. **A-1 リトライ / A-2 タイムアウト / A-3 型付きエラー** — 実providerでの安定性に直結。SDKに頼らず自前で小さく導入可能（`RoundTripper`ラッパで429/5xx＋`Retry-After`を限定回数リトライ、`protocolError`にstatus/requestID保持）。
 2. **B-5 終端マーカー寛容化** — 実機で`[DONE]`欠落を観測した場合のみ。
 3. **B-6 / B-7 互換差分** — 該当providerで再現したら修正。
 4. **C-9 画像** — 要求が出たら。
 
-## 未確認事項・次の一手
+## 調査時点の未確認事項・次の一手（2026-10-11）
 
-- A-1〜A-3は未実装。導入する場合も`contracts.Provider`とスキーマ（`WireBody`/`ProviderState`保存）を維持したまま実装できる見込み。
+- 調査時点ではA-1〜A-3は未実装だった（後続到達点は冒頭を参照）。導入する場合も`contracts.Provider`とスキーマ（`WireBody`/`ProviderState`保存）を維持したまま実装できる見込み。
 - B-5〜B-7は実providerでの再現有無が未確認。観測できれば実害ベースで対処する。
 - C-9は実際の画像利用要求の有無が未確認。
 
