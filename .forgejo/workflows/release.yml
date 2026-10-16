@@ -24,7 +24,7 @@ jobs:
       - name: Test
         run: |
           set -euo pipefail
-          go test ./...
+          ./scripts/verify-release-checks.sh portable
 
       - name: Vet
         run: |

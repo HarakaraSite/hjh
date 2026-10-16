@@ -32,7 +32,7 @@ build:
   archive: hjh-linux-amd64.tar.gz
 
 quality:
-  test_command: go test ./...
+  test_command: ./scripts/verify-release-checks.sh portable
   vet_command: go vet ./...
   checksums: true
 
@@ -40,6 +40,8 @@ diagnostics:
   mode: native-actions-logs
 
 pre_release:
-  reference_environment: Linux/amd64 development VM with Go 1.27.2
-  reference_checks: []
+  reference_environment: Linux/amd64 development VM with Go 1.27.2, GNU grep 3.11, ripgrep, and Dash as /bin/sh
+  reference_checks:
+    - name: native-search-and-shell
+      command: ./scripts/verify-release-checks.sh reference
   evidence_location: docs/release-checkpoints.md
