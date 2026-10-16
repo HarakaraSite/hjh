@@ -40,20 +40,7 @@ function implementationApiFor(parent) {
         set: input => contextCall('memory.set', input),
       },
     },
-    http: input => hostCall('http', input),
     requestProvider: input => hostCall('requestProvider', input),
-    webFetch: input => hostCall('webFetch', input),
-    command: input => hostCall('command', input),
-    resolveExecutable: input => hostCall('resolveExecutable', input),
-    grepCommand: input => hostCall('grepCommand', input),
-    gitInspect: input => hostCall('gitInspect', input),
-    editFile: input => hostCall('editFile', input),
-    webSearch: input => hostCall('webSearch', input),
-    readFile: input => hostCall('readFile', input),
-    listDirectory: input => hostCall('listDirectory', input),
-    countFiles: input => hostCall('countFiles', input),
-    findFiles: input => hostCall('findFiles', input),
-    writeFile: input => hostCall('writeFile', input),
     agents: {
       run: agentCall,
       spawn: input => agentControlCall('spawn', input),
@@ -101,20 +88,11 @@ async function invokeHook(parent, name, input) {
 async function invokeLifecycleHook(name, input, id) {
   const hook = globalThis.__extensionHooks?.[name];
   if (typeof hook !== 'function') return 'null';
-  try {
-    const value = await hook(JSON.parse(input), implementationApiFor(id));
-    // A request hook changes its candidate through api.context. Its return
-    // value may contain a transcript; do not duplicate that in hook history.
-    if (name === 'projectRequest') {
-      __end(id, 'completed', 'null', '');
-      return 'null';
-    }
-    __end(id, 'completed', encode(value), '');
-    return encode(value);
-  } catch (error) {
-    __end(id, 'failed', 'null', String(error));
-    throw error;
-  }
+  const value = await hook(JSON.parse(input), implementationApiFor(id));
+  // Go owns the lifecycle root outcome after draining all started work.
+  // A request hook changes its candidate through api.context. Its return
+  // value may contain a transcript; do not duplicate that in hook history.
+  return name === 'projectRequest' ? 'null' : encode(value);
 }
 
 async function invokeTool(name, originalArgs, parent, record) {

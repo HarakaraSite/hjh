@@ -15,7 +15,10 @@ are depth 1. Dot entries are included; directory symlinks are listed, not traver
 find({path?,pattern?,type?,exclude?,offset?,limit?}) returns entries with path and
 type. A slashless glob matches basenames at any depth; ** spans directories.
 Hidden/ignored entries are included. exclude globs can skip directory subtrees.
-Defaults are workspace path, pattern *, type any, no exclusions.
+Defaults are workspace path, pattern *, type any, no exclusions. Find entries
+contain absolute paths, usable directly by read_file and wc. Slash-containing
+patterns match root-relative path segments; a whole ** segment matches zero or more
+directories. Segment patterns support *, ?, bracket ranges and ^-negated classes.
 
 Both use zero-based offset, default limit 100, and returned nextOffset to continue.
 This repository example finds Go files before counting them (first page only).
@@ -37,6 +40,11 @@ path/glob before requesting a small context/limit. No matches is a normal empty
 result. lines output returns path, 1-based line, text, and match (false for context);
 output:"files" returns unique files. offset/limit page all returned lines including
 context. Continue with nextOffset and unchanged search options.
+
+Native subprocess capture is limited to 32 MiB per stdout/stderr stream. Totals
+and late pages cannot be assumed complete if native output reaches that limit; a
+structured record cut by capture can cause a parsing error. Narrow path/pattern or
+use smaller independent searches rather than treating a capped prefix as complete.
 
 The result includes backend and ignoreApplied: rg respects ignore rules unless
 includeIgnored:true; GNU grep does not apply .gitignore. Both include hidden files.
@@ -60,6 +68,10 @@ lines counts newline characters (like wc -l), not display lines: a final line
 without a newline does not add one. words splits Unicode whitespace; bytes measures
 file bytes. Use find first when the paths are not already known.
 
+ls/find/wc are implemented in JavaScript with stdlib fs/path. Their tool calls
+and results are recorded, not a separate Host event for every fs operation. Normal
+calls await required reads; after cancellation a started OS read may still finish.
+
 ## git_inspect
 
 git_inspect supports op:"status"|"diff"|"log"|"show", not arbitrary Git commands.
@@ -68,7 +80,9 @@ the index. paths limits Git pathspecs; rev selects a revision (show defaults HEA
 stat requests diff/show statistics instead of patches; context selects patch context.
 It returns text and continuation position without updating index or working tree.
 For log, offset/limit count commits (default 20); other operations page output lines
-(default 100). Both use zero-based offset and returned nextOffset.
+(default 100). Both use zero-based offset and returned nextOffset. Native output
+capture has the same 32 MiB per-stream limit; use paths/stat or a narrower revision
+range when a complete large result is required.
 
 ```js
 // Read independent Git evidence for the assigned source scope.

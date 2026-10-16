@@ -34,17 +34,19 @@ func installLifecycleHooks(t *testing.T, workspace, source string) string {
 
 func TestLifecycleContextParentChildrenAndNextTurn(t *testing.T) {
 	store, workspace := delegationStore(t)
-	source := `let stage = 0;
+	source := `import * as fs from "node:fs";
+import * as path from "node:path";
+let stage = 0;
 export function runtimeStart({runtime}) { stage++; return {context:['LIFECYCLE_REV_A '+runtime.role+' '+runtime.executionId]}; }
 export function beforeTurn({task,context}) {
   if(stage!==1 || !context.systemInstruction.includes('LIFECYCLE_REV_A')) throw new Error('start context not applied');
   stage++; return {context:['TURN_CONTEXT '+task]};
 }
 export async function afterTurn({runtime,outcome,settlement},api) {
-  stage++; await api.writeFile({path:runtime.executionId+'-settlement.json',text:JSON.stringify({stage,outcome,settlement,runtime})});
+  stage++; await fs.promises.writeFile(path.resolve(process.cwd(),runtime.executionId+'-settlement.json'),JSON.stringify({stage,outcome,settlement,runtime}));
 }
 export async function runtimeStop({runtime,reason},api) {
-  stage++; await api.writeFile({path:runtime.executionId+'-stop.json',text:JSON.stringify({stage,reason})});
+  stage++; await fs.promises.writeFile(path.resolve(process.cwd(),runtime.executionId+'-stop.json'),JSON.stringify({stage,reason}));
 }`
 	path := installLifecycleHooks(t, workspace, source)
 	var mu sync.Mutex
@@ -112,6 +114,7 @@ export async function runtimeStop({runtime,reason},api) {
 			t.Fatal(err)
 		}
 		var terminal, after, stopOrdinal int64
+		hookStarts := map[string]string{}
 		for _, record := range records {
 			if record.Kind == "resource_revision" && string(record.Content) == source {
 				t.Fatal("lifecycle hook implementation was automatically archived")
@@ -121,7 +124,14 @@ export async function runtimeStop({runtime,reason},api) {
 			}
 			var event contracts.Observation
 			_ = json.Unmarshal(record.Payload, &event)
+			if record.Kind == "effect_observation" && (event.Name == "readFile" || event.Name == "writeFile" || event.Name == "editFile") {
+				t.Fatalf("lifecycle file I/O recorded a per-file host effect: %s", record.Payload)
+			}
+			if event.Kind == "hook" && event.Phase == "started" {
+				hookStarts[event.ID] = record.ID
+			}
 			if event.Kind == "hook" && event.Phase == "completed" {
+				requireUsageSummaryRelation(t, record, "call_start", hookStarts[event.ID])
 				if event.Name == "afterTurn" {
 					after = record.Ordinal
 				}
@@ -210,8 +220,10 @@ func assertInstructionMatchesStoredLifecycle(t *testing.T, store *history.Store,
 
 func TestLifecycleCleanupFailurePreservesAnswerAndReplayNotice(t *testing.T) {
 	store, workspace := delegationStore(t)
-	installLifecycleHooks(t, workspace, `export function afterTurn(){throw new Error('afterTurn verification failure')}
-export async function runtimeStop({runtime},api){await api.writeFile({path:'stop-'+runtime.executionId,text:'STOP_COMPLETED'});}`)
+	installLifecycleHooks(t, workspace, `import * as fs from "node:fs";
+import * as path from "node:path";
+export function afterTurn(){throw new Error('afterTurn verification failure')}
+export async function runtimeStop({runtime},api){await fs.promises.writeFile(path.resolve(process.cwd(),'stop-'+runtime.executionId),'STOP_COMPLETED');}`)
 	owner := executiondata.NewOwner()
 	var mu sync.Mutex
 	var live []contracts.ExecutionFact
@@ -256,8 +268,10 @@ export async function runtimeStop({runtime},api){await api.writeFile({path:'stop
 
 func TestLifecycleProviderCancellationRunsCleanup(t *testing.T) {
 	store, workspace := delegationStore(t)
-	installLifecycleHooks(t, workspace, `export async function afterTurn({settlement},api){await api.writeFile({path:'cancel-outcome',text:settlement.outcome})}
-export async function runtimeStop({reason},api){await api.writeFile({path:'cancel-stop',text:reason})}`)
+	installLifecycleHooks(t, workspace, `import * as fs from "node:fs";
+import * as path from "node:path";
+export async function afterTurn({settlement},api){await fs.promises.writeFile(path.resolve(process.cwd(),'cancel-outcome'),settlement.outcome)}
+export async function runtimeStop({reason},api){await fs.promises.writeFile(path.resolve(process.cwd(),'cancel-stop'),reason)}`)
 	started := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -302,7 +316,7 @@ func TestLifecycleCancelledJSRecordsSkippedCleanup(t *testing.T) {
 		result, err = Run(ctx, store, delegationProvider(func(context.Context, contracts.ModelRequest, contracts.Observer) (contracts.ModelResult, error) {
 			return scriptedJS(`await tools.command({program:'sleep',args:['30']});`), nil
 		}), RunOptions{Task: "cancel JS", Workspace: workspace, Progress: func(o contracts.Observation) error {
-			if o.Kind == "host" && o.Name == "command" && o.Phase == "started" {
+			if o.Kind == "tool" && o.Name == "command" && o.Phase == "started" {
 				started <- struct{}{}
 			}
 			return nil
@@ -381,8 +395,10 @@ func TestLifecycleStartupFailureIsVisibleAndStopsModel(t *testing.T) {
 	for _, phase := range []string{"runtimeStart", "beforeTurn"} {
 		t.Run(phase, func(t *testing.T) {
 			store, workspace := delegationStore(t)
-			installLifecycleHooks(t, workspace, `export function `+phase+`(){throw new Error('START_HOOK_FAILED')}
-export async function runtimeStop({runtime},api){await api.writeFile({path:'startup-stop-'+runtime.executionId,text:'STOP_COMPLETED'})}`)
+			installLifecycleHooks(t, workspace, `import * as fs from "node:fs";
+import * as path from "node:path";
+export function `+phase+`(){throw new Error('START_HOOK_FAILED')}
+export async function runtimeStop({runtime},api){await fs.promises.writeFile(path.resolve(process.cwd(),'startup-stop-'+runtime.executionId),'STOP_COMPLETED')}`)
 			called := false
 			result, err := Run(context.Background(), store, delegationProvider(func(context.Context, contracts.ModelRequest, contracts.Observer) (contracts.ModelResult, error) {
 				called = true
@@ -413,7 +429,9 @@ export async function runtimeStop({runtime},api){await api.writeFile({path:'star
 
 func TestLifecycleAfterTurnUsesSavedOutcomeWhenAdoptionConflicts(t *testing.T) {
 	store, workspace := delegationStore(t)
-	installLifecycleHooks(t, workspace, `export async function afterTurn({runtime,outcome,settlement},api){await api.writeFile({path:runtime.executionId+'-after.json',text:JSON.stringify({outcome,settlement})})}`)
+	installLifecycleHooks(t, workspace, `import * as fs from "node:fs";
+import * as path from "node:path";
+export async function afterTurn({runtime,outcome,settlement},api){await fs.promises.writeFile(path.resolve(process.cwd(),runtime.executionId+'-after.json'),JSON.stringify({outcome,settlement}))}`)
 	var sessionID string
 	firstProvider := delegationProvider(func(ctx context.Context, _ contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
 		// A concurrent direct-run producer commits the captured Session first.

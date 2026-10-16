@@ -7,12 +7,36 @@ Start with a short English `//` purpose comment, await operations, and return th
 needed in the next model input. Unreturned local values are not automatically shown.
 
 `tools.NAME(args)` calls a selected registered tool through its normal invocation path.
-Only selected tools exist. Examples do not add tools to the current role. `api.tools`
+Only selected tools exist in that dictionary. Examples do not add tools to the current role. `api.tools`
 is the same selected-tool interface. These examples require run_js and every tool
-named in their code. Promise and ordinary JavaScript JSON/string/array operations are
-available; this is QuickJS, not Node or a browser. Do not assume fs, process, fetch,
-TextEncoder, setTimeout, or setInterval. If an actual delay is needed and command is
-selected, use `await tools.command({program:"sleep",args:["1"]})`.
+named in their code. The go-quickjs stdlib is also available independently of the
+selected tools: timers, fetch, Buffer, TextEncoder/TextDecoder and built-in modules
+such as `node:fs`, `node:path` and `node:child_process`. Use `await import("node:fs")`
+inside this async body; static import declarations are not valid here. This is not
+a complete Node.js environment; npm downloads and node_modules resolution are not
+provided. Do not assume arbitrary Node packages or native addons work.
+
+Await required operations and return their results. Normal calls process started
+I/O, callbacks and timers before completing; they do not run in the background
+across calls. Clear intervals when finished, preferably in finally. For a delay use
+`await new Promise(resolve => setTimeout(resolve, 1000))`. An error caught inside JS
+follows this normal path. An uncaught error reaching the outer call closes that VM;
+the next call loads the same captured source into a fresh VM. Global/module state
+is reset and module initialization reruns; the failed call is not retried. Successful
+calls retain VM/module state within this execution, not a later Session resume.
+On error or cancellation, already-started async filesystem operations may still finish
+after VM closure; closing the VM drops JS delivery, not OS side effects. Await file
+operations required by the task and inspect the actual file when recovering.
+
+For raw filesystem operations, pass absolute paths; use
+`path.resolve(process.cwd(), relativePath)` to construct a workspace-based path.
+`process.cwd()` and default child-process cwd are the execution workspace; raw fs
+relative paths use the Core process cwd, not that workspace. Prefer selected file
+tools for their line ranges, paging and editing.
+
+`child_process` cancellation stops only the directly started process. If that program
+starts descendants, see command help for examples and explicit process inspection/kill.
+Direct stdlib I/O is not individually logged like a registered tool/hook call.
 
 Call `tools.read_file({help:true})` (or another selected tool) to get
 `{name,available,text}` without running its normal operation; return that result when
@@ -20,6 +44,21 @@ the model needs it. Help needs no normal required arguments. `available:false` m
 no registered detail, not that the tool cannot be used. Third-party tools may omit
 helpFile. Help comes from this execution's captured config/resources; after a new
 turn or resume, re-query details if the current contract is unclear.
+
+## Built-in modules and timers
+
+Requires run_js only. This leaves a uniquely named example file in the workspace.
+The explicit absolute path keeps raw fs independent of the Core process cwd.
+
+```js
+// Write and read a workspace file with built-in modules and an awaited timer.
+const fs = await import("node:fs");
+const path = await import("node:path");
+const file = path.resolve(process.cwd(), "hjh-stdlib-example-" + Date.now() + ".txt");
+await fs.promises.writeFile(file, "stdlib example\n");
+await new Promise(resolve => setTimeout(resolve, 5));
+return {path:file, text:await fs.promises.readFile(file, "utf8")};
+```
 
 ## Independent reads in parallel
 

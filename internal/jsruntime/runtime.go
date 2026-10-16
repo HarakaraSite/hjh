@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/go-quickjs/go-quickjs"
+	"github.com/go-quickjs/go-quickjs/stdlib"
 	"hjh/internal/contracts"
 	"hjh/internal/host"
 )
@@ -37,13 +38,17 @@ type agentJob struct {
 // vmOwner is the only owner of the Runtime and all values that belong to it.
 // Host and AgentRunner goroutines exchange only Go values through completions.
 type vmOwner struct {
-	rt           *quickjs.Runtime
-	ctx          context.Context
-	options      Options
-	host         *host.Host
-	files        map[string][]byte
-	defs         []contracts.ToolDefinition
-	hookHandlers []string
+	rt               *quickjs.Runtime
+	loop             *stdlib.Loop
+	stopLoopLifetime func() bool
+	pumpCancel       context.CancelFunc
+	completionErr    error
+	ctx              context.Context
+	options          Options
+	host             *host.Host
+	files            map[string][]byte
+	defs             []contracts.ToolDefinition
+	hookHandlers     []string
 
 	active         map[string]activeObservation
 	callRoot       string
@@ -51,11 +56,10 @@ type vmOwner struct {
 	delegationEnds map[string]delegationObservationEnd
 	sequence       int
 
-	pending      map[string]*quickjs.Promise
-	completeWake chan struct{}
-	completeMu   sync.Mutex
-	completions  []jobCompletion
-	jobs         sync.WaitGroup
+	pending     map[string]*quickjs.Promise
+	completeMu  sync.Mutex
+	completions []jobCompletion
+	jobs        sync.WaitGroup
 
 	callCtx        context.Context
 	requestContext contracts.RequestContext
@@ -78,11 +82,17 @@ func newVMOwner(ctx context.Context, options Options, defs []contracts.ToolDefin
 		pending:        map[string]*quickjs.Promise{},
 		agentPending:   map[string]*quickjs.Promise{},
 		agentJobs:      map[string]*agentJob{},
-		completeWake:   make(chan struct{}, 1),
 	}
 }
 
 func (o *vmOwner) open() error {
+	if err := o.openRuntime(); err != nil {
+		return err
+	}
+	return o.loadExtensions()
+}
+
+func (o *vmOwner) openRuntime() error {
 	if o.options.Host != nil {
 		cloned := *o.options.Host
 		if o.options.Workspace != "" {
@@ -109,10 +119,13 @@ func (o *vmOwner) open() error {
 	}
 
 	o.rt = quickjs.New()
-	if err := o.installBindings(); err != nil {
+	o.loop = stdlib.NewLoop(o.rt)
+	o.stopLoopLifetime = context.AfterFunc(o.ctx, o.loop.Close)
+	o.host.CommandEnv = commandEnvironment(o.options.CredentialEnvNames)
+	if err := o.installStdlib(); err != nil {
 		return err
 	}
-	if err := o.loadExtensions(); err != nil {
+	if err := o.installBindings(); err != nil {
 		return err
 	}
 	return nil
@@ -125,12 +138,21 @@ func (o *vmOwner) close(err error) error {
 	if err == nil {
 		err = context.Canceled
 	}
+	if o.stopLoopLifetime != nil {
+		o.stopLoopLifetime()
+	}
+	if o.loop != nil {
+		o.loop.Close()
+	}
 	o.stopPending(err)
 	o.jobs.Wait()
 	o.recordCompletionsOnShutdown()
 	o.finishOpen("cancelled", err)
 	o.rt.SetModuleLoader(nil)
-	return o.rt.Close()
+	closeErr := o.rt.Close()
+	o.rt = nil
+	o.completionErr = nil
+	return closeErr
 }
 
 func (o *vmOwner) installBindings() error {
@@ -176,7 +198,11 @@ func (o *vmOwner) loadExtensions() error {
 	if _, err = o.rt.EvalContext(o.ctx, bootstrap); err != nil {
 		return fmt.Errorf("initialize runtime bridge: %w", captureJavaScriptError(err))
 	}
-	o.files["__runtime_entry__.js"] = []byte(o.extensionEntry())
+	// Keep the generated entry and source bytes from the initial capture when
+	// a failed call retires the VM. Never reload edited files on a reset.
+	if _, captured := o.files["__runtime_entry__.js"]; !captured {
+		o.files["__runtime_entry__.js"] = []byte(o.extensionEntry())
+	}
 	o.rt.SetModuleLoader(func(specifier, referrer string) (string, string, error) {
 		resolved := resolveModulePath(referrer, specifier)
 		resource := moduleResourcePath(resolved)

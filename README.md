@@ -102,6 +102,9 @@ Use the session ID printed by `run`. The default Core endpoint is
 
 Workspace configuration and editable tools live in `.hjh/extensions/`.
 Changes to tools, hooks, and role settings take effect on the next run.
+Generated JavaScript can use go-quickjs stdlib timers, fetch, and built-in modules;
+standard tool processing is implemented in editable JavaScript. Existing edited
+extensions need an explicit update—see the [stdlib cutover guide](docs/distribution-linux.md#stdlib移行時の外部拡張更新).
 History is stored locally in `.hjh/history.sqlite3`.
 The TUI remembers your provider, model, and effort for new sessions in the same
 workspace, including after a restart. Favorite models are kept in

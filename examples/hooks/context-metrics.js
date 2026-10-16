@@ -1,3 +1,6 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
 // Measure the history-inclusive request without changing its input or budget.
 export async function projectRequest({ runtime, modelStep }, api) {
   const view = await api.context.get();
@@ -15,8 +18,7 @@ export async function projectRequest({ runtime, modelStep }, api) {
     toolCount: view.tools.length,
     ...size,
   };
-  await api.writeFile({
-    path: `.hjh/context-metrics/${runtime.executionId}-${modelStep}.json`,
-    text: JSON.stringify(observation, null, 2) + "\n",
-  });
+  const filename = path.resolve(process.cwd(), `.hjh/context-metrics/${runtime.executionId}-${modelStep}.json`);
+  await fs.mkdir(path.dirname(filename), { recursive: true });
+  await fs.writeFile(filename, JSON.stringify(observation, null, 2) + "\n");
 }

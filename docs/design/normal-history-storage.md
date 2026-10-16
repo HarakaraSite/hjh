@@ -266,23 +266,23 @@ recall referenceの候補から除外する。再送の最後の失敗は従来�
 
 調査用には既存Go Progress Observerで元usageを取得でき、要約hookも返却usageを扱える。
 ただし、標準raw-usage collectorや通常モデル応答後のJS専用hook、CLI/TUIの収集操作はない。
-JSでusageをapi.writeFileのtextへ渡すとHost開始観測が入力全文を保存するため、
-DB外だけのcollectorにはならない。明示的なtool/Hostの入出力を削る変更はしない。
+JSでusageを登録write_fileのtextへ渡す場合はtool開始観測に入力が残るため、DB外だけのcollectorにはならない。
+stdlib fsへ直接渡す場合は個々のI/Oを観測しないが、標準collectorを追加した意味ではない。
+削除済みapi.writeFileは使わない。明示的な登録tool／認証Hostの入出力を削る変更はしない。
 新規保存分のattributionを通常DBだけから後日取得することはできず、精密収集基盤は別テーマとする。
 既存payloadは汎用readがそのまま返す範囲で残り、migrationや新旧互換用の補完は追加しない。
 
-## Git・編集・Web検索のHost境界（2026-10-15）
+## JS toolと認証要求の保存境界（stdlib移行）
 
-[tool保存改善計画](../plans/tool-output-storage.md)により、git_inspectはnative出力を
-Host内でページ処理してから観測する。edit_fileはHost内で読取り・順次置換・一回の書込みを
-完結し、入力path/editsと結果の置換件数/bytesを記録する。内部でファイル全体を受け渡す
-readFile/writeFile観測は生成しない。
+[stdlib移行計画](../plans/quickjs-stdlib-tools.md)に従い、file処理・native出力のページ処理は
+外部JSが所有し、標準toolの引数・結果・成否・親子関係を記録する。
+個々のstdlib fs／process／fetchを旧Hostと同粒度で観測せず、内部全文出力を別途保存しない。
 
-web_searchは既存のcredential付きHTTP dispatcherをHost内で呼び、公開検索結果をJSへ返す。
-Host観測だけにはstatus/resultCount/responseBytesを返す。本文の永続所有は公開web_searchの
-tool_resultへ集約し、HTTP wrapperのbody文字列を別途保存しない。
+web_searchはJSからapi.requestProviderを呼び、Go側でcredential付きHTTPを実行する。
+JSがExa応答を解釈する。認証要求のHost観測にはstatus/responseBytesだけを返す。
+本文の永続所有は公開web_searchのtool_resultへ集約し、HTTP wrapperのbody文字列を別途保存しない。
 HostのObservedResultとWorkerのcompletionが返却値・観測値を分ける。
-通常解決と終了時のcompletion回収の両経路に同じ観測値を使い、他のHost操作は従来の値を観測する。
+通常解決と終了時のcompletion回収の両経路に同じ観測値を使う。認証要求は成功応答本文を重複保存しない。
 HTTP失敗時は既存の公開error/tag/requestIdをerrorへ含める。認証tokenはGo transport内に留める。
 
 run_js自身は返却値をtool結果として保存する。内側で明示的に呼んだtoolの実行記録も保持する。

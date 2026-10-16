@@ -46,7 +46,9 @@ func TestToolGuidelinesFollowParentAndChildSelectionAndPreserveConfigFile(t *tes
 	config.Tools = append(config.Tools, extensions.Tool{Name: "guide_probe", Revision: "1", Description: "Read a local research note.",
 		InputSchema: contracts.JSON(map[string]any{"type": "object", "properties": map[string]any{"path": map[string]string{"type": "string"}}, "required": []string{"path"}}),
 		Module:      "guide-probe.js", Export: "guideProbe", PromptGuidelines: guides})
-	if err := os.WriteFile(filepath.Join(dir, "guide-probe.js"), []byte(`export async function guideProbe(args,api){return api.readFile(args)}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "guide-probe.js"), []byte(`import * as fs from "node:fs";
+import * as path from "node:path";
+export async function guideProbe(args){return {text:await fs.promises.readFile(path.resolve(process.cwd(),args.path),"utf8")}}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	configured, err := encode()

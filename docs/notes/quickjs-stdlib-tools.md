@@ -1,6 +1,15 @@
 # go-quickjsのstdlib活用とtool実装のJS化
 
-記録日: 2026-10-16。利用者との検討メモ。実装・移行計画はまだ作成していない。
+記録日: 2026-10-16。利用者との検討メモ。後続の[移行計画案](../plans/quickjs-stdlib-tools.md)を作成した。
+S-1〜S-8のstdlib公開・tool置換を実装しfocused確認・review済み。S-9の総合確認結果は実装記録を参照。
+[実装記録](../results/quickjs-stdlib-tools.md)に例外後VM寿命の確認結果を記載した。
+利用者は未捕捉例外後にVMを破棄し次callで同じcaptureから再生成する案と、生fs利用時に絶対pathを渡す案を採用した。
+後続の利用者指示でrun_jsへのstdlib公開とI/O個別観測の省略を採用した。
+call寿命はA案（正常時に開始済みI/O・timer等をcall内でdrainし、次callへ持ち越さない）を採用した。
+計画は複数スライスに分け、現行Go実装との差異は利用者へ相談して決める。
+commandの出力上限と直接子だけの取消を許容。残るprocessは必要に応じcommandで明示的にkillし、
+このためのfork・自動的な子孫停止処理は追加しない。
+取消のhelpはrun_jsに短い注意・command helpへの案内、commandに具体例・確認・kill手順を置く。
 
 ## 検討の方向
 

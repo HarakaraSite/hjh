@@ -28,6 +28,7 @@
 | context表示・recall | 停止した実行の公開情報を次runへ参考入力として渡す | [契約](design/i10-context-recall-contract.md)・[計画](plans/i10-context-recall.md)・[結果](results/i10-context-recall.md) |
 | 外部JS tool・hook・生成JS | 開始時capture、次executionで編集反映、tool合成、内側の実行履歴 | [拡張契約](design/extensions.md)・[run_js目的表示](results/run-js-purpose.md)・[tool字下げ](results/tui-tool-nesting.md) |
 | go-quickjsへのengine移行 | v0.25.2、WorkerごとのVM、Go Hostへの接続。stdlib移行とは別 | [I-17計画](plans/i17-go-quickjs.md)・[結果](results/i17-go-quickjs.md) |
+| QuickJS stdlib利用・tool処理のJS化 | timer／fetch／組込みmodule公開、標準tool JS化、Go認証接続分離、call内drain・例外後VM再生成、instruction／help更新。9スライスreview・総合確認・実model継続／Exa／TUI復元を確認 | [移行計画](plans/quickjs-stdlib-tools.md)・[実装結果と留保](results/quickjs-stdlib-tools.md) |
 | ファイル・コマンド・読取りtool | 行指定read、write/edit、ls/find/grep/wc/git_inspect、rg／GNU grep | [計画](plans/read-only-tools.md)・[結果](results/read-only-tools.md)・[引数説明](results/tool-definition-guidance.md)・[grep backend](results/grep-native-backends.md)・[paging](results/grep-paged-results-and-v4-cutover.md) |
 | AGENTS・skills・基本指示 | workspace指示とskill一覧、必要時のskill本文読取り、base指示の差替え | [workspace契約](design/workspace-instructions-skills.md)・[I-18](plans/i18-workspace-instructions-skills.md)・[結果](results/i18-workspace-instructions-skills.md)・[base設計](design/base-instructions.md)・[結果](results/base-instructions.md) |
 | lifecycle hook・request hook | 開始／終了・tool前後・各requestの介入。標準日時注入は停止済み | [拡張契約](design/extensions.md)・[I-20](plans/i20-lifecycle-hooks.md)・[結果](results/i20-lifecycle-hooks.md)・[request hook計画](plans/project-request-hook.md)・[結果](results/project-request-hook.md) |
@@ -60,7 +61,6 @@
 | 項目 | 状態・既存機能との違い | 元文書 |
 | --- | --- | --- |
 | 意思決定モデルのhjh統合 | Jev／Decisions API活用案。導入方式・実装順序は未決。隣接HenjiのCLI実装はhjh統合とは別 | [検討メモ](notes/decision-model-uses.md) |
-| QuickJS stdlib利用・tool処理のJS化 | engine移行は済んでいるがstdlib導入・独自Go Host置換は未実装、移行計画未作成 | [検討メモ](notes/quickjs-stdlib-tools.md) |
 | Markdown／非Markdownテーマの独立差替え | 現在はSolarized Dark・固定配色。設定方法・時期は未定 | [改善候補](design/tui-rendering.md#将来の改善候補テーマの差し替え) |
 | 直近原文のtoken量による保持改善 | 既存の予算選択とは別に、巨大な完了turnの末尾を残す方針を検討 | [改善メモ](design/js-compaction.md#改善メモ直近原文の保持と再開時の要約状態復元) |
 | 要約状態の永続保存・復元 | Core再起動・別CLI後も同じ要約／保持範囲を再利用する案。checkpoint_jsonの利用は未実装 | [DB対応案](design/js-compaction.md#dbへの対応案) |
@@ -88,6 +88,8 @@
 - [Henji機能比較](results/henji-feature-comparison.md)には未採用項目も含まれる。旧製品の全機能はhjhの必須要件ではない。
 
 ## 実装とは別に未確認のもの
+
+- stdlib移行時に過去dist/tmp断片で失敗した全体testは、後続のmodule境界分離で解消し`go test ./...`成功。過去成果物は保持。既存外部設定・稼働Coreへの切替、物理端末目視は別途。
 
 - 現在稼働中のCore・配置binary・workspace外部設定が最新sourceと一致しているか。
 - 最新help schemaの実provider受理、自然なtool／role選択の改善。

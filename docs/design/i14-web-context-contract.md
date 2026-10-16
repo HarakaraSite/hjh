@@ -11,7 +11,8 @@ I-18で追加したAGENTS.mdとskill manifestはinstructionの一部として同
 ## Web読取り
 
 `web_fetch({url, save_to?})`は最終URL、HTTP status、Content-Typeと本文を可読文字列で返す。
-通常受信本文は64 KiB（65,536 bytes）までで、超過を`truncated: true`と`[body truncated]`で示す。
+通常は返却用に保持する本文を64 KiB（65,536 bytes）までとし、超過を`truncated: true`と`[body truncated]`で示す。
+stdlib streamには内部read-aheadがあるため、これはnetwork転送量そのもののbyte上限ではない。
 この上限は[Web取得の既定値整理](../plans/web-retrieval-defaults.md)による現行契約で、
 初期I-14の1 MiBを置き換える。[確認結果](../results/web-retrieval-defaults.md)も参照する。
 上限はHTML変換前の受信bytesに適用し、metadataや切詰めmarkerは上限の外へ付加する。
@@ -21,9 +22,9 @@ GETはredirectを辿り、30秒のdeadlineと実行取消を使う。非2xxはto
 
 `save_to`はworkspace相対またはabsolute pathへ元のresponse bytesを作成/置換する。
 通常読取りの64 KiB上限は適用せず、path、byte数、HTTP metadataだけを会話へ戻す。
-`write_file`と同じく親directoryは事前に用意する。中断時の途中fileはそのまま残る。
-登録moduleは`api.webFetch`、生成JSは`tools.web_fetch`を使う。
-raw status/bodyが必要なら既存`http`とmodule用`api.http`を使う。
+親directoryは事前に用意する（write_fileの自動作成とは異なる）。中断時の途中fileはそのまま残る。
+外部JS moduleはstdlib fetch／stream／fsを使い、生成JSは`tools.web_fetch`を呼ぶ。
+raw status/bodyが必要なら登録`http`またはstdlib fetchを使い、旧api.webFetch／api.httpは提供しない。
 
 ## 予算設定
 

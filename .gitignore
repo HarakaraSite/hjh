@@ -1,5 +1,6 @@
 /.tools/
-/dist/
+/dist/*
+!/dist/go.mod
 /hjh-tui
 node_modules/
 /_refs/

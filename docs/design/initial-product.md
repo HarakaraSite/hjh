@@ -29,7 +29,7 @@
 | 実行配置 | Go本体内でQuickJSを実行し、Worker間でVMを共有しない | [S-01](../spikes/s01-results.md) |
 | Agent loop | Goがモデル呼出し、tool実行への接続、終了判断を担当 | 採用済み提案。[初期runで実モデル接続を確認](../results/initial-run.md) |
 | tool／hook | 外部JS。標準toolの振る舞いも外部定義に置く | [S-03](../spikes/s03-results.md)、[S-05](../spikes/s05-results.md)、採用済み提案 |
-| 基礎操作 | HTTP・ファイル・プロセス等の実処理はGoが提供 | [S-01](../spikes/s01-results.md)、[S-03](../spikes/s03-results.md) |
+| 基礎操作 | go-quickjs stdlibでHTTP・file・process等を提供し、tool処理を外部JSへ段階移行。認証・固有state接続はGo | [移行計画](../plans/quickjs-stdlib-tools.md)・[実装記録](../results/quickjs-stdlib-tools.md)。初期Go Hostは移行中のみ残る |
 | JS依存 | 準備済みESMを同梱。取得・変換と利用時の実行を分ける | [S-03](../spikes/s03-results.md)、[S-05](../spikes/s05-results.md) |
 | 履歴保存 | SQLite、driverは検証済み `modernc.org/sqlite v1.60.1` を出発点とする | [S-02](../spikes/s02-results.md)〜[S-05](../spikes/s05-results.md) |
 | 保存schema | 初期は旧henji-harnessのschema v3を採用。2026-10-14の最新状態上書き改善で新規Go DBをv4へ変更 | 利用者の明示指定。[schema契約](history-schema.md) |

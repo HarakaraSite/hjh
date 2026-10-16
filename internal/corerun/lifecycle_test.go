@@ -22,6 +22,8 @@ func TestCoreWaitsForLifecycleCleanupBeforeTerminalAndShutdown(t *testing.T) {
 	var releaseOnce sync.Once
 	unblock := func() { releaseOnce.Do(func() { close(release) }) }
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
 		close(entered)
 		<-release
 		_, _ = w.Write([]byte("cleanup finished"))
@@ -33,8 +35,10 @@ func TestCoreWaitsForLifecycleCleanupBeforeTerminalAndShutdown(t *testing.T) {
 	if err := extensions.InstallDefaults(dir); err != nil {
 		t.Fatal(err)
 	}
-	source := `export async function afterTurn(input,api){await api.http({url:` + string(contracts.JSON(server.URL)) + `});}
-export async function runtimeStop({runtime},api){await api.writeFile({path:'stop-'+runtime.executionId,text:'STOP_FINISHED'});}`
+	source := `import * as fs from "node:fs";
+import * as path from "node:path";
+export async function afterTurn(){await (await fetch(` + string(contracts.JSON(server.URL)) + `)).text();}
+export async function runtimeStop({runtime},api){await fs.promises.writeFile(path.resolve(process.cwd(),'stop-'+runtime.executionId),'STOP_FINISHED');}`
 	if err := os.WriteFile(filepath.Join(dir, "hooks.js"), []byte(source), 0644); err != nil {
 		t.Fatal(err)
 	}

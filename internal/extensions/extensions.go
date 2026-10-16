@@ -165,7 +165,7 @@ type CaptureOptions struct {
 var runJSInputSchema = json.RawMessage(`{"type":"object","properties":{"code":{"type":"string"}},"required":["code"]}`)
 
 const runJSPurposeInstruction = "Begin the code with a short one-line // comment in English stating its purpose. The tool activity row displays that comment."
-const runJSRuntimeInstruction = "The async JavaScript body supports Promise and the selected tools, but QuickJS provides no setTimeout, setInterval, or browser timer APIs."
+const runJSRuntimeInstruction = "The async JavaScript body supports Promise, setTimeout/setInterval, fetch, and go-quickjs stdlib modules via await import(). Normal calls drain started I/O and timers; clear intervals. An uncaught outer error resets VM/module state before the next call. See help for modules and process behavior."
 
 // RunJSDefinition returns the model-facing built-in for generated JavaScript.
 // Runtime aliases remain available only for selected tools; their recipes live
@@ -185,9 +185,9 @@ func RunJSDefinitionForTools(selected []string) contracts.ToolDefinition {
 }
 
 func runJSToolForTools(selected []string) Tool {
-	description := "Run generated JavaScript that can call selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
+	description := "Run generated JavaScript using go-quickjs stdlib and selected registered tools through tools.NAME(arguments). Return a JSON result from the async code body."
 	guidelines := []string{
-		"Use run_js for composition, independent parallel calls, aggregation, and string/JSON processing; otherwise use the appropriate dedicated tool. Its code input is an async JavaScript function body; only selected tools are available as tools.NAME(arguments). Await calls and return useful results.",
+		"Use run_js for composition, independent parallel calls, aggregation, and string/JSON processing; otherwise use the appropriate dedicated tool. Its code input is an async JavaScript function body; only selected tools are available as tools.NAME(arguments), alongside the stdlib. Await calls and return useful results.",
 		runJSPurposeInstruction,
 		runJSRuntimeInstruction,
 	}

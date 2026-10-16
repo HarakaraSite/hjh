@@ -25,6 +25,7 @@ func (o *vmOwner) startHost(name, parent string, input json.RawMessage) (quickjs
 	promise := o.rt.NewPromise()
 	o.pending[id] = promise
 	o.jobs.Add(1)
+	o.loop.Begin()
 	ctx := o.callCtx
 	go func() {
 		defer o.jobs.Done()
@@ -91,6 +92,7 @@ func (o *vmOwner) startAgent(parent string, input json.RawMessage) (quickjs.Valu
 	job := &agentJob{cancel: cancel, done: make(chan struct{})}
 	o.agentJobs[callID] = job
 	o.jobs.Add(1)
+	o.loop.Begin()
 	request := contracts.AgentRunRequest{Task: *arguments.Task, Role: arguments.Role, Model: arguments.Model, Tools: arguments.Tools, CallID: callID}
 	go func() {
 		defer close(job.done)
@@ -225,16 +227,15 @@ func (o *vmOwner) queueCompletion(completion jobCompletion) {
 	o.completeMu.Lock()
 	o.completions = append(o.completions, completion)
 	o.completeMu.Unlock()
-	select {
-	case o.completeWake <- struct{}{}:
-	default:
-	}
-}
-
-func (o *vmOwner) hasCompletions() bool {
-	o.completeMu.Lock()
-	defer o.completeMu.Unlock()
-	return len(o.completions) != 0
+	o.loop.Post(func() {
+		if err := o.resolveCompletions(); err != nil {
+			o.completionErr = errors.Join(o.completionErr, captureJavaScriptError(err))
+			if o.pumpCancel != nil {
+				o.pumpCancel()
+			}
+		}
+	})
+	o.loop.Done()
 }
 
 func (o *vmOwner) resolveCompletions() error {

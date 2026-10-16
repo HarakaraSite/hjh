@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 
 	"hjh/internal/agent"
@@ -306,8 +307,18 @@ func execute(ctx context.Context, store *history.Store, provider contracts.Provi
 		return result, err
 	}
 	runtimeHost.RequestProvider = input.connections.toolRequestProvider(registry, input.configPath)
+	// Every configured profile contributes metadata, not resolved credentials,
+	// including profiles unused by this execution's selected model.
+	var credentialEnvNames []string
+	for _, profile := range registry.Config.Credentials {
+		if profile.Env != "" {
+			credentialEnvNames = append(credentialEnvNames, profile.Env)
+		}
+	}
+	sort.Strings(credentialEnvNames)
 	worker, err = jsruntime.New(persist, jsruntime.Options{Snapshot: input.snapshot, Workspace: input.workspace, Observer: j.observe,
-		ObserverParent: execution.ID, Host: runtimeHost, Agents: runner, AgentControl: runner.children})
+		ObserverParent: execution.ID, Host: runtimeHost, Agents: runner, AgentControl: runner.children,
+		CredentialEnvNames: credentialEnvNames})
 	if err != nil {
 		return result, err
 	}

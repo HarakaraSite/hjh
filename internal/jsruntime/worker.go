@@ -1,4 +1,4 @@
-// Package jsruntime owns a QuickJS runtime for the lifetime of one agent Worker.
+// Package jsruntime owns QuickJS runtimes for one agent Worker.
 package jsruntime
 
 import (
@@ -21,6 +21,8 @@ type Options struct {
 	Host           *host.Host
 	Agents         contracts.AgentRunner
 	AgentControl   contracts.AgentController
+	// CredentialEnvNames identifies configured credential variables, not their values.
+	CredentialEnvNames []string
 }
 
 type Worker struct {
@@ -106,7 +108,8 @@ func (w *Worker) HookHandlers() []string {
 	return handlers
 }
 
-// Available reports whether the Worker still owns an open runtime.
+// Available reports whether the Worker can accept another request. An uncaught
+// JavaScript error retires its VM, which the next request recreates from capture.
 func (w *Worker) Available() bool {
 	if w == nil {
 		return false
@@ -273,11 +276,23 @@ func (w *Worker) serve(ctx context.Context, options Options, ready chan<- error)
 	}
 	w.handlers = append([]string(nil), owner.hookHandlers...)
 	ready <- nil
+	w.serveRequests(ctx, owner)
+}
+
+func (w *Worker) serveRequests(ctx context.Context, owner *vmOwner) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case request := <-w.requests:
+			if owner.rt == nil {
+				if err := owner.open(); err != nil {
+					w.unavailable.Store(true)
+					w.closeErr = err
+					request.result <- callResult{err: err}
+					return
+				}
+			}
 			var result callResult
 			var stop bool
 			if request.hook {

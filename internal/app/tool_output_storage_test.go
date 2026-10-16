@@ -40,9 +40,7 @@ func TestGitAndEditDoNotArchiveInternalFullFiles(t *testing.T) {
 			}
 			for _, tool := range []string{"git_inspect", "edit_file"} {
 				args := map[string]any{"op": "show", "paths": "large file.txt", "limit": 2}
-				operation := "gitInspect"
 				if tool == "edit_file" {
-					operation = "editFile"
 					args = map[string]any{"path": "large file.txt", "edits": []any{map[string]string{"oldText": "replace me", "newText": "replacement"}}}
 				}
 				step := 0
@@ -62,7 +60,10 @@ func TestGitAndEditDoNotArchiveInternalFullFiles(t *testing.T) {
 						t.Fatalf("public tool result: %s", results[0].Text)
 					}
 					if tool == "git_inspect" {
-						var page host.GitInspectResult
+						var page struct {
+							Text              string
+							Total, NextOffset *int
+						}
 						if err := json.Unmarshal([]byte(results[0].Text), &page); err != nil {
 							t.Fatal(err)
 						}
@@ -70,7 +71,9 @@ func TestGitAndEditDoNotArchiveInternalFullFiles(t *testing.T) {
 							t.Fatalf("git path/page metadata: %+v", page)
 						}
 					} else {
-						var result host.EditFileResult
+						var result struct {
+							Replacements int `json:"replacements"`
+						}
 						if err := json.Unmarshal([]byte(results[0].Text), &result); err != nil || result.Replacements != 1 {
 							t.Fatalf("edit: %+v %v", result, err)
 						}
@@ -85,27 +88,47 @@ func TestGitAndEditDoNotArchiveInternalFullFiles(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				completed := 0
+				toolCompleted := 0
+				callRecords := map[string]string{}
 				for _, r := range records {
 					if strings.Contains(string(r.Payload), marker) || strings.Contains(string(r.Content), marker) {
 						t.Fatalf("%s archived internal full file", tool)
-					}
-					if r.Kind != "effect_observation" {
-						continue
 					}
 					var o contracts.Observation
 					if err := json.Unmarshal(r.Payload, &o); err != nil {
 						t.Fatal(err)
 					}
-					if o.Name != operation {
-						t.Fatalf("unexpected internal operation %s", o.Name)
+					if r.Kind == "tool_call" {
+						callRecords[o.ID] = r.ID
 					}
-					if o.Phase == "completed" {
-						completed++
+					if r.Kind == "tool_result" && (o.Kind == "model_tool" || o.Kind == "tool") && o.Name == tool && o.Phase == "completed" {
+						toolCompleted++
+						if tool == "git_inspect" {
+							var stored struct {
+								Text              string
+								Total, NextOffset *int
+							}
+							if err := json.Unmarshal(o.Result, &stored); err != nil || !strings.HasPrefix(stored.Text, "commit ") || stored.Total == nil || *stored.Total < 3000 || stored.NextOffset == nil || *stored.NextOffset != 2 {
+								t.Fatalf("stored git page %s: %v", o.Result, err)
+							}
+						} else {
+							var stored struct {
+								Replacements int `json:"replacements"`
+							}
+							if err := json.Unmarshal(o.Result, &stored); err != nil || stored.Replacements != 1 {
+								t.Fatalf("stored edit result %s: %v", o.Result, err)
+							}
+						}
+						if generated {
+							requireUsageSummaryRelation(t, r, "parent_call", callRecords[o.Parent])
+						}
+					}
+					if r.Kind == "effect_observation" {
+						t.Fatalf("%s recorded a retired per-I/O host effect: %s", tool, r.Payload)
 					}
 				}
-				if completed != 1 {
-					t.Fatalf("%s complete observations %d", tool, completed)
+				if toolCompleted != 1 {
+					t.Fatalf("%s completed tool results %d", tool, toolCompleted)
 				}
 				if tool == "edit_file" {
 					saved, err := os.ReadFile(path)
@@ -192,18 +215,35 @@ func TestWebSearchStoresOneBodyAcrossDirectAndGeneratedCalls(t *testing.T) {
 				t.Fatal(err)
 			}
 			summaries := 0
+			searchEvidence := mode == "direct"
+			callRecords := map[string]string{}
 			for _, r := range records {
 				if strings.Contains(string(r.Payload), "local-search-key") {
 					t.Fatal("credential archived")
-				}
-				if r.Kind != "effect_observation" {
-					continue
 				}
 				var o contracts.Observation
 				if err := json.Unmarshal(r.Payload, &o); err != nil {
 					t.Fatal(err)
 				}
-				if o.Name != "webSearch" {
+				if r.Kind == "tool_call" {
+					callRecords[o.ID] = r.ID
+				}
+				if r.Kind == "tool_result" && o.Kind == "tool" && o.Name == "web_search" && o.Phase == "completed" {
+					var decoded struct {
+						Results []struct{ Highlights []string }
+					}
+					if err := json.Unmarshal(o.Result, &decoded); err != nil || len(decoded.Results) != 1 || len(decoded.Results[0].Highlights) != 1 || decoded.Results[0].Highlights[0] != text {
+						t.Fatal("complete inner search evidence missing from history")
+					}
+					if mode != "direct" {
+						requireUsageSummaryRelation(t, r, "parent_call", callRecords[o.Parent])
+					}
+					searchEvidence = true
+				}
+				if r.Kind != "effect_observation" {
+					continue
+				}
+				if o.Name != "requestProvider" {
 					t.Fatalf("search still used full-response host operation %s", o.Name)
 				}
 				if strings.Contains(string(o.Result), marker) {
@@ -211,14 +251,14 @@ func TestWebSearchStoresOneBodyAcrossDirectAndGeneratedCalls(t *testing.T) {
 				}
 				if o.Phase == "completed" {
 					summaries++
-					var summary host.SearchObservation
-					if err := json.Unmarshal(o.Result, &summary); err != nil || summary.Status != 200 || summary.ResultCount != 1 || summary.ResponseBytes != len(response) {
+					var summary host.ProviderObservation
+					if err := json.Unmarshal(o.Result, &summary); err != nil || summary.Status != 200 || summary.ResponseBytes != len(response) {
 						t.Fatalf("search summary %+v: %v", summary, err)
 					}
 				}
 			}
-			if summaries != 1 {
-				t.Fatalf("search summaries %d", summaries)
+			if summaries != 1 || !searchEvidence {
+				t.Fatalf("search summaries %d, retained evidence %t", summaries, searchEvidence)
 			}
 			// Check physical contents, rather than reconstructed public record JSON.
 			db, err := sql.Open("sqlite", "file:"+filepath.Join(workspace, "history.sqlite3")+"?mode=ro")
@@ -265,8 +305,20 @@ func TestRunJSFiltersModelInputButRetainsExplicitInnerRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	retained := false
+	callRecords := map[string]string{}
 	for _, r := range records {
-		if r.Kind == "tool_result" && strings.Contains(string(r.Payload), marker) {
+		var o contracts.Observation
+		if err := json.Unmarshal(r.Payload, &o); err != nil {
+			t.Fatal(err)
+		}
+		if r.Kind == "effect_observation" {
+			t.Fatalf("read_file recorded a per-file host effect: %s", r.Payload)
+		}
+		if r.Kind == "tool_call" {
+			callRecords[o.ID] = r.ID
+		}
+		if r.Kind == "tool_result" && o.Name == "read_file" && o.Phase == "completed" && strings.Contains(string(o.Result), marker) {
+			requireUsageSummaryRelation(t, r, "parent_call", callRecords[o.Parent])
 			retained = true
 		}
 	}

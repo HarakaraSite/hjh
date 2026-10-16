@@ -206,18 +206,22 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 			if strings.Contains(string(r.Payload), key) || strings.Contains(string(r.Content), key) {
 				t.Fatal("credential exposed in stored search history")
 			}
-			if r.Kind == "effect_observation" && strings.Contains(string(r.Payload), "webSearch") {
+			if r.Kind == "effect_observation" && strings.Contains(string(r.Payload), "requestProvider") {
 				requestSaved = requestSaved || strings.Contains(string(r.Payload), "exa-api-key")
 				var observation contracts.Observation
 				if err := json.Unmarshal(r.Payload, &observation); err != nil {
 					t.Fatal(err)
 				}
 				if observation.Phase == "completed" {
-					var summary host.SearchObservation
+					var summary host.ProviderObservation
 					if err := json.Unmarshal(observation.Result, &summary); err != nil {
 						t.Fatal(err)
 					}
-					responseSaved = summary.Status == 200 && summary.ResultCount == 2 && summary.ResponseBytes > 0
+					var fields map[string]json.RawMessage
+					if err := json.Unmarshal(observation.Result, &fields); err != nil || len(fields) != 2 {
+						t.Fatal("provider observation must contain only status and responseBytes")
+					}
+					responseSaved = summary.Status == 200 && summary.ResponseBytes > 0
 					if strings.Contains(string(observation.Result), "future_response_field") {
 						t.Fatal("raw response duplicated in host summary")
 					}
@@ -226,6 +230,81 @@ func TestWebSearchDirectGeneratedAndChildReturnCompleteResultsWithoutCredentialE
 		}
 		if !requestSaved || !responseSaved {
 			t.Fatal("public search request/response not preserved in ordinary host history")
+		}
+	}
+}
+
+func TestWebSearchCancellationJoinsCredentialRequest(t *testing.T) {
+	store, workspace := delegationStore(t)
+	dir := filepath.Join(workspace, ".hjh", "extensions")
+	if err := extensions.InstallDefaults(dir); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "config.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := json.Unmarshal(raw, &config); err != nil {
+		t.Fatal(err)
+	}
+	const key = "cancelled-search-transport-only-key"
+	t.Setenv("HJH_TEST_EXA_CANCEL_KEY", key)
+	config["credentials"].(map[string]any)["exa-api-key"] = map[string]string{"env": "HJH_TEST_EXA_CANCEL_KEY"}
+	if err := os.WriteFile(path, contracts.JSON(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	entered, stopped := make(chan struct{}), make(chan struct{})
+	client := &http.Client{Transport: webSearchTransport(func(r *http.Request) (*http.Response, error) {
+		if r.Header.Get("Authorization") != "Bearer "+key {
+			t.Error("search credential did not reach transport")
+		}
+		close(entered)
+		<-r.Context().Done()
+		close(stopped)
+		return nil, r.Context().Err()
+	})}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	var result RunResult
+	done := make(chan error, 1)
+	credentialStateDir := t.TempDir()
+	go func() {
+		var err error
+		result, err = Run(ctx, store, delegationProvider(func(context.Context, contracts.ModelRequest, contracts.Observer) (contracts.ModelResult, error) {
+			return scriptedJS("// Search until cancelled.\nif(process.env.HJH_TEST_EXA_CANCEL_KEY)throw new Error('credential reached JS');return await tools.web_search({query:'cancel'});"), nil
+		}), RunOptions{Workspace: workspace, ConfigPath: path, ModelID: "test/model", Task: "cancel search", HTTPClient: client, CredentialStateDir: credentialStateDir})
+		done <- err
+	}()
+	select {
+	case <-entered:
+	case err := <-done:
+		t.Fatalf("search ended before transport: %+v: %v", result, err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("JS search did not reach credential transport")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) || result.Result.Outcome != "cancelled" {
+			t.Fatalf("search lost cancellation: %+v: %v", result, err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("cancelled JS search did not join")
+	}
+	select {
+	case <-stopped:
+	default:
+		t.Fatal("search returned before the credential transport stopped")
+	}
+	records, err := store.Records(t.Context(), result.ExecutionID, 0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, record := range records {
+		if strings.Contains(string(record.Payload), key) || strings.Contains(string(record.Content), key) {
+			t.Fatal("cancelled search exposed its credential in history")
 		}
 	}
 }

@@ -85,7 +85,7 @@ func TestInstallCaptureAndLegacySnapshot(t *testing.T) {
 		t.Fatalf("default role does not capture child control tools: tools=%+v run_agent=%q agent_control=%q", snapshot.Tools, runAgentSource, agentControlSource)
 	}
 	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
-	for _, expected := range []string{"composition", "independent parallel calls", "aggregation", "string/JSON processing", "only selected tools", "Await calls and return", "Promise", "setTimeout", "setInterval"} {
+	for _, expected := range []string{"composition", "independent parallel calls", "aggregation", "string/JSON processing", "only selected tools", "Await calls and return", "Promise", "setTimeout", "setInterval", "fetch", "await import()", "drain", "clear intervals", "uncaught outer error"} {
 		if !strings.Contains(runJSGuidelines, expected) {
 			t.Errorf("run_js prompt omits minimal selection/runtime guidance %q: %s", expected, runJSGuidelines)
 		}
@@ -257,7 +257,7 @@ func TestSpawnOnlyRoleCapturesRoleCatalogAndSelectedJSOperations(t *testing.T) {
 		t.Fatalf("spawn-only role omitted its role catalog: agent=%+v instruction=%s", snapshot.Agent, snapshot.SystemInstruction)
 	}
 	runJSGuidelines := strings.Join(snapshot.Tools[0].PromptGuidelines, "\n")
-	for _, expected := range []string{"only selected tools", "tools.NAME(arguments)", "Promise", "setTimeout", "setInterval"} {
+	for _, expected := range []string{"only selected tools", "tools.NAME(arguments)", "Promise", "setTimeout", "setInterval", "stdlib", "fetch", "await import()", "clear intervals"} {
 		if !strings.Contains(runJSGuidelines, expected) {
 			t.Errorf("run_js guidelines omitted minimal runtime contract %s: %s", expected, runJSGuidelines)
 		}

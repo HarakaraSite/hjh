@@ -114,35 +114,44 @@ return tools.grep({path:"src",pattern:"Target",glob:"!*_test.go",offset:30,limit
 				if strings.Contains(string(record.Payload), unselected) || strings.Contains(string(record.Content), unselected) || strings.Contains(string(record.Payload), "excluded-test-file") {
 					t.Fatal("unselected native output was archived")
 				}
-				if record.Kind != "effect_observation" {
+				if record.Kind == "effect_observation" {
+					t.Fatalf("grep recorded a retired native host effect: %s", record.Payload)
+				}
+				if record.Kind != "tool_result" {
 					continue
 				}
 				var observation contracts.Observation
 				if err := json.Unmarshal(record.Payload, &observation); err != nil {
 					t.Fatal(err)
 				}
-				if observation.Name == "command" {
-					t.Fatal("grep used the fully observed command output path")
-				}
-				if observation.Name == "grepCommand" && observation.Phase == "completed" {
+				if (observation.Kind == "tool" || observation.Kind == "model_tool") && observation.Name == "grep" && observation.Phase == "completed" {
 					pages++
 					savedBytes += len(observation.Result)
 					var page struct {
-						Items []any
-						Total int
+						Lines, Files           []any
+						Matches, Total, Offset int
+						NextOffset             *int
+						Backend                string
 					}
 					if err := json.Unmarshal(observation.Result, &page); err != nil {
-						t.Fatal(err)
+						t.Fatalf("saved grep observation %s: %v", record.Payload, err)
 					}
-					if len(page.Items) > 30 || (page.Total != 12001 && page.Total != 2) {
-						t.Fatal("host saved more than the requested page")
+					if page.Backend != backend || page.Matches != 12001 {
+						t.Fatalf("saved complete page metadata: %s", observation.Result)
+					}
+					if page.Total == 12001 {
+						if len(page.Lines) != 30 || page.NextOffset == nil || *page.NextOffset != page.Offset+30 {
+							t.Fatalf("saved line page: %s", observation.Result)
+						}
+					} else if page.Total != 2 || len(page.Files) != 1 {
+						t.Fatalf("saved file page: %s", observation.Result)
 					}
 				}
 			}
 			if pages != 4 {
-				t.Fatalf("saved host pages = %d", pages)
+				t.Fatalf("saved tool pages = %d", pages)
 			}
-			t.Logf("backend=%s matches=12001 host pages=%d saved host result bytes=%d", backend, pages, savedBytes)
+			t.Logf("backend=%s matches=12001 tool pages=%d saved tool result bytes=%d", backend, pages, savedBytes)
 		})
 	}
 }

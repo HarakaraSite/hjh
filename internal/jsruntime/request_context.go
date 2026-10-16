@@ -20,6 +20,7 @@ func (o *vmOwner) startContextValue(operation, parent, input string) quickjs.Val
 	promise := o.rt.NewPromise()
 	o.pending[id] = promise
 	o.jobs.Add(1)
+	o.loop.Begin()
 	ctx, owner := o.callCtx, o.requestContext
 	go func() {
 		defer o.jobs.Done()

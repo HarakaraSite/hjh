@@ -54,8 +54,9 @@ contentsが渡されても、この固定設定を上書きしない。transport
 }
 ```
 
-検索moduleはapi.webSearchへExa endpoint、POST、公開header、検索JSONとprofile名を渡す。
-Hostは既存のcredential付きHTTP dispatcherを内部で使う。
+検索moduleはapi.requestProviderへExa endpoint、POST、公開header、検索JSONとprofile名を渡す。
+JSが要求組立て・HTTP status／JSON応答の解釈を所有し、Goはcredential付きHTTP接続だけを提供する。
+旧api.webSearchとGo検索専用parserは提供しない。
 appがcapture済みconfigのcredential参照と既存Manager/Bindingを使い、Go transportでBearerを付ける。
 キーはJSへ返さず、認証付きheaderを観測へ記録しない。transport error中の実tokenも省く。
 既存のモデル用credential-file overrideを別profileへ流用しない。
@@ -70,7 +71,9 @@ statusとともにtool errorへ含め、次のモデル入力でも失敗理由�
 ## 保存・更新
 
 query/option、認証profile名、endpoint/methodはHost開始記録へ保存する。
-Host完了記録はstatus/resultCount/responseBytesだけを持ち、HTTP bodyを二重保存しない。
+認証要求のHost完了記録はstatus/responseBytesだけを持ち、HTTP bodyを二重保存しない。
+HTTP応答を受信できればrequestProvider自体はcompletedで、検索としての成否はJS toolが記録する。
+resultCountのような検索専用の値はGo側で解析しない。
 完全な検索結果本文は公開web_searchのtool_resultが所有し、次のモデル入力と予算管理に使う。
 run_jsで結果を絞ってreturnした場合でも、内側のweb_search結果は実行証跡として残す。
 tool sourceや定義の常時保存は行わない。[通常履歴の保存契約](normal-history-storage.md)を参照する。

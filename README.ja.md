@@ -100,6 +100,8 @@ CLIの全コマンドとオプションは`./dist/hjh --help`で確認できま�
 ## 設定
 
 workspaceの設定と編集可能なツールは`.hjh/extensions/`に置きます。
+生成JSからgo-quickjs stdlibのtimer・fetch・組込みmoduleを使え、標準toolの処理も外部JSが所有します。
+編集済み拡張は自動置換せず、[stdlib移行時の更新手順](docs/distribution-linux.md#stdlib移行時の外部拡張更新)に従って反映します。
 ツール・hook・role設定の変更は次の実行から反映されます。
 履歴はローカルの`.hjh/history.sqlite3`へ保存します。
 TUIで選んだprovider・モデル・effortは、再起動後も同じworkspaceの新規セッションへ

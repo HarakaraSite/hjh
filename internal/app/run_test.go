@@ -135,16 +135,31 @@ func TestRunPersistsRealToolPathAndResumes(t *testing.T) {
 		t.Fatal(err)
 	}
 	var parentLinked bool
+	callRecords := map[string]string{}
 	for _, r := range records {
 		if strings.Contains(string(r.Payload), "transport-secret") || strings.Contains(string(r.Content), "transport-secret") {
 			t.Fatal("credential reached history")
 		}
-		if len(r.Relations) > 0 && strings.Contains(string(r.Payload), "writeFile") {
-			parentLinked = true
+		var observation contracts.Observation
+		if err := json.Unmarshal(r.Payload, &observation); err != nil {
+			t.Fatal(err)
+		}
+		if r.Kind == "effect_observation" && (observation.Name == "readFile" || observation.Name == "writeFile" || observation.Name == "editFile") {
+			t.Fatalf("file tool recorded a per-file host effect: %s", r.Payload)
+		}
+		if r.Kind == "tool_call" {
+			callRecords[observation.ID] = r.ID
+		}
+		if r.Kind == "tool_result" && observation.Name == "write_file" && observation.Phase == "completed" {
+			for _, relation := range r.Relations {
+				if relation.Relation == "parent_call" && relation.Resolved && relation.TargetRecordID == callRecords[observation.Parent] && observation.Parent != "" {
+					parentLinked = true
+				}
+			}
 		}
 	}
 	if !parentLinked {
-		t.Fatal("inner host write was not linked to its call")
+		t.Fatal("inner write_file result was not linked to its run_js call")
 	}
 	configuration, err := store.Configuration(context.Background(), mustExecution(t, store, first.ExecutionID).ConfigurationID)
 	if err != nil {

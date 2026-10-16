@@ -106,3 +106,51 @@ export async function projectRequest({modelStep},api) {
 		t.Fatalf("context operations not awaited: %d starts, %d completions", starts, ends)
 	}
 }
+
+// The documented observer must run using stdlib after removal of file Host APIs.
+type metricsContext struct{}
+
+func (metricsContext) Call(_ context.Context, operation string, _ json.RawMessage) (json.RawMessage, error) {
+	if operation == "get" {
+		return contracts.JSON(map[string]any{"messages": []any{}, "tools": []any{}}), nil
+	}
+	if operation == "measure" {
+		return contracts.JSON(map[string]any{"estimatedInputTokens": 12}), nil
+	}
+	return nil, errors.New("unexpected metrics operation: " + operation)
+}
+func TestProjectRequestDocumentedMetricsHookUsesStdlib(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join("..", "..", "examples", "hooks", "context-metrics.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, workspace := makeExtensions(t), t.TempDir()
+	if err = os.WriteFile(filepath.Join(dir, "hooks.js"), source, 0644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := extensions.CaptureDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker, err := jsruntime.New(t.Context(), jsruntime.Options{Snapshot: snapshot, Workspace: workspace})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer worker.Close()
+	input := contracts.ProjectRequestHookInput{ModelStep: 2}
+	input.Runtime.ExecutionID = "metrics-example"
+	if err = worker.ProjectRequest(t.Context(), input, metricsContext{}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(workspace, ".hjh", "context-metrics", "metrics-example-2.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		ExecutionID                     string
+		ModelStep, EstimatedInputTokens int
+	}
+	if err = json.Unmarshal(raw, &got); err != nil || got.ExecutionID != "metrics-example" || got.ModelStep != 2 || got.EstimatedInputTokens != 12 {
+		t.Fatalf("metrics record: %+v %v", got, err)
+	}
+}

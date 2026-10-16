@@ -3,7 +3,7 @@
 Linux/amd64用の静的Goコア`hjh`、独立TUI`hjh-tui`と編集可能なJS拡張。
 コアだけでも非対話run・APIを使える。実行にGo・Node・Deno・curl・共有libcは不要。
 HTTPSには利用先OSのCA証明書とDNS設定を使う。`command`には呼び出すprogram自体が必要。
-本文検索の`grep`にはripgrep（`rg`）、`git_inspect`にはGitが必要。
+本文検索の`grep`にはripgrep（`rg`）またはGNU grep、`git_inspect`にはGitが必要。
 
 archiveを展開し、任意の作業ディレクトリから使う。`/path/to/hjh-linux-amd64` は展開先に置き換える。
 
@@ -126,13 +126,14 @@ lifecycle hookを再実行しない。module編集は次に作られるWorkerか
 終了時はterminalとrootの採用判断の後に`afterTurn`、`runtimeStop`をawaitしてからWorkerを閉じる。
 hookの失敗・skip通知はCLIのstderr、TUIのnoticeへ表示され、詳細記録は
 `hjh inspect --execution ID`または`hjh history --view detail`で確認できる。
-Webページは`web_fetch`で読み取る。通常は1MiBまでを可読テキストで返し、`save_to`は本文を
+Webページは`web_fetch`で読み取る。通常は保持する本文64 KiBまでを可読テキストで返し、`save_to`は本文を
 上限なくfileへ保存する。コンテキスト予算管理はCoreが行い、ターン内・次ターン・再開・
 モデル変更・子Agentに適用する。履歴全文は残し、モデルへ送る内容だけを選ぶ。
 TUIの`/context`で有効予算、出典、選択した履歴と保存元を確認できる。
 上書きはconfig.jsonの`contextBudget.defaults/providers/models`で指定する。
 
-Web検索はExa版`web_search`。標準はauto検索＋highlightsで、domain/dateやcontents/outputSchemaも指定できる。
+Web検索はExa版`web_search`。標準はauto・最大10件・highlights最大1,000文字。domain/dateやoutputSchemaも指定できる。
+contentsは標準toolが設定するため送らない。
 `EXA_API_KEY`または`${XDG_CONFIG_HOME}/hjh/credentials/exa-api-key`を参照する。
 キーはGoで認証headerへ付け、JSや履歴へ返さない。[検索契約](design/web-search.md)を参照する。
 既存workspaceではconfigのtool/role/credential参照とweb-search.jsを追加し、新binaryでCoreを再起動する。
@@ -252,3 +253,35 @@ role選択の変更は次runへ反映し、実行中の構成は維持する。
 既存configにはproviders・credentials・object形式のmodelを手動で追加する。
 旧OpenRouter ChatのSessionは--provider openrouter-responsesを明示して再開できる。
 provider JSONとrole.modelの形式はrepositoryのdocs/design/providers.mdを参照する。
+
+## stdlib移行時の外部拡張更新
+
+この版の標準toolはgo-quickjs v0.25.2 stdlib＋JSへ切り替わる。Go moduleのforkやpatchはない。
+**binaryだけ更新して古いindex.js／inspect.jsを残すと、削除済みapi.readFile等を呼んで失敗する。**
+既存workspaceの編集済みfileを自動上書きする機構・旧API互換層は提供しない。
+
+1. 利用者が停止対象Coreを選び、進行中作業の終了／取消を確認してから更新する。
+   新binaryと同梱extensionsを別directoryに展開し、現在の設定・編集sourceとの差分を確認する。
+2. 標準実装を採用するtoolは、新しいindex.js／inspect.js／web-search.jsと、importされる
+   inspection.js／glob.js／process.js／grep-parser.js／git-inspect.js／web-fetch.jsを同じ拡張treeへ反映する。
+   新規の別treeを使う場合は独自module・hooksも必要分を配置し、configの参照先を明示する。
+3. config.json全体を機械的に置換しない。tool definitions、promptGuidelines、helpFileと
+   対応する*-help.mdを差分反映し、既存providers／credential参照／roles／独自tool設定を保持する。
+   外部tool-usage.mdを差し替えている場合は、選択tools辞書とstdlib公開が別である説明へ合わせる。
+4. 独自tool／hookの旧api.readFile／writeFile／editFile／listDirectory／findFiles／countFiles／
+   command／resolveExecutable／grepCommand／gitInspect／http／webFetch／webSearch呼出しを更新する。
+   選択済みtoolならapi.tools.NAME、基礎操作ならstdlibのfs／path／child_process／fetchを使う。
+   認証付き要求はapi.requestProviderを使い、キーやAuthorizationをJSへ渡さない。
+5. 新binaryと更新済みconfigでCoreを起動し、新しいSessionまたは既存Sessionの次runで
+   help→file読書き→必要なprocess／Web操作を確認する。開始済みWorkerのcaptureは変わらない。
+
+run_jsのasync本文では `await import("node:fs")` 等を使う。
+process moduleはdefault exportなので `const {default:proc} = await import("node:process")`、
+または公開globalのprocessを利用する。生fsへは絶対pathを渡し、workspace相対pathは
+`path.resolve(process.cwd(), relative)`で解決する。Node/npm全体の互換環境ではない。
+
+正常callは開始済みI/O・timerをdrainするためintervalをclearする。
+未捕捉例外後は次callで同じcaptureから新VMを作り、global／module stateをリセットする。
+取消はWorkerを終了する。開始済み非同期fsは例外／取消後もOS側で完了し得るため実fileを確認する。
+commandはstdout／stderr各32 MiB、取消は直接子だけ。子孫を止める必要があればcommandで確認・killする。
+詳細はrun_js／commandのhelpと[拡張契約](design/extensions.md)を参照する。

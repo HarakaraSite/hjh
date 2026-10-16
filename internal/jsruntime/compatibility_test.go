@@ -17,7 +17,7 @@ import (
 	"hjh/internal/jsruntime"
 )
 
-// Use the same external tool/hook sources and real host operations for both
+// Use the same external tool/hook sources and real file/network/process operations for both
 // public call routes. The engine-migration test now follows the current tool contracts.
 func TestStandardToolCompatibilityDirectAndGenerated(t *testing.T) {
 	large := bytes.Repeat([]byte("x"), 1100000)
@@ -199,7 +199,7 @@ func TestRunJSCompatibilityValuesAndExceptions(t *testing.T) {
 	}
 	result, err := worker.Call(context.Background(), "run_js", contracts.JSON(map[string]string{"code": `try {await tools.read_file({path:'compatibility-missing-file'});} catch(e) {return e.message.includes('compatibility-missing-file');}`}))
 	if err != nil || string(result) != "true" {
-		t.Fatalf("Go error caught in JS = %s, %v", result, err)
+		t.Fatalf("File error caught in JS = %s, %v", result, err)
 	}
 }
 

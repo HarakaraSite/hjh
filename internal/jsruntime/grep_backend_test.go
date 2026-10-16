@@ -106,7 +106,16 @@ return {first,next,none};`})
 					t.Fatalf("filename/line/context parsing: %s", value)
 				}
 			}
-			// Native filename bytes must survive the command-to-JSON boundary.
+			value = inspectionCall(t, worker, "grep", map[string]any{"pattern": "Target", "includeIgnored": true, "output": "files"})
+			var all struct {
+				Files         []string
+				Matches       int
+				IgnoreApplied bool
+			}
+			if err := json.Unmarshal(value, &all); err != nil || len(all.Files) != 3 || all.Matches != 4 || all.IgnoreApplied {
+				t.Fatalf("include ignored files: %s, %v", value, err)
+			}
+			// Native filename bytes must survive the raw process-buffer boundary.
 			{
 				name := string([]byte{'b', 'a', 'd', 0xff})
 				if err := os.WriteFile(filepath.Join(workspace, name), []byte("unique-byte-path\n"), 0644); err != nil {

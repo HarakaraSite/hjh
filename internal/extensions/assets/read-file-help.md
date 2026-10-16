@@ -20,3 +20,8 @@ return reads.map(r => ({path:r.path,offset:r.offset,text:r.text,nextOffset:r.nex
 
 Locate unknown paths with find, or relevant text with grep, before selecting a
 read range. Preserve path and offset alongside excerpts so results remain citable.
+
+This registered tool resolves relative paths from the workspace and uses stdlib fs
+inside its JavaScript implementation. Its call/result is recorded; individual fs
+operations are not separately logged. Normal completion waits for its file read.
+On cancellation, an already-started OS read may still finish after VM closure.

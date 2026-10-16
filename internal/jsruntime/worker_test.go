@@ -531,14 +531,14 @@ func TestDelegationAfterToolHookIsClosedByOwner(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(workspace, "source.txt"), []byte("source"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	hostStarted := make(chan struct{})
-	releaseHost := make(chan struct{})
+	requestStarted := make(chan struct{})
+	releaseRequest := make(chan struct{})
 	var releaseOnce sync.Once
-	release := func() { releaseOnce.Do(func() { close(releaseHost) }) }
+	release := func() { releaseOnce.Do(func() { close(releaseRequest) }) }
 	defer release()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		close(hostStarted)
-		<-releaseHost
+		close(requestStarted)
+		<-releaseRequest
 		_, _ = w.Write([]byte("ready"))
 	}))
 	defer server.Close()
@@ -582,10 +582,10 @@ func TestDelegationAfterToolHookIsClosedByOwner(t *testing.T) {
 		callResult <- callResultForTest{value: result, err: callErr}
 	}()
 	select {
-	case <-hostStarted:
+	case <-requestStarted:
 	case <-time.After(3 * time.Second):
 		release()
-		t.Fatal("outer host request did not start")
+		t.Fatal("outer HTTP request did not start")
 	}
 	select {
 	case <-afterToolStarted:
@@ -600,7 +600,7 @@ func TestDelegationAfterToolHookIsClosedByOwner(t *testing.T) {
 			t.Fatalf("outer result was not preserved: %s (%v)", result.value, result.err)
 		}
 	case <-time.After(3 * time.Second):
-		t.Fatal("Worker.Call did not finish after the outer host request was released")
+		t.Fatal("Worker.Call did not finish after the outer HTTP request was released")
 	}
 	mu.Lock()
 	starts := map[string]contracts.Observation{}
@@ -874,7 +874,7 @@ func TestSelectedToolsControlGeneratedRuntimeAPI(t *testing.T) {
 	}
 }
 
-func TestRootSettlementStillDrainsPendingHostOperations(t *testing.T) {
+func TestRootSettlementStillDrainsPendingHTTPTools(t *testing.T) {
 	snapshot, err := extensions.CaptureDir(makeExtensions(t))
 	if err != nil {
 		t.Fatal(err)
@@ -907,22 +907,22 @@ func TestRootSettlementStillDrainsPendingHostOperations(t *testing.T) {
 	case <-started:
 	case <-time.After(3 * time.Second):
 		close(release)
-		t.Fatal("pending host request did not start")
+		t.Fatal("pending HTTP request did not start")
 	}
 	select {
 	case result := <-resultCh:
 		close(release)
-		t.Fatalf("Worker.Call returned before the host request drained: %+v", result)
+		t.Fatalf("Worker.Call returned before the HTTP tool drained: %+v", result)
 	case <-time.After(50 * time.Millisecond):
 	}
 	close(release)
 	select {
 	case result := <-resultCh:
 		if result.err != nil || string(result.value) != `"done"` {
-			t.Fatalf("Worker.Call returned unexpected result after host drain: %+v", result)
+			t.Fatalf("Worker.Call returned unexpected result after HTTP tool drain: %+v", result)
 		}
 	case <-time.After(3 * time.Second):
-		t.Fatal("Worker.Call did not return after the host request drained")
+		t.Fatal("Worker.Call did not return after the HTTP tool drained")
 	}
 }
 
@@ -985,7 +985,7 @@ func TestWorkerKeepsVMAndCapturedModulesAcrossCalls(t *testing.T) {
 	if err = json.Unmarshal(first, &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Edit.Replacements != 2 || result.Read.Text != "beta beta" || result.Count.Calls != 1 || result.Count.Revision != "module-one" || result.Count.HookRevision != "hook-one" || !result.Count.ImplementationHasReadFile || !result.Count.ImplementationHasHost || !result.Count.HookHasReadFile || !result.Count.HookHasHost {
+	if result.Edit.Replacements != 2 || result.Read.Text != "beta beta" || result.Count.Calls != 1 || result.Count.Revision != "module-one" || result.Count.HookRevision != "hook-one" || !result.Count.ImplementationHasReadFile || result.Count.ImplementationHasHost || !result.Count.HookHasReadFile || result.Count.HookHasHost {
 		t.Fatalf("generated JS did not compose captured tools: %s", first)
 	}
 	second, err := worker.Call(context.Background(), "count", json.RawMessage(`{"marker":"second"}`))
@@ -1068,28 +1068,27 @@ func TestWorkerKeepsVMAndCapturedModulesAcrossCalls(t *testing.T) {
 	if writeID == "" {
 		t.Fatal("inner tool observation was not linked to run_js")
 	}
-	var hostLinked bool
 	for id, observation := range starts {
 		if observation.Kind == "host" && observation.Name == "writeFile" && observation.Parent == writeID {
-			hostLinked = true
+			t.Fatal("file tool retained its obsolete Host operation")
 		}
 		if _, ok := ends[id]; !ok {
 			t.Errorf("observation %s (%s/%s) has no ending event", id, observation.Kind, observation.Name)
 		}
 	}
-	if !hostLinked {
-		t.Fatal("host file operation was not linked to its external tool")
-	}
 }
 
-func TestLifecycleHooksShareModuleHostAndNestedToolHooks(t *testing.T) {
+func TestLifecycleHooksShareModuleFSAndNestedToolHooks(t *testing.T) {
 	extensionDir := makeExtensions(t)
-	hookSource := []byte(`let lifecycleCalls = 0;
+	hookSource := []byte(`import { promises as fs } from "node:fs";
+import path from "node:path";
+import process from "node:process";
+let lifecycleCalls = 0;
 export async function runtimeStart({ runtime }, api) {
   lifecycleCalls++;
-  const note = await api.readFile({ path: 'note.txt' });
+  const note = await fs.readFile(path.resolve(process.cwd(), 'note.txt'), 'utf8');
   const nested = await api.tools.count({ marker: 'from-runtimeStart' });
-  return { kind: 'runtimeStart', calls: lifecycleCalls, startedAt: runtime.startedAt, note: note.text, nested };
+  return { kind: 'runtimeStart', calls: lifecycleCalls, startedAt: runtime.startedAt, note, nested };
 }
 export async function beforeTurn({ task }) { lifecycleCalls++; return { kind: 'beforeTurn', calls: lifecycleCalls, task }; }
 export async function afterTurn({ outcome }) { lifecycleCalls++; return { kind: 'afterTurn', calls: lifecycleCalls, outcome }; }
@@ -1102,7 +1101,7 @@ export async function helper() { return 'not a handler'; }
 		t.Fatal(err)
 	}
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, "note.txt"), []byte("hook host read"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(workspace, "note.txt"), []byte("hook fs read"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, err := extensions.CaptureDir(extensionDir)
@@ -1154,9 +1153,9 @@ export async function helper() { return 'not a handler'; }
 	if err = json.Unmarshal(startRaw, &start); err != nil {
 		t.Fatal(err)
 	}
-	if start.Kind != "runtimeStart" || start.Calls != 1 || start.StartedAt != "2026-10-12T09:30:00+09:00" || start.Note != "hook host read" ||
+	if start.Kind != "runtimeStart" || start.Calls != 1 || start.StartedAt != "2026-10-12T09:30:00+09:00" || start.Note != "hook fs read" ||
 		start.Nested.Calls != 1 || start.Nested.Marker != "from-runtimeStart" || !start.Nested.LifecycleNested || !start.Nested.LifecycleAfter {
-		t.Fatalf("runtimeStart did not preserve module state, host IO, and normal nested tool hooks: %s", startRaw)
+		t.Fatalf("runtimeStart did not preserve module state, stdlib file IO, and normal nested tool hooks: %s", startRaw)
 	}
 
 	for _, call := range []struct {
@@ -1388,7 +1387,7 @@ func TestWorkerReturnsModuleInitializationError(t *testing.T) {
 	}
 }
 
-func TestRootRejectionCancelsAndJoinsPendingHostCall(t *testing.T) {
+func TestRootRejectionCancelsPendingHTTPAndClosesToolObservation(t *testing.T) {
 	extensionDir := makeExtensions(t)
 	snapshot, err := extensions.CaptureDir(extensionDir)
 	if err != nil {
@@ -1397,6 +1396,11 @@ func TestRootRejectionCancelsAndJoinsPendingHostCall(t *testing.T) {
 	started := make(chan struct{})
 	stopped := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/ready" {
+			<-started
+			_, _ = w.Write([]byte("started"))
+			return
+		}
 		close(started)
 		<-r.Context().Done()
 		close(stopped)
@@ -1405,13 +1409,6 @@ func TestRootRejectionCancelsAndJoinsPendingHostCall(t *testing.T) {
 	var observations []contracts.Observation
 	observer := func(observation contracts.Observation) error {
 		observations = append(observations, observation)
-		if observation.Kind == "host" && observation.Name == "readFile" && observation.Phase == "started" {
-			select {
-			case <-started:
-			case <-time.After(3 * time.Second):
-				return errors.New("HTTP request did not start before the failing read")
-			}
-		}
 		return nil
 	}
 	worker, err := jsruntime.New(context.Background(), jsruntime.Options{Snapshot: snapshot, Observer: observer})
@@ -1422,7 +1419,7 @@ func TestRootRejectionCancelsAndJoinsPendingHostCall(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	missingPath := "root-rejection-missing-file.txt"
-	code := fmt.Sprintf(`await Promise.all([tools.http({url:%q}), tools.read_file({path:%q})]); return "unreachable";`, server.URL, missingPath)
+	code := fmt.Sprintf(`const pending = tools.http({url:%q}); await tools.http({url:%q}); await tools.read_file({path:%q}); await pending; return "unreachable";`, server.URL+"/slow", server.URL+"/ready", missingPath)
 	arguments, err := json.Marshal(map[string]string{"code": code})
 	if err != nil {
 		t.Fatal(err)
@@ -1439,15 +1436,15 @@ func TestRootRejectionCancelsAndJoinsPendingHostCall(t *testing.T) {
 	var httpID string
 	var httpEnded bool
 	for _, observation := range observations {
-		if observation.Kind == "host" && observation.Name == "http" && observation.Phase == "started" {
+		if observation.Kind == "tool" && observation.Name == "http" && observation.Phase == "started" && strings.Contains(string(observation.Input), "/slow") {
 			httpID = observation.ID
 		}
-		if observation.Kind == "host" && observation.Name == "http" && observation.Phase == "cancelled" {
+		if observation.Kind == "tool" && observation.Name == "http" && observation.Phase == "failed" {
 			httpEnded = observation.ID == httpID
 		}
 	}
 	if httpID == "" || !httpEnded {
-		t.Fatalf("pending HTTP host observation was not joined with a cancelled end: %+v", observations)
+		t.Fatalf("pending HTTP tool observation was not closed on root failure: %+v", observations)
 	}
 }
 
@@ -1598,7 +1595,7 @@ func makeExtensions(t *testing.T) string {
 	if err = os.WriteFile(configPath, contents, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(filepath.Join(dir, "count.js"), []byte(`import { revision } from "./count-state.js"; let calls = 0; export async function count(args, api) { calls++; return { calls, revision, marker: args.marker, implementationHasReadFile: typeof api.tools.read_file === "function", implementationHasHost: typeof api.readFile === "function" }; }`), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "count.js"), []byte(`import { revision } from "./count-state.js"; let calls = 0; export async function count(args, api) { calls++; return { calls, revision, marker: args.marker, implementationHasReadFile: typeof api.tools.read_file === "function", implementationHasHost: ["readFile", "writeFile", "editFile"].some(name => name in api) }; }`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err = os.WriteFile(filepath.Join(dir, "count-state.js"), []byte(`export const revision = "module-one";`), 0644); err != nil {
@@ -1611,8 +1608,8 @@ func makeExtensions(t *testing.T) string {
 }
 
 func hookSource(revision string) []byte {
-	return []byte(fmt.Sprintf(`export async function beforeTool({ name, args }, api) { return name === "count" ? { ...args, hookRevision: %q, hookHasReadFile: typeof api.tools.read_file === "function", hookHasHost: typeof api.readFile === "function" } : args; }
-export async function afterTool({ name, result }, api) { return name === "count" ? { ...result, hookRevision: %q, hookHasReadFile: typeof api.tools.read_file === "function", hookHasHost: typeof api.readFile === "function" } : result; }
+	return []byte(fmt.Sprintf(`export async function beforeTool({ name, args }, api) { return name === "count" ? { ...args, hookRevision: %q, hookHasReadFile: typeof api.tools.read_file === "function", hookHasHost: ["readFile", "writeFile", "editFile"].some(name => name in api) } : args; }
+export async function afterTool({ name, result }, api) { return name === "count" ? { ...result, hookRevision: %q, hookHasReadFile: typeof api.tools.read_file === "function", hookHasHost: ["readFile", "writeFile", "editFile"].some(name => name in api) } : result; }
 `, revision, revision))
 }
 
@@ -1626,7 +1623,10 @@ func delegatingHookSource() []byte {
 
 func delayedDelegationHookSource() []byte {
 	return []byte(`export async function beforeTool({ name, args }, api) {
-  if (name === 'run_agent') await api.command({ program: 'sh', args: ['-c', 'sleep 0.05'] });
+  if (name === 'run_agent') {
+    const { execFile } = await import('node:child_process');
+    await execFile('sleep', ['0.05']);
+  }
   return args;
 }
 `)

@@ -35,6 +35,7 @@ func (o *vmOwner) startAgentControl(operation, parent string, input json.RawMess
 	promise := o.rt.NewPromise()
 	o.pending[id] = promise
 	o.jobs.Add(1)
+	o.loop.Begin()
 	ctx := o.callCtx
 	go func() {
 		defer o.jobs.Done()

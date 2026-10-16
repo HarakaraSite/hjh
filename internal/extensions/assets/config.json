@@ -218,6 +218,9 @@
     {
       "name": "write_file",
       "description": "Create or replace a UTF-8 text file, creating missing parent directories.",
+      "promptGuidelines": [
+        "Paths are workspace-relative or absolute. The result reports the supplied path and UTF-8 bytes written. After an error or cancellation, inspect the actual file before retrying; a started filesystem write can finish after VM closure."
+      ],
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -242,7 +245,7 @@
       "name": "edit_file",
       "description": "Apply an ordered array of literal replacements to a UTF-8 file, then save once. Returns path, per-edit counts, total replacements, and bytes.",
       "promptGuidelines": [
-        "Pass edits: [{oldText, newText}, ...], including for one replacement. Each edit replaces every exact match in the text produced by previous edits. Check per-edit replacements: no match or empty oldText gives 0 without a tool error. Empty newText deletes matches."
+        "Pass edits: [{oldText, newText}, ...], including for one replacement. Each edit replaces every exact match in the text produced by previous edits. Check per-edit replacements: no match or empty oldText gives 0 without a tool error. Empty newText deletes matches. After an error or cancellation, read the actual file before retrying edits; a started write can finish after VM closure."
       ],
       "inputSchema": {
         "type": "object",
@@ -536,7 +539,7 @@
       "description": "Execute a program directly with the workspace as its working directory. Waits for exit and returns {exitCode, stdout, stderr}.",
       "promptGuidelines": [
         "Choose command for needed external operations (for example build/test or git commit/push) after considering run_js composition and dedicated tools. Pass program plus individual args; shell syntax requires an explicit shell such as {program:\"sh\",args:[\"-c\",\"printf hello | wc -c\"]}.",
-        "Omit unused args/stdin. Nonzero exit is a normal result: inspect exitCode and stderr."
+        "Omit unused args/stdin. Nonzero exit is a normal result: inspect exitCode and stderr. stdout/stderr are each capped at 32 MiB. Cancellation stops the directly started process only; see help for inspecting and explicitly stopping remaining descendants."
       ],
       "inputSchema": {"type":"object","properties":{"program":{"type":"string","description":"Executable name or path, such as rg or sh; not a whole shell command line."},"args":{"type":"array","items":{"type":"string"},"description":"Individual argument strings passed directly to the executable; defaults to []."},"stdin":{"type":"string","description":"Text supplied to standard input; omit when no input is needed."}},"required":["program"]},
       "module": "index.js",

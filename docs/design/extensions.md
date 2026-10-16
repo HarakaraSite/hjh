@@ -3,8 +3,8 @@
 この文書はJSON設定、外部ESM tool／hook、Worker runtimeの境界を定める。
 拡張directoryは実行時に編集でき、各Workerは開始時に読んだsource bytesだけを実行する。
 
-将来の構成候補として[go-quickjsのstdlib活用とtool実装のJS化](../notes/quickjs-stdlib-tools.md)
-を記録した。以下の現行契約とは別の検討メモであり、stdlibの導入はまだ行っていない。
+[stdlib・tool JS化の移行計画](../plans/quickjs-stdlib-tools.md)に従い、Workerへstdlibを導入する。
+標準toolの基礎I/Oと処理はstdlib＋外部JSへ移行し、Go Hostは認証要求接続を残す。接続・確認状況は[実装記録](../results/quickjs-stdlib-tools.md)を参照する。
 
 ## 設定と外部source
 
@@ -46,7 +46,7 @@ run_jsは選択できるbuilt-inであり、外部tool registryへのmodule登�
 model向けtool definition、JSのtools、保存snapshotは同じrole解決結果を使う。
 run_agentを選んだ場合だけ生成JSへapi.agents.runを公開し、同じrun_agent tool／hook経路を通す。
 生成JSの公開apiは選択toolの呼出し用で、Go基礎操作は含めない。
-外部tool／hook実装用apiはGo基礎操作とraw AgentRunner／AgentControllerを提供する。
+外部tool／hook実装用apiは認証要求・context／model・raw AgentRunner／AgentControllerへの固有接続を提供する。
 これはtool構成の契約であり、JSやOSのsandboxではない。
 
 ### 標準role
@@ -69,7 +69,8 @@ run_agentを選んだ場合だけ生成JSへapi.agents.runを公開し、同じr
 run_agentまたはspawn_agentを選択した場合に表示し、保存する指示とモデルへ送る指示は同じ組立結果を使う。
 model/provider/effortはroleで固定しない。必要な個別上書きは既存の呼出し引数を使う。
 reviewerとexplorerにはcommand・write_file・edit_file・子委譲toolを渡さない。
-生成JSも同じ選択toolだけを通常公開する。外部tool自身の実装では必要なGo基礎操作を使う。
+生成JSの`tools`辞書は同じ選択toolだけを公開する。stdlibはその辞書とは別に生成JS・外部toolの双方へ公開する。
+file／process／Webの旧Go基礎操作APIは提供せず、stdlibまたは選択済み登録toolを利用する。
 
 既存workspaceの編集済みconfigをInstallDefaultsで自動置換しない。
 標準role/toolを追加する場合は既存configを編集する。このrepositoryのworkspaceには反映済み。
@@ -81,9 +82,12 @@ reviewerとexplorerにはcommand・write_file・edit_file・子委譲toolを渡�
 既存のexecution・configurationへ保存する。role modelのfield、provider/API/authの区別、
 selection優先順位、credential形式は[provider・model設定](providers.md)を参照する。
 
-`tools` のexportは `(args, api) => result` を実装する。`api.readFile`、`api.writeFile`、
-`api.command`、`api.http`、`api.webFetch` はcontext付きGo基礎操作へ接続する。
-`api.listDirectory`・`api.findFiles`・`api.countFiles`はdirectory探索・file集計へ接続する。
+`tools`のexportは`(args, api) => result`を実装する。read_file／write_file／edit_fileは
+stdlib fs／pathをimportする外部JSが処理を所有し、旧`api.readFile`／`api.writeFile`／`api.editFile`は提供しない。
+別tool経由なら`api.tools.read_file`等を使い、内部fs操作自体はtool／hook観測を増やさない。
+commandはJSからstdlib child_processを使い、旧`api.command`／`api.resolveExecutable`は提供しない。
+http／web_fetchもJSのfetch／stream／fs処理を使い、旧`api.http`／`api.webFetch`は提供しない。
+ls／find／wcも外部JSとstdlib fs／pathで探索・集計し、旧`api.listDirectory`／`api.findFiles`／`api.countFiles`は提供しない。
 認証付き外部serviceには`api.requestProvider({authProfile,endpoint,method,headers?,body?})`を使う。
 JSON bodyとcredential参照だけを渡し、Go側で認証headerを付ける。戻り値は`{status,body}`。
 この実装APIは生成JSへ直接公開せず、選択toolを通す。[Exa Web検索](web-search.md)を参照する。
@@ -92,7 +96,11 @@ JSON bodyとcredential参照だけを渡し、Go側で認証headerを付ける�
 
 外部moduleは相対ESM importを使う。Goはcaptureしたresource bytesをmodule loaderから返すため、
 capture後に元ファイルを編集しても現在のWorkerには反映されない。次Workerで新しいcaptureを作ると反映される。
-Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMとして拡張directoryへ配置する。
+stdlibのtimer、fetch、Buffer、TextEncoder等と、fs／path／child_process等の組込みmoduleを利用できる。
+外部ESMはstatic import、run_jsのasync本文は`await import("node:fs")`等を使う。
+Node／Deno全体の互換環境やnpm取得・node_modules探索は提供しない。外部依存は準備済みESMとして配置する。
+生fsへは絶対pathを渡す。`path.resolve(process.cwd(), relativePath)`はworkspace基準に解決する。
+`process.cwd()`はworkspaceだが、生fsの相対pathはCore cwd基準。標準file toolはworkspace基準を保つ。
 
 ## tool自身の利用指示とhelp（I-21以降）
 
@@ -102,7 +110,7 @@ Node／Denoのglobalやnpm取得は提供しない。依存は準備済みESMと
 無効なtoolのguidelinesは加えず、親・子は同じcapture経路を使う。
 
 built-in run_jsの常駐指示は、合成・並列・集約・加工を選ぶ場面、async本文、選択済み
-`tools.NAME`、await/return、英文目的コメント、timerなしという最小契約を案内する。
+`tools.NAME`、await/return、英文目的コメント、stdlib・timer公開、正常call内drain、未捕捉例外後のVM再生成を案内する。
 長い例やAPI一覧はhelpで取得する。共通の選択方針はbaseと別のtool-usage.mdで管理し、
 [base.mdでの差替え](base-instructions.md)でも維持する。通常の単独操作をJSで包む義務はない。
 
@@ -172,10 +180,10 @@ source.fileは使用したconfigの絶対locator。組立済みsystemInstruction
 `Current execution (resolved values)`としてsystemInstructionへ加える。
 同じ本文を`instruction:execution-context` componentとして保存し、configの既定値や
 過去の会話から現在値を推測させない。credential・Authorizationは含めない。
-run_jsのasync本文ではPromiseと選択toolを使える。setTimeout／setInterval等のtimer APIは
-提供していない。子の完了待ちはcollect_agent／api.agents.collectで行い、中間報告は親の
-独立作業の後などにstatusで読む。明示的な時間待ちはcommandを選択している場合に限り
-既存のsleepコマンドを案内する。
+run_jsのasync本文ではPromise・選択toolとstdlibのsetTimeout／setInterval等を使える。
+子の完了待ちはcollect_agent／api.agents.collectで行い、中間報告は親の独立作業後などにstatusで読む。
+明示的な時間待ちは`await new Promise(resolve => setTimeout(resolve, milliseconds))`を使える。
+intervalはcall完了前にclearする。
 I-18では共通実行層が[workspace指示とskills](workspace-instructions-skills.md)を追加する。
 AGENTS.md本文とskill manifestは実指示へ組み込み、生成componentをinstructionComponentsへ記録する。
 設定に書かれた既存instructionComponentsを命令入力として解釈する処理は追加しない。
@@ -208,15 +216,23 @@ configurationIdはcaptureごとのUUIDであり、source digestとは別の識�
 JS実行基盤は`github.com/go-quickjs/go-quickjs v0.25.2`。
 VMの生成、module評価、JS call、Promise job処理、VM終了は一つのowner goroutineだけが行う。
 Go host workは結果をownerへ返し、別goroutineからVM値を操作しない。
-一つのWorkerで複数の `Call` を行うと同じVMと外部module stateを使い、別Worker間ではVMを共有しない。
+正常な複数の`Call`は同じVMと外部module stateを使い、別Worker間ではVMを共有しない。
+未捕捉の外側JS例外では残る処理を停止してVMを閉じ、次Call／Hookで同じcaptureから再生成する。
+global／module stateはリセットされ、module初期化は再実行する。失敗callの自動再実行はしない。
+JS内でcatchして正常終了した場合はVMを保持する。会話・履歴はVMの再生成では消えない。
+例外・取消でLoop／VMを閉じても、開始済みの非同期filesystem OS操作は後で完了し得る。
+この上流挙動は採用済み。callbackは破棄されるが副作用のrollbackはなく、復旧時は実fileを確認する。
 同じWorkerへのlifecycle hookも同じmodule stateを使う。実行前のsource captureを更新しても
 既存Workerは変わらず、次のWorkerで新しいcaptureを使う。
-context取消はJSのCallContext／RunJobsContext、HTTP request context、Linux process group停止へつながる。
-commandはgroup停止後に `Wait` してから戻る。取消されたWorkerを閉じた後は新Workerを作成できる。
+context取消はJS実行、Loop close経由のHTTP／process停止へつながる。
+commandは直接起動したprocessだけを停止する。取消されたWorkerを閉じた後は新Workerを作成できる。
 host／子AgentのGo完了queueをownerが受け取り、Promiseを明示的にsettleする。
 外側CallのPromise決着時にblocking run_agentのcall scopeを取消し、初回join、残るhost／JS jobsのdrain、遅いAgentRunnerの再join、
 委譲tool／hookの終端記録を終えてから返す。root決着後の子結果は観測へ保存し、JSを再開させない。
-正常終了したcallの取消contextは次Callへ残さない。
+正常終了時は開始済みI/O・jobs・timerをcall内でdrainし、次callへ持ち越さない。
+intervalはJS側でclearしない限りcallが完了せず、UI取消で停止できる。
+生child_processは取消で直接起動したprocessのみを止め、必要な子孫停止はcommandで確認・killする。
+標準commandも同じ取消範囲である。正常callの取消contextは次Callへ残さない。
 
 ## toolとhookの動作
 
@@ -247,13 +263,15 @@ offset/limit省略時は全文、EOF以降のoffsetは空text。textのほかoff
 `edit_file`は`{path,edits:[{oldText,newText},...]}`を受け、各置換を前段の結果へ適用する。
 全ての完全一致箇所を置換し、最後に一回保存して`{path,replacements,edits:[{replacements}],bytes}`を返す。
 単一置換も配列で指定する。旧single oldText/newText入力を読替える機構は追加しない。
-`write_file`は不足する親directoryも作成する。
+`write_file`は不足する親directoryも作成する。read／write／editは外部JSからstdlib fsを使い、
+相対pathをworkspace基準の絶対pathへ解決し、入力pathを結果へ返す。
+file操作をawaitして通常完了し、bytesはUTF-8 encodingのbyte数とする。
 
 `ls`は名前順・深さ優先のflat entriesにdepthを付ける。tree:falseでは直下だけ、tree:trueは
 既定depth 3。directory symlinkはentryとして表示し、再帰探索しない。
 `find`のslashなしglobは各basename、slashありglobは探索root相対pathに一致させ、**はdirectoryを跨ぐ。
 file / directory / anyを選べ、excludeでdirectoryに一致すると配下も省く。
-隠し・ignored entriesを含み、.gitignoreを自動適用しない。ls/findはGo filesystemで動く。
+隠し・ignored entriesを含み、.gitignoreを自動適用しない。ls/findはJSからstdlib filesystemを使う。
 `grep`はPATH上のrgを優先し、なければGNU grepを使う。初回callで選んだ実行fileをWorker内で保持する。
 regexはrgならripgrepの構文、GNUなら拡張正規表現。patternKind:literalは両方とも固定文字列。
 rgはignore fileを既定で適用し、includeIgnored:trueで無効化する。GNUは.gitignoreを適用せず、
@@ -265,20 +283,24 @@ UTF-8以外のpath/textは`{base64}`として保持する。output:filesは一�
 GNUのtextはnative出力の改行を含み、source末尾に改行がなくてもGNUが付ける改行を含む。
 0件は通常結果。grepのmatchesは一致行数で、totalはpage対象の行数またはfile数。
 `wc`のlinesは改行文字の数で、read_fileのtotalLinesとは定義が異なる。
-`git_inspect`にはGitが必要。固定した4操作を既存command基礎操作で実行し、任意argvを公開しない。
+`git_inspect`にはGitが必要。固定した4操作をstdlib child_processとJSで実行・ページ処理し、任意argvを公開しない。
 statusではoptional index refreshを行わず、diff/showはexternal diff/textconvを実行しない。
 ls/find/grepとGitの出力行のoffsetは0始まり、既定limit 100。Git logだけはcommit単位で既定20。
 続きがあればnextOffsetを返す。省略したoptionをモデルに埋めさせる必要はない。
 `command` は `program`、`args`、`stdin` を受け、`exitCode`、`stdout`、`stderr` を返す。
-nonzero exitは構造化結果であり、tool失敗にはしない。
+nonzero exitは構造化結果であり、tool失敗にはしない。起動失敗はtool error。
+stdout／stderrはそれぞれ32 MiBまでを取得し、それ以降は破棄する。stdin省略／空文字は即時EOF。
 `http` はGETを行い、statusとbodyを返す。HTTP statusは結果データである。
 ページ読取りは`web_fetch`を使う。HTML可読化、通常64 KiB上限、原本文の`save_to`保存は
 [I-14契約](i14-web-context-contract.md)を参照する。
-標準toolの振る舞いは外部JS moduleにあり、host packageはfile、HTTP、Linux processの実処理だけを行う。
+read／write／edit／ls／find／wcは外部JSがstdlib filesystemを利用する。
+grep／Git／HTTP／Webの処理も外部JSが所有し、認証要求だけがHost経由でGo transportへ接続する。
 
 Observerには外側tool、生成JS内tool、hook、host操作それぞれの開始・終了を `contracts.Observation`
 で通知する。各開始はIDを持ち、親IDは外側runtime callから内側tool、hook、hostへ連鎖する。
 Observerのsinkが保存形式を所有し、runtimeとhostはDBへ直接依存しない。
+stdlibを直接使うfs／fetch／process等は旧Hostと同粒度では観測しない。
+登録tool・hookは従来dispatchで結果・成否・親子関係を記録する。
 
 ## I-20：execution lifecycle hooks
 

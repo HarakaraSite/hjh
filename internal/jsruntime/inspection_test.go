@@ -99,6 +99,59 @@ return {edit,read};`})
 	}
 }
 
+func TestFileToolsLiteralReplacementsAndPathEcho(t *testing.T) {
+	workspace := t.TempDir()
+	worker := inspectionWorker(t, workspace, nil)
+	inputPath := "nested/../nested/literal.txt"
+	original := "aaaaa\n$& 日本🙂\r\n\nend"
+	value := inspectionCall(t, worker, "run_js", map[string]any{"code": `
+const write = await tools.write_file({path:"nested/../nested/literal.txt", text:"aaaaa\n$& 日本🙂\r\n\nend"});
+const edit = await tools.edit_file({path:write.path, edits:[
+  {oldText:"aa",newText:"$&"}, {oldText:"$&",newText:"$\u0060$'$$"},
+  {oldText:"",newText:"not inserted"}, {oldText:"absent",newText:"unused"}, {oldText:"end",newText:""}
+]});
+const read = await tools.read_file({path:write.path});
+return {write,edit,read};`})
+	var result struct {
+		Write struct {
+			Path  string
+			Bytes int
+		}
+		Edit struct {
+			Path                string
+			Replacements, Bytes int
+			Edits               []struct{ Replacements int }
+		}
+		Read struct {
+			Path, Text                string
+			Offset, Lines, TotalLines int
+		}
+	}
+	if err := json.Unmarshal(value, &result); err != nil {
+		t.Fatal(err)
+	}
+	want := "$`$'$$$`$'$$a\n$`$'$$ 日本🙂\r\n\n"
+	if result.Write.Path != inputPath || result.Write.Bytes != len(original) || result.Edit.Path != inputPath || result.Edit.Bytes != len(want) || result.Edit.Replacements != 6 || result.Read.Path != inputPath || result.Read.Text != want || result.Read.Offset != 1 || result.Read.Lines != 3 || result.Read.TotalLines != 3 {
+		t.Fatalf("literal file workflow: %s", value)
+	}
+	if len(result.Edit.Edits) != 5 || result.Edit.Edits[0].Replacements != 2 || result.Edit.Edits[1].Replacements != 3 || result.Edit.Edits[2].Replacements != 0 || result.Edit.Edits[3].Replacements != 0 || result.Edit.Edits[4].Replacements != 1 {
+		t.Fatalf("literal edit counts: %s", value)
+	}
+	filename := filepath.Join(workspace, "nested/literal.txt")
+	actual, err := os.ReadFile(filename)
+	if err != nil || string(actual) != want {
+		t.Fatalf("saved file = %q, %v", actual, err)
+	}
+	value = inspectionCall(t, worker, "read_file", map[string]any{"path": filename, "offset": 2, "limit": 2})
+	var window struct {
+		Path, Text                string
+		Offset, Lines, TotalLines int
+	}
+	if err := json.Unmarshal(value, &window); err != nil || window.Path != filename || window.Text != "$`$'$$ 日本🙂\r\n\n" || window.Offset != 2 || window.Lines != 2 || window.TotalLines != 3 {
+		t.Fatalf("absolute path and LF window: %s (%v)", value, err)
+	}
+}
+
 func TestReadOnlyToolsDirectAndGeneratedOnFilesAndGit(t *testing.T) {
 	workspace := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(workspace, "src/empty"), 0755); err != nil {
@@ -186,6 +239,17 @@ return {found,empty,grep,remaining,files,none,counts,diff,log,older,hasCommand:t
 	if result.Counts.Total.Lines != 5 || result.Counts.Total.Words != 6 || result.Counts.Total.Bytes != int64(len(text+"\nchanged\n")) || !strings.Contains(result.Diff.Text, "+changed") || !strings.Contains(result.Log.Text, "second") || !strings.Contains(result.Older.Text, "initial") {
 		t.Fatalf("file counts or Git inspection: %s", value)
 	}
+	value = inspectionCall(t, worker, "run_js", map[string]string{"code": "const full=await tools.git_inspect({op:'diff'}); const first=await tools.git_inspect({op:'diff',limit:2}); const next=await tools.git_inspect({op:'diff',offset:first.nextOffset}); return {full,first,next};"})
+	var pages struct {
+		Full, First, Next struct {
+			Text          string
+			Total, Offset int
+			NextOffset    *int
+		}
+	}
+	if err := json.Unmarshal(value, &pages); err != nil || pages.First.NextOffset == nil || *pages.First.NextOffset != 2 || pages.First.Total != pages.Full.Total || pages.Next.Offset != 2 || pages.Next.NextOffset != nil || pages.First.Text+"\n"+pages.Next.Text != pages.Full.Text {
+		t.Fatalf("Git diff line pages: %s (%v)", value, err)
+	}
 	git("add", "src/example.txt")
 	value = inspectionCall(t, worker, "git_inspect", map[string]any{"op": "diff", "staged": true, "stat": true, "context": 0, "paths": []string{"src"}})
 	if !strings.Contains(string(value), "example.txt") || !strings.Contains(string(value), "insertion") {
@@ -197,5 +261,61 @@ return {found,empty,grep,remaining,files,none,counts,diff,log,older,hasCommand:t
 	value = inspectionCall(t, worker, "git_inspect", map[string]any{"op": "show", "rev": "HEAD~1", "stat": true, "context": 0, "paths": []string{"src"}})
 	if !strings.Contains(string(value), "example.txt") || strings.Contains(string(value), "diff --git") || strings.Contains(string(value), "@@") {
 		t.Fatalf("show stat with context: %s", value)
+	}
+}
+
+func TestInspectionFindCountAndReadWorkflow(t *testing.T) {
+	workspace := t.TempDir()
+	if err := os.Mkdir(filepath.Join(workspace, "data"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	contents := map[string][]byte{
+		"data/a.txt": []byte("one\u0085two\u00a0three\u3000four\r\nfive\ufeffsix"),
+		"data/b.txt": append([]byte("\ufeff \t\n\r\v\f\u1680\u2000\u200a\u2028\u2029\u202f\u205f\u3000"), 0xff),
+	}
+	for name, bytes := range contents {
+		if err := os.WriteFile(filepath.Join(workspace, name), bytes, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	selected := []string{"run_js", "ls", "find", "wc", "read_file"}
+	worker := inspectionWorker(t, workspace, &selected)
+	type counts struct {
+		Path                string
+		Lines, Words, Bytes int
+	}
+	var direct struct {
+		Files []counts
+		Total counts
+	}
+	value := inspectionCall(t, worker, "wc", map[string]any{"paths": []string{"data/b.txt", "data/../data/a.txt"}})
+	if err := json.Unmarshal(value, &direct); err != nil {
+		t.Fatal(err)
+	}
+	if len(direct.Files) != 2 || direct.Files[0].Path != "data/b.txt" || direct.Files[1].Path != "data/../data/a.txt" || direct.Files[0].Words != 2 || direct.Files[1].Words != 5 || direct.Files[0].Lines != 1 || direct.Files[1].Lines != 1 || direct.Total.Words != 7 || direct.Total.Lines != 2 || direct.Total.Bytes != len(contents["data/a.txt"])+len(contents["data/b.txt"]) || direct.Total.Path != "" {
+		t.Fatalf("byte, Go Unicode whitespace, LF counts, file order, and path echo: %s", value)
+	}
+	value = inspectionCall(t, worker, "run_js", map[string]string{"code": `const listing = await tools.ls({path:"./data/../data"});
+const found = await tools.find({path:"data",pattern:"**/*.txt",type:"file"});
+const counts = await tools.wc({paths:found.entries.map(entry=>entry.path)});
+const read = await tools.read_file({path:found.entries[0].path});
+return {listing,found,counts,read};`})
+	var composed struct {
+		Listing struct {
+			Path    string
+			Entries []struct{ Path string }
+		}
+		Found  struct{ Entries []struct{ Path string } }
+		Counts struct {
+			Files []counts
+			Total counts
+		}
+		Read struct{ Text string }
+	}
+	if err := json.Unmarshal(value, &composed); err != nil {
+		t.Fatal(err)
+	}
+	if composed.Listing.Path != "./data/../data" || len(composed.Listing.Entries) != 2 || composed.Listing.Entries[0].Path != "data/a.txt" || len(composed.Found.Entries) != 2 || len(composed.Counts.Files) != 2 || composed.Counts.Files[0].Path != filepath.Join(workspace, "data/a.txt") || composed.Counts.Total.Words != direct.Total.Words || composed.Counts.Total.Bytes != direct.Total.Bytes || composed.Read.Text != string(contents["data/a.txt"]) {
+		t.Fatalf("discover-select-count-read composition: %s", value)
 	}
 }

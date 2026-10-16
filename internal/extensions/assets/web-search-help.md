@@ -4,7 +4,10 @@ Discover sources with Exa using a specific query. A query alone defaults to auto
 up to 10 results, and highlights of at most 1000 characters per result. Page text is
 disabled; use web_fetch to read selected page bodies. Do not send contents options.
 Results are complete JSON (no transport streaming), with ordered URLs, titles,
-short highlights, metadata, and optional synthesized output.
+short highlights, metadata, and optional synthesized output. Search request/response
+processing is JavaScript; the Go authenticated-request bridge resolves credentials
+and adds Authorization without exposing them to JS. Its transport observation
+contains status/byte count only; the complete result belongs to this tool record.
 
 ## Source-first workflow
 

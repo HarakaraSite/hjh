@@ -36,6 +36,17 @@ git diff --check
 実provider確認は対応する利用経路で行い、API費用が発生する実行は利用者の承認範囲に従う。
 全体test・gateの扱いもAGENTS.mdに従い、途中確認で繰り返さない。
 
+### 生成物・過去の調査資料とGo moduleの境界
+
+rootの`go test ./...`は製品moduleに属するpackageを確認する。
+`dist/go.mod`と`tmp/go.mod`は生成物・過去の調査資料をroot moduleのpackage探索から分離する境界であり、
+それぞれに製品依存やworkspace設定を追加しない。既存のsource断片・ログ・配布物は削除しない。
+`.gitignore`だけではGoの探索対象は変わらない。`dist/`内は境界fileだけをGit管理し、その他の生成物はignoreする。
+
+製品buildは従来どおりrootで`go build -o dist/hjh ./cmd/hjh`等を実行する。
+過去資料を再実行するときは、その資料固有のmodule／再現手順を明示して使い、
+rootの`go test ./...`で過去sourceの全再検証をする運用にはしない。
+
 ## 直近の実装と検討メモ
 
 - 子agentの開始・並列実行・報告差分・追加指示：[I-19結果](results/i19-child-agent-control.md)。
@@ -336,7 +347,10 @@ export async function runAgent(args, api) {
 
 生成JSで直接api.readFile／writeFile／command／httpを使っていた場合は、選択した登録toolを使う形へ変更する。
 例：api.readFile({path})はtools.read_file({path})、api.writeFile({path,text})はtools.write_file({path,text})。
-commandとhttpもtools.command／tools.httpで呼ぶ。外部tool／hookの実装用apiでは基礎操作を引き続き使える。
+commandとhttpもtools.command／tools.httpで呼ぶ。外部tool／hookも旧file APIは提供しない。
+file操作は選択された`api.tools.read_file`等か、stdlib fs／pathを使いworkspace基準の絶対pathを渡す。
+command／http等もstdlib child_process／fetchへ移行済みで、旧実装用Go APIは提供しない。
+認証要求だけapi.requestProviderを使う。[既存拡張の更新手順](distribution-linux.md#stdlib移行時の外部拡張更新)を参照する。
 過去Sessionの保存role名が現在のcatalogにない場合は、--roleで現在のroleを明示して再開する。
 
 

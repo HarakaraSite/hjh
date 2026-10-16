@@ -216,7 +216,9 @@ func TestToolUsageHelpDirectNestedCaptureAndCanonicalResume(t *testing.T) {
 	const jsHelp = "RUN_JS_HELP_ON_DEMAND\n"
 	const dormantHelp = "UNREQUESTED_HELP_BODY_NOT_ARCHIVED"
 	const module = `// MODULE_SOURCE_NOT_ARCHIVED
-export async function readFile(args,api){return api.readFile(args)}
+import * as fs from "node:fs";
+import * as path from "node:path";
+export async function readFile(args){return {text:await fs.promises.readFile(path.resolve(process.cwd(),args.path),"utf8")}}
 export function probe(){return {normal:true}}
 `
 	for _, entry := range config["tools"].([]any) {
@@ -421,6 +423,42 @@ func toolUsageHelpExample(t *testing.T, text, heading string) string {
 		t.Fatalf("help section %q has no closing fence", heading)
 	}
 	return code
+}
+
+func TestToolUsageHelpBundledStdlibExample(t *testing.T) {
+	store, workspace, configPath, config := toolUsageHelpConfig(t, []string{"run_js"})
+	contextWrite(t, configPath, string(contracts.JSON(config)))
+	step := 0
+	provider := delegationProvider(func(_ context.Context, req contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		step++
+		switch step {
+		case 1:
+			return toolUsageHelpCall("run_js", map[string]bool{"help": true}), nil
+		case 2:
+			var help extensions.ToolHelp
+			if err := json.Unmarshal([]byte(toolUsageHelpResult(t, req)), &help); err != nil || !help.Available {
+				t.Fatalf("stdlib help: %+v %v", help, err)
+			}
+			return scriptedJS(toolUsageHelpExample(t, help.Text, "Built-in modules and timers")), nil
+		case 3:
+			var got struct{ Path, Text string }
+			if err := json.Unmarshal([]byte(toolUsageHelpResult(t, req)), &got); err != nil || filepath.Dir(got.Path) != workspace || got.Text != "stdlib example\n" {
+				t.Fatalf("stdlib example result: %+v %v", got, err)
+			}
+			data, err := os.ReadFile(got.Path)
+			if err != nil || string(data) != got.Text {
+				t.Fatalf("stdlib example file: %q %v", data, err)
+			}
+			return contracts.ModelResult{Text: "stdlib help example completed"}, nil
+		}
+		return contracts.ModelResult{}, fmt.Errorf("unexpected stdlib example step %d", step)
+	})
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	result, err := Run(ctx, store, provider, RunOptions{Task: "stdlib help example", Workspace: workspace, ConfigPath: configPath, ModelID: "test/model"})
+	if err != nil || !result.Result.OK || step != 3 {
+		t.Fatalf("stdlib help example: %+v step=%d %v", result, step, err)
+	}
 }
 
 func TestToolUsageHelpBundledRunJSExamples(t *testing.T) {
