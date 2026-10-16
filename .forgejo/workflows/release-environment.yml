@@ -1,0 +1,25 @@
+name: release-environment
+
+on:
+  push:
+    branches:
+      - ci/release-v1.0.0-probe
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check distribution tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v python3 readelf bash git tar gzip sha256sum
+          python3 --version
+          readelf --version
+          go version
