@@ -1,9 +1,16 @@
 # JS compaction extension
 
-The opt-in [compaction.js](../../examples/hooks/compaction.js) hook composes
-existing summaries and unsummarized conversation, summarizes a new range when
-needed, then selects and replaces the model input. It is not installed as a
-default hook. Ordinary saved conversation remains unchanged.
+The opt-in [compaction.js](../../examples/hooks/compaction.js) hook selects old
+conversation, consolidates continuation summaries when needed, then replaces
+the model input. It is not installed as a default hook. Ordinary saved
+conversation remains unchanged.
+
+The 2026-10-16 implementation follows the adopted
+[compaction strategy and measurement plan](../plans/js-compaction-strategy.md).
+See its [implementation and latency measurements](../results/js-compaction-strategy.md).
+The earlier append-only summary implementation is recorded in the
+[original results](../results/js-compaction.md). The workspace's deployed copy
+is separate from this example; changing the example does not deploy it.
 
 ## Policy and flow
 
@@ -13,39 +20,67 @@ Policy is an editable object in JS:
 | --- | ---: | --- |
 | `fallbackInputTokens` | 800000 | Input budget used only when the model's effective input limit is unknown. Known model/configuration budgets are preserved. |
 | `triggerRatio` | 0.9 | Consider summarizing above this fraction of the resolved input limit, or if the candidate does not fit. |
-| `rawTargetRatio` | 0.6 | Select retained raw input toward this fraction before adding the new summary. |
-| `keepRecentTurns` | 1 | Prefer retaining this many completed turns; summarize them too if needed to reach the raw target. |
+| `triggerTokens` | null | Optional absolute trigger overriding the ratio, including small values for isolated verification. |
+| `targetTokens` | null | Optional absolute final-input target. Default: one third of the resolved input limit. |
+| `keepRecentTurns` | 2 | Completed turns treated as recent continuation material. Older turns retain only guidance/results needed by the current task. |
 | `summaryCharacters` | 1200 | Soft target in the summarization instruction, not a local truncation limit. |
 
 The hook reads the effective input limit from `api.context.get().budget` on
 each request, so changing models also changes its compaction budget. The default
 input ratio is 0.9 of the context window; when no other constraint governs, the
-0.9 trigger ratio places summarization at 81% of the full window. The
-`rawTargetRatio` remains 0.6. With the
-unknown-limit default, summarization is considered above 720,000 estimated
-tokens and the retained raw input target is 480,000. A known limit is not
-capped at 800,000. These are policy values, not model capacity claims. Token counts use
-hjh's existing estimate. The extension reads recent history through the first
-overflowing turn. Its in-memory floor prevents reviving earlier history on
-every call. It does not attempt to summarize all remote past turns.
+0.9 trigger ratio places summarization at 81% of the full window. The final
+target is `floor(inputLimit / 3)`, including instructions, tools, recall prefixes,
+summary text, references and retained raw messages. With the unknown-limit
+default, the trigger is above 720,000 estimated tokens and the final target is
+266,666. A known limit is not capped at 800,000. These are policy values, not
+model capacity claims. Token counts use hjh's existing wire estimate, separately
+from provider-reported usage.
+
+History is read newest first through the first overflowing turn. During normal
+continuation that turn remains a compaction candidate so its needed results can
+be summarized. On restoration it is excluded before summarizing, as described
+below. An in-memory floor and covered ranges prevent reviving discarded or
+already summarized raw history. Already covered raw messages are not re-summarized.
 
 On each projectRequest:
 
 1. Read Session memory and the original current transcript. Keep recall prefixes.
-2. Add previous summaries and recent, unsummarized canonical history.
-3. Measure with the chosen policy. If needed, take old completed turns and use
-   the existing selector to identify old complete current tool exchanges.
-4. Call the parent provider/model/effort once with a summarization instruction
-   and the newly removed original messages. No agent loop or tools are used.
-5. Attach source references in JS and mark exactly those message ranges covered.
-6. Select the final request and apply it with replace. Stage the extension state.
+2. Add the existing continuation note and unsummarized canonical history through
+   the first overflowing turn during normal continuation.
+   Without compaction, retain the note's text/order and append new conversation.
+3. At the trigger, summarize recent completed turns for continuation. For older
+   turns, discard unrelated material and retain only guidance/results needed by E,
+   the current task. Use the existing selector's complete-exchange rules inside E.
+4. Provide the summarizer with E's task, applied steering, recent retained state,
+   the existing note and newly removed originals. Use readable sections without
+   duplicating the task/steering in recent state or embedding the full transcript
+   in another JSON string. Measure this input, including the summary instruction.
+5. Call the inherited parent provider/model/effort once and consolidate into one
+   continuation note. If the final input exceeds the target, allow one additional
+   summarization, adding further removable current exchanges or shortening the note.
+   If recent completed history cannot fit one summary input, first summarize its
+   older part and retain the deferred part raw in the first candidate, then use
+   the second call to merge that raw history with the first note.
+6. Compare the measured candidates. Adopt the smaller continuation candidate with
+   its matching note, references, coverage and retained boundary. Record target
+   attainment and the number of model calls in `lastCompaction`.
+7. Apply the exact candidate with replace and stage the extension state. Even raw ranges
+   intentionally discarded without summary are covered so they cannot reappear.
+   Pending raw history retains its own coverage and is not silently trimmed by
+   a final select. Summary preparation failure also retains the original exact
+   candidate for the existing input-budget check rather than silently discarding history.
 
-Previous summaries are retained in memory and are not themselves summarized.
-They are assistant notes in the candidate, so ordinary selection may omit old
-notes from the request if necessary. The original summaries remain in memory.
-The current task, applied user instructions and latest complete exchanges use
-the existing selector's protection. If retained input still does not fit, the
-usual context-budget failure is returned; the extension does not truncate it.
+The first compaction normally uses one model call; at most two are made per
+compaction. A second response that does not shrink the input does not cause
+another retry. If the target is still missed but input fits the effective budget,
+continue and record the miss. Protected task/steering/latest exchanges inside E
+follow the existing turn-internal behavior. If the effective input budget itself
+is exceeded, the existing context-budget result applies. No new target-based
+refusal is added. No child execution, agent loop or tools are used for summarizing.
+
+The summary model automatically inherits the parent provider, model and effort.
+Selecting a separate summarization provider/model is a separate task and is not
+implemented by this extension.
 
 ## References
 
@@ -82,9 +117,12 @@ leaves the previous Session memory intact. Children use independent execution
 memory. Deleting a Session releases its extension memory.
 
 TUI reconnection and later runs against the same Core retain it. A new Core or
-standalone CLI process starts without that memory and may summarize originals
-again. Changing the explicit from-turn boundary resets this example's state;
-summaries outside that history selection are not reused.
+standalone CLI process starts without that memory. On its first request with
+saved history, it first excludes old whole turns until the candidate fits the
+input budget, then compacts remaining history if above the final target rather
+than waiting for the normal 90% trigger. Changing the explicit from-turn boundary
+resets this example's state; summaries outside that selection are not reused.
+The extension uses the `compaction-v2` memory key without converting older state.
 
 No summary table, checkpoint JSON or source archive is added. The summarization
 request/response/stream is not appended to normal messages, assistant thinking,

@@ -181,12 +181,26 @@ func TestRequestModelIncompleteSummaryDoesNotPublishMemory(t *testing.T) {
 }
 
 func installCompaction(t *testing.T, workspace string, budget map[string]any) {
+	installCompactionWithPolicy(t, workspace, budget, nil)
+}
+
+func installCompactionWithPolicy(t *testing.T, workspace string, budget map[string]any, policy map[string]int64) {
 	t.Helper()
 	source, err := os.ReadFile(filepath.Join("..", "..", "examples", "hooks", "compaction.js"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	installLifecycleHooks(t, workspace, string(source))
+	hook := string(source)
+	if len(policy) != 0 {
+		var fields []string
+		for _, key := range []string{"triggerTokens", "targetTokens"} {
+			if value, ok := policy[key]; ok {
+				fields = append(fields, key+": "+strconv.FormatInt(value, 10))
+			}
+		}
+		hook = strings.Replace(hook, "  triggerTokens: null,\n  targetTokens: null,", "  "+strings.Join(fields, ",\n  ")+",", 1)
+	}
+	installLifecycleHooks(t, workspace, hook)
 	path := filepath.Join(workspace, ".hjh", "extensions", "config.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -286,14 +300,446 @@ func TestJSCompactionTriggersAboveNinetyPercentOfBudget(t *testing.T) {
 				if fact.EstimatedTokens <= limit*8/10 || fact.EstimatedTokens > limit*9/10 {
 					t.Fatalf("retained input was not between 80%% and 90%%: %d", fact.EstimatedTokens)
 				}
+			} else {
+				var memory struct {
+					LastCompaction struct {
+						TargetTokens int64 `json:"targetTokens"`
+						AfterTokens  int64 `json:"afterTokens"`
+						TargetMet    bool  `json:"targetMet"`
+					} `json:"lastCompaction"`
+				}
+				if err := json.Unmarshal(service.options.ContextMemory.begin(first.SessionID).get("compaction-v2"), &memory); err != nil {
+					t.Fatal(err)
+				}
+				if memory.LastCompaction.TargetTokens != limit/3 || !memory.LastCompaction.TargetMet || memory.LastCompaction.AfterTokens > limit/3 {
+					t.Fatalf("final input missed one-third target: %+v", memory.LastCompaction)
+				}
 			}
 		})
 	}
 }
 
+func TestJSCompactionSummarizesLargeCurrentExchangeWithoutJSONExpansion(t *testing.T) {
+	store, workspace := delegationStore(t)
+	const limit = 14787
+	const target = limit / 3
+	const trigger = 6000
+	installCompactionWithPolicy(t, workspace, map[string]any{"inputTokens": limit},
+		map[string]int64{"triggerTokens": trigger, "targetTokens": target})
+	old := strings.Repeat("OLD_JSON_LINE {\"quoted\":\"value\"} \\\\path\n", 200)
+	latest := "LATEST_RECENT_TOOL_RESULT for E\n" + strings.Repeat("LATEST_DETAIL ", 900)
+	for name, content := range map[string]string{"old.txt": old, "latest.txt": latest} {
+		if err := os.WriteFile(filepath.Join(workspace, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	summaryCalls, mainCalls := 0, 0
+	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+			summaryCalls++
+			if len(request.Tools) != 0 || len(request.Messages) != 1 {
+				return contracts.ModelResult{}, errors.New("summary request did not use the tool-free single-message API")
+			}
+			prompt := request.Messages[0].VisibleText()
+			if !strings.Contains(prompt, "Current task (E)") || !strings.Contains(prompt, "inspect E current work") ||
+				!strings.Contains(prompt, "Recent retained E state") || !strings.Contains(prompt, "LATEST_RECENT_TOOL_RESULT") ||
+				strings.Count(prompt, "inspect E current work") != 1 {
+				return contracts.ModelResult{}, errors.New("summary input lost current context or duplicated it")
+			}
+			if summaryCalls == 1 && (!strings.Contains(prompt, "Older current exchanges to summarize") ||
+				!strings.Contains(prompt, "OLD_JSON_LINE") || !strings.Contains(prompt, "path\nOLD_JSON_LINE")) {
+				return contracts.ModelResult{}, errors.New("raw newlines were unnecessarily JSON-escaped in summary input")
+			}
+			if strings.Contains(request.Instruction, "approximately 0 characters") ||
+				!strings.Contains(request.Instruction, "approximately 1200 characters") {
+				return contracts.ModelResult{}, errors.New("oversized required E state produced a zero or undersized summary hint")
+			}
+			return contracts.ModelResult{Text: "WITHIN_TURN_COMPACT_SUMMARY"}, nil
+		}
+		mainCalls++
+		if mainCalls == 1 {
+			return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "old", Name: "read_file", Arguments: contracts.JSON(map[string]string{"path": "old.txt"})}}}, nil
+		}
+		if mainCalls == 2 {
+			if !strings.Contains(string(contracts.JSON(request.Messages)), "OLD_JSON_LINE") {
+				return contracts.ModelResult{}, errors.New("first current exchange was missing before compaction")
+			}
+			return contracts.ModelResult{Calls: []contracts.ToolCall{{CallID: "latest", Name: "read_file", Arguments: contracts.JSON(map[string]string{"path": "latest.txt"})}}}, nil
+		}
+		encoded := string(contracts.JSON(request.Messages))
+		if summaryCalls == 0 || !strings.Contains(encoded, "WITHIN_TURN_COMPACT_SUMMARY") ||
+			strings.Contains(encoded, "OLD_JSON_LINE") || !strings.Contains(encoded, "LATEST_DETAIL") {
+			return contracts.ModelResult{}, errors.New("compacted request did not preserve the summary and latest E state")
+		}
+		return contracts.ModelResult{Text: "done"}, nil
+	})
+	service := NewService(store, provider, RunOptions{Workspace: workspace})
+	defer service.Close()
+	result, err := service.Run(t.Context(), RunRequest{Task: "inspect E current work", ModelID: "test/model"})
+	if err != nil || !result.Result.OK || summaryCalls < 1 || summaryCalls > 2 || mainCalls != 3 {
+		t.Fatalf("within-turn compaction: %+v %v; summaries=%d main=%d", result, err, summaryCalls, mainCalls)
+	}
+	var memory struct {
+		LastCompaction struct {
+			TargetTokens int64 `json:"targetTokens"`
+			AfterTokens  int64 `json:"afterTokens"`
+			TargetMet    bool  `json:"targetMet"`
+		} `json:"lastCompaction"`
+	}
+	if err := json.Unmarshal(service.options.ContextMemory.begin(result.SessionID).get("compaction-v2"), &memory); err != nil {
+		t.Fatal(err)
+	}
+	if memory.LastCompaction.TargetTokens != target || memory.LastCompaction.TargetMet || memory.LastCompaction.AfterTokens > limit {
+		t.Fatalf("protected E state did not continue with target miss recorded: %+v", memory.LastCompaction)
+	}
+}
+
+func TestJSCompactionRestoredHistoryUsesTargetBeforeNormalTrigger(t *testing.T) {
+	store, workspace := delegationStore(t)
+	const limit = 10000
+	const target = 2000
+	installCompactionWithPolicy(t, workspace,
+		map[string]any{"contextTokens": 128000, "inputTokens": limit},
+		map[string]int64{"triggerTokens": 9000, "targetTokens": target})
+	raw := strings.Repeat("RESTORE_RAW_FACT ", 420)
+	seedProvider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+			return contracts.ModelResult{}, errors.New("same-Core continuation unexpectedly summarized")
+		}
+		if request.Messages[len(request.Messages)-1].VisibleText() == "seed restoration history" {
+			return contracts.ModelResult{Text: raw}, nil
+		}
+		if !strings.Contains(string(contracts.JSON(request.Messages)), raw) {
+			return contracts.ModelResult{}, errors.New("same-Core request lost history below the normal trigger")
+		}
+		return contracts.ModelResult{Text: "same-Core continuation"}, nil
+	})
+	service := NewService(store, seedProvider, RunOptions{Workspace: workspace})
+	first, err := service.Run(t.Context(), RunRequest{Task: "seed restoration history", ModelID: "test/model"})
+	if err != nil || !first.Result.OK {
+		t.Fatalf("seed history: %+v %v", first, err)
+	}
+	if _, err := service.Run(t.Context(), RunRequest{SessionID: first.SessionID, Task: "same Core normal continuation"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	summaryCalls, mainCalls := 0, 0
+	var firstSummaryInput string
+	restartedProvider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+			summaryCalls++
+			encoded := string(contracts.JSON(request.Messages))
+			if summaryCalls == 1 {
+				firstSummaryInput = encoded
+			}
+			if !strings.Contains(encoded, "Current task (E)") || !strings.Contains(encoded, "restart continuation") {
+				return contracts.ModelResult{}, errors.New("restored summary omitted E or its recent source")
+			}
+			return contracts.ModelResult{Text: "RESTORED_COMPACTED_FACTS"}, nil
+		}
+		mainCalls++
+		encoded := string(contracts.JSON(request.Messages))
+		if !strings.Contains(encoded, "RESTORED_COMPACTED_FACTS") || strings.Contains(encoded, raw) {
+			return contracts.ModelResult{}, errors.New("restored request did not use the compacted history")
+		}
+		return contracts.ModelResult{Text: "done"}, nil
+	})
+	restarted := NewService(store, restartedProvider, RunOptions{Workspace: workspace})
+	defer restarted.Close()
+	result, err := restarted.Run(t.Context(), RunRequest{SessionID: first.SessionID, Task: "restart continuation"})
+	if err != nil || !result.Result.OK || summaryCalls != 1 || mainCalls != 1 {
+		t.Fatalf("restored continuation: %+v %v; summaries=%d main=%d", result, err, summaryCalls, mainCalls)
+	}
+	if !strings.Contains(firstSummaryInput, "RESTORE_RAW_FACT") {
+		t.Fatal("restored summary omitted its in-budget history source")
+	}
+	var memory struct {
+		Summaries      []any `json:"summaries"`
+		LastCompaction struct {
+			BeforeTokens int64 `json:"beforeTokens"`
+			TargetTokens int64 `json:"targetTokens"`
+			AfterTokens  int64 `json:"afterTokens"`
+			TargetMet    bool  `json:"targetMet"`
+			Restored     bool  `json:"restored"`
+		} `json:"lastCompaction"`
+	}
+	if err := json.Unmarshal(restarted.options.ContextMemory.begin(first.SessionID).get("compaction-v2"), &memory); err != nil {
+		t.Fatal(err)
+	}
+	if len(memory.Summaries) != 1 || !memory.LastCompaction.Restored || !memory.LastCompaction.TargetMet ||
+		memory.LastCompaction.TargetTokens != target || memory.LastCompaction.AfterTokens > target || memory.LastCompaction.BeforeTokens <= target {
+		t.Fatalf("restored target state: %+v", memory)
+	}
+	_, fact := budgetFact(t, store, first.SessionID)
+	if fact.Budget.Limit == nil || *fact.Budget.Limit != limit {
+		t.Fatalf("configured input limit was not used: %+v", fact.Budget)
+	}
+}
+
+func TestJSCompactionSameCoreOverflowSummarizesOlderCompletedTurn(t *testing.T) {
+	store, workspace := delegationStore(t)
+	const limit = 10000
+	const target = limit / 3
+	const trigger = 9000
+	installCompactionWithPolicy(t, workspace,
+		map[string]any{"inputTokens": limit},
+		map[string]int64{"triggerTokens": trigger, "targetTokens": target})
+
+	cTask := "complete C history"
+	dTask := "complete D history"
+	eTask := "E_CURRENT_TASK continue the active work " + strings.Repeat("E_DEPENDENCY ", 220)
+	followupTask := "continue after E"
+	cRaw := "C_REQUIRED_FACT " + strings.Repeat("C_SOURCE_FACT ", 1300)
+	dRaw := "D_REQUIRED_FACT " + strings.Repeat("D_SOURCE_FACT ", 780)
+	const firstNote = "C_CONTINUATION_NOTE"
+	const mergedNote = "C_AND_D_CONTINUATION_NOTE"
+	summaryCalls := 0
+	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+			summaryCalls++
+			encoded := string(contracts.JSON(request.Messages))
+			switch summaryCalls {
+			case 1:
+				if !strings.Contains(encoded, "C_REQUIRED_FACT") || strings.Contains(encoded, "D_REQUIRED_FACT") {
+					return contracts.ModelResult{}, errors.New("first summary did not isolate the overflowing older C turn")
+				}
+				return contracts.ModelResult{Text: firstNote}, nil
+			case 2:
+				if !strings.Contains(encoded, firstNote) || !strings.Contains(encoded, "D_REQUIRED_FACT") ||
+					strings.Contains(encoded, "C_REQUIRED_FACT") || !strings.Contains(encoded, "E_CURRENT_TASK") {
+					return contracts.ModelResult{}, errors.New("second summary did not integrate the first note with pending D and E")
+				}
+				return contracts.ModelResult{Text: mergedNote}, nil
+			default:
+				return contracts.ModelResult{}, errors.New("same-Core overflow used more than two summary calls")
+			}
+		}
+
+		encoded := string(contracts.JSON(request.Messages))
+		latest := request.Messages[len(request.Messages)-1].VisibleText()
+		switch latest {
+		case cTask:
+			return contracts.ModelResult{Text: cRaw}, nil
+		case dTask:
+			if summaryCalls != 0 || !strings.Contains(encoded, "C_REQUIRED_FACT") {
+				return contracts.ModelResult{}, errors.New("D request compacted or lost C before crossing the trigger")
+			}
+			return contracts.ModelResult{Text: dRaw}, nil
+		case eTask:
+			if summaryCalls != 2 || !strings.Contains(encoded, mergedNote) ||
+				strings.Contains(encoded, "C_REQUIRED_FACT") || strings.Contains(encoded, "D_REQUIRED_FACT") {
+				return contracts.ModelResult{}, errors.New("E request did not receive the integrated C and D continuation note")
+			}
+			return contracts.ModelResult{Text: "E_RESULT"}, nil
+		case followupTask:
+			if !strings.Contains(encoded, mergedNote) || strings.Contains(encoded, "C_REQUIRED_FACT") || strings.Contains(encoded, "D_REQUIRED_FACT") {
+				return contracts.ModelResult{}, errors.New("next turn lost the integrated C and D continuation note")
+			}
+			return contracts.ModelResult{Text: "follow-up complete"}, nil
+		default:
+			return contracts.ModelResult{}, errors.New("unexpected request in same-Core overflow test")
+		}
+	})
+	service := NewService(store, provider, RunOptions{Workspace: workspace})
+	defer service.Close()
+	c, err := service.Run(t.Context(), RunRequest{Task: cTask, ModelID: "test/model"})
+	if err != nil || !c.Result.OK {
+		t.Fatalf("complete C: %+v %v", c, err)
+	}
+	d, err := service.Run(t.Context(), RunRequest{SessionID: c.SessionID, Task: dTask})
+	if err != nil || !d.Result.OK || summaryCalls != 0 {
+		t.Fatalf("complete D below trigger: %+v %v; summaries=%d", d, err, summaryCalls)
+	}
+	e, err := service.Run(t.Context(), RunRequest{SessionID: c.SessionID, Task: eTask})
+	if err != nil || !e.Result.OK || summaryCalls != 2 {
+		t.Fatalf("compact E after same-Core overflow: %+v %v; summaries=%d", e, err, summaryCalls)
+	}
+	var memory struct {
+		Summaries []struct {
+			Text    string `json:"text"`
+			Sources []struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"sources"`
+		} `json:"summaries"`
+		Covered        map[string]json.RawMessage `json:"covered"`
+		LastCompaction struct {
+			BeforeTokens int64 `json:"beforeTokens"`
+			AfterTokens  int64 `json:"afterTokens"`
+			TargetTokens int64 `json:"targetTokens"`
+			SummaryCalls int   `json:"summaryCalls"`
+			TargetMet    bool  `json:"targetMet"`
+		} `json:"lastCompaction"`
+	}
+	if err := json.Unmarshal(service.options.ContextMemory.begin(c.SessionID).get("compaction-v2"), &memory); err != nil {
+		t.Fatal(err)
+	}
+	if len(memory.Summaries) != 1 || memory.Summaries[0].Text != mergedNote ||
+		memory.LastCompaction.BeforeTokens <= limit || memory.LastCompaction.AfterTokens > target ||
+		memory.LastCompaction.TargetTokens != target || memory.LastCompaction.SummaryCalls != 2 || !memory.LastCompaction.TargetMet {
+		t.Fatalf("overflow compaction state: %+v", memory.LastCompaction)
+	}
+	seenSources := map[string]bool{}
+	for _, source := range memory.Summaries[0].Sources {
+		seenSources[source.ExecutionID] = true
+	}
+	if !seenSources[c.ExecutionID] || !seenSources[d.ExecutionID] ||
+		len(memory.Covered[c.ExecutionID]) == 0 || len(memory.Covered[d.ExecutionID]) == 0 {
+		t.Fatalf("C and D source state was not adopted with the merged note: %+v", memory)
+	}
+	if _, err := service.Run(t.Context(), RunRequest{SessionID: c.SessionID, Task: followupTask}); err != nil {
+		t.Fatal(err)
+	}
+	if summaryCalls != 2 {
+		t.Fatalf("unexpected follow-up re-summarization: calls=%d", summaryCalls)
+	}
+}
+
+func TestJSCompactionUsesSecondSmallerContinuationCandidate(t *testing.T) {
+	store, workspace := delegationStore(t)
+	const limit = 6000
+	const trigger = 2500
+	const target = 1800
+	installCompactionWithPolicy(t, workspace,
+		map[string]any{"inputTokens": limit},
+		map[string]int64{"triggerTokens": trigger, "targetTokens": target})
+	raw := strings.Repeat("CANDIDATE_SOURCE_FACT ", 330)
+	summaryCalls, mainCalls, secondSawFirst := 0, 0, false
+	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+			summaryCalls++
+			if summaryCalls == 1 {
+				return contracts.ModelResult{Text: "FIRST_LONG_CANDIDATE " + strings.Repeat("preserve continuation details ", 130)}, nil
+			}
+			secondSawFirst = strings.Contains(string(contracts.JSON(request.Messages)), "FIRST_LONG_CANDIDATE")
+			return contracts.ModelResult{Text: "SECOND_SMALL_CANDIDATE"}, nil
+		}
+		mainCalls++
+		if request.Messages[len(request.Messages)-1].VisibleText() == "seed candidate history" {
+			return contracts.ModelResult{Text: raw}, nil
+		}
+		if mainCalls == 2 {
+			encoded := string(contracts.JSON(request.Messages))
+			if strings.Contains(encoded, "FIRST_LONG_CANDIDATE") || !strings.Contains(encoded, "SECOND_SMALL_CANDIDATE") {
+				return contracts.ModelResult{}, errors.New("larger first candidate was selected")
+			}
+		}
+		return contracts.ModelResult{Text: "done"}, nil
+	})
+	service := NewService(store, provider, RunOptions{Workspace: workspace})
+	defer service.Close()
+	first, err := service.Run(t.Context(), RunRequest{Task: "seed candidate history", ModelID: "test/model"})
+	if err != nil || !first.Result.OK {
+		t.Fatalf("seed history: %+v %v", first, err)
+	}
+	second, err := service.Run(t.Context(), RunRequest{SessionID: first.SessionID, Task: "continue candidate history"})
+	if err != nil || !second.Result.OK {
+		t.Fatalf("candidate compaction: %+v %v", second, err)
+	}
+	if summaryCalls != 2 || !secondSawFirst {
+		t.Fatalf("bounded summary input: calls=%d secondSawFirst=%v", summaryCalls, secondSawFirst)
+	}
+	var memory struct {
+		Summaries []struct {
+			Text    string `json:"text"`
+			Sources []struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"sources"`
+		} `json:"summaries"`
+		LastCompaction struct {
+			SummaryCalls      int    `json:"summaryCalls"`
+			TargetTokens      int64  `json:"targetTokens"`
+			AfterTokens       int64  `json:"afterTokens"`
+			TargetMet         bool   `json:"targetMet"`
+			SelectedCandidate string `json:"selectedCandidate"`
+		} `json:"lastCompaction"`
+	}
+	if err := json.Unmarshal(service.options.ContextMemory.begin(first.SessionID).get("compaction-v2"), &memory); err != nil {
+		t.Fatal(err)
+	}
+	if len(memory.Summaries) != 1 || memory.Summaries[0].Text != "SECOND_SMALL_CANDIDATE" ||
+		len(memory.Summaries[0].Sources) == 0 || memory.Summaries[0].Sources[0].ExecutionID != first.ExecutionID ||
+		memory.LastCompaction.SummaryCalls != 2 || memory.LastCompaction.SelectedCandidate != "second" ||
+		!memory.LastCompaction.TargetMet || memory.LastCompaction.TargetTokens != target || memory.LastCompaction.AfterTokens > target {
+		t.Fatalf("selected candidate state mismatch: %+v", memory)
+	}
+}
+
+func TestJSCompactionKeepsFirstCandidateWhenSecondDoesNotShrink(t *testing.T) {
+	store, workspace := delegationStore(t)
+	const limit = 6000
+	const trigger = 2500
+	const target = 1800
+	installCompactionWithPolicy(t, workspace,
+		map[string]any{"inputTokens": limit},
+		map[string]int64{"triggerTokens": trigger, "targetTokens": target})
+	raw := strings.Repeat("FIRST_CANDIDATE_SOURCE_FACT ", 330)
+	firstText := "FIRST_CONTINUATION_CANDIDATE " + strings.Repeat("preserve required continuation detail ", 45)
+	summaryCalls, mainCalls, secondSawFirst := 0, 0, false
+	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
+		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
+			summaryCalls++
+			if summaryCalls == 1 {
+				return contracts.ModelResult{Text: firstText}, nil
+			}
+			secondSawFirst = strings.Contains(string(contracts.JSON(request.Messages)), firstText)
+			return contracts.ModelResult{Text: firstText}, nil
+		}
+		mainCalls++
+		if request.Messages[len(request.Messages)-1].VisibleText() == "seed first-candidate history" {
+			return contracts.ModelResult{Text: raw}, nil
+		}
+		encoded := string(contracts.JSON(request.Messages))
+		if mainCalls == 2 && (!strings.Contains(encoded, firstText) || strings.Contains(encoded, "FIRST_CANDIDATE_SOURCE_FACT")) {
+			return contracts.ModelResult{}, errors.New("first continuation candidate was not kept")
+		}
+		return contracts.ModelResult{Text: "done"}, nil
+	})
+	service := NewService(store, provider, RunOptions{Workspace: workspace})
+	defer service.Close()
+	first, err := service.Run(t.Context(), RunRequest{Task: "seed first-candidate history", ModelID: "test/model"})
+	if err != nil || !first.Result.OK {
+		t.Fatalf("seed history: %+v %v", first, err)
+	}
+	result, err := service.Run(t.Context(), RunRequest{SessionID: first.SessionID, Task: "continue with first candidate"})
+	if err != nil || !result.Result.OK {
+		t.Fatalf("first candidate continuation: %+v %v", result, err)
+	}
+	if summaryCalls != 2 || !secondSawFirst {
+		t.Fatalf("bounded second summary: calls=%d secondSawFirst=%v", summaryCalls, secondSawFirst)
+	}
+	var memory struct {
+		Summaries []struct {
+			Text    string `json:"text"`
+			Sources []struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"sources"`
+		} `json:"summaries"`
+		LastCompaction struct {
+			SummaryCalls      int    `json:"summaryCalls"`
+			TargetTokens      int64  `json:"targetTokens"`
+			AfterTokens       int64  `json:"afterTokens"`
+			TargetMet         bool   `json:"targetMet"`
+			SelectedCandidate string `json:"selectedCandidate"`
+		} `json:"lastCompaction"`
+	}
+	if err := json.Unmarshal(service.options.ContextMemory.begin(first.SessionID).get("compaction-v2"), &memory); err != nil {
+		t.Fatal(err)
+	}
+	if len(memory.Summaries) != 1 || memory.Summaries[0].Text != firstText ||
+		len(memory.Summaries[0].Sources) == 0 || memory.Summaries[0].Sources[0].ExecutionID != first.ExecutionID ||
+		memory.LastCompaction.SummaryCalls != 2 || memory.LastCompaction.SelectedCandidate != "first" ||
+		memory.LastCompaction.TargetMet || memory.LastCompaction.TargetTokens != target || memory.LastCompaction.AfterTokens > limit {
+		t.Fatalf("first candidate state mismatch: %+v", memory)
+	}
+}
+
 func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T) {
 	store, workspace := delegationStore(t)
-	installCompaction(t, workspace, map[string]any{"inputTokens": 4000})
+	installCompactionWithPolicy(t, workspace, map[string]any{"inputTokens": 8000},
+		map[string]int64{"triggerTokens": 3000, "targetTokens": 2500})
 	a, b := strings.Repeat("FIRST_A ", 650), strings.Repeat("SECOND_B ", 600)
 	for name, text := range map[string]string{"a.txt": a, "b.txt": b} {
 		if err := os.WriteFile(filepath.Join(workspace, name), []byte(text), 0644); err != nil {
@@ -305,6 +751,12 @@ func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T
 	provider := delegationProvider(func(_ context.Context, request contracts.ModelRequest, _ contracts.Observer) (contracts.ModelResult, error) {
 		if strings.HasPrefix(request.Instruction, "Summarize this conversation") {
 			summaries++
+			if summaries > 2 {
+				encoded := string(contracts.JSON(request.Messages))
+				if strings.Contains(encoded, a) {
+					t.Error("summary input reintroduced a covered completed-turn message")
+				}
+			}
 			if len(request.Tools) != 0 || request.Model.ModelID != "test/model" {
 				t.Errorf("wrong summary connection: %+v", request)
 			}
@@ -325,8 +777,8 @@ func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T
 			}
 			return contracts.ModelResult{Text: "TURN1_FINAL_NOTE " + strings.Repeat("final facts ", 650)}, nil
 		}
-		if mainCalls <= 5 && (!strings.Contains(encoded, "SUMMARY_NOTE_1") || !strings.Contains(encoded, "SUMMARY_NOTE_2") || !strings.Contains(encoded, firstExecution) || !strings.Contains(encoded, "final message 5") || strings.Contains(encoded, "TURN1_FINAL_NOTE ")) {
-			t.Errorf("completed turn projection or reference lost: %s", encoded)
+		if mainCalls == 4 && (!strings.Contains(encoded, "SUMMARY_NOTE_3") || strings.Contains(encoded, "SUMMARY_NOTE_1") || strings.Contains(encoded, "SUMMARY_NOTE_2") || !strings.Contains(encoded, firstExecution) || !strings.Contains(encoded, "final message 5") || strings.Contains(encoded, "TURN1_FINAL_NOTE ")) {
+			t.Errorf("completed turn projection or consolidated reference lost: %s", encoded)
 		}
 		if mainCalls == 6 && strings.Contains(encoded, "SUMMARY_NOTE_") {
 			t.Error("from-turn boundary reused an older summary")
@@ -347,8 +799,8 @@ func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T
 	if _, err := service.Run(t.Context(), RunRequest{SessionID: first.SessionID, Task: "continue again"}); err != nil {
 		t.Fatal(err)
 	}
-	if summaries != 2 {
-		t.Fatalf("old coverage was summarized again: %d calls", summaries)
+	if summaries < 2 || summaries > 4 {
+		t.Fatalf("unexpected summary calls across two compactions: %d", summaries)
 	}
 	var memory struct {
 		Summaries []struct {
@@ -357,11 +809,14 @@ func TestJSCompactionWithinTurnThenCompletedTurnReferencesAndResume(t *testing.T
 				FinalMessage *int64 `json:"finalMessage"`
 			}
 		}
+		LastCompaction struct {
+			SummaryCalls int `json:"summaryCalls"`
+		} `json:"lastCompaction"`
 	}
-	if err := json.Unmarshal(service.options.ContextMemory.begin(first.SessionID).get("compaction-v1"), &memory); err != nil {
+	if err := json.Unmarshal(service.options.ContextMemory.begin(first.SessionID).get("compaction-v2"), &memory); err != nil {
 		t.Fatal(err)
 	}
-	if len(memory.Summaries) != 2 || memory.Summaries[0].Sources[0].FinalMessage != nil || memory.Summaries[1].Sources[0].FinalMessage == nil || *memory.Summaries[1].Sources[0].FinalMessage != 5 {
+	if len(memory.Summaries) != 1 || memory.LastCompaction.SummaryCalls > 2 || memory.Summaries[0].Sources[0].FinalMessage == nil || *memory.Summaries[0].Sources[0].FinalMessage != 5 {
 		t.Fatalf("references: %+v", memory)
 	}
 	stored, err := store.Messages(t.Context(), first.ExecutionID, 5, 5)

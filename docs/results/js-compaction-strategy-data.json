@@ -1,0 +1,2655 @@
+{
+  "date": "2026-10-16",
+  "provider": "opencode-go-chat",
+  "model": "deepseek-v4.1-flash",
+  "effort": "auto",
+  "evidence": "/tmp/hjh-compaction-strategy-wvuVHX3a/live/compaction-g8u9exhb",
+  "cases": 36,
+  "conditions": [
+    {
+      "nominalEstimatedTokens": 30000,
+      "mode": "between",
+      "version": "old",
+      "runs": 3,
+      "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+      "inputLimit": 34414,
+      "triggerTokens": 30972.600000000002,
+      "targetTokens": 20648.399999999998,
+      "targetKind": "raw-input-before-new-summary",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "2469f25a-9688-41d1-960f-7a349524a8b7",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 9639,
+          "ratio": 0.30225776105362184,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 15428,
+          "hookId": "e0c8e097-64ef-46ed-ae3b-a6a78b9c313a",
+          "hookSeconds": 15.4339439868927,
+          "summarySeconds": [
+            15.399410009384155
+          ],
+          "summaryTotalSeconds": 15.399410009384155,
+          "otherSeconds": 0.03453397750854492,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 17007,
+              "completion_tokens": 1436,
+              "total_tokens": 18443,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1109
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "e7ef3d21-2439-46a9-8480-7d7be5140a98",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 9461,
+          "ratio": 0.2966760740043901,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 16006,
+          "hookId": "b0fe5eb3-071e-4711-9718-10b0c957b5aa",
+          "hookSeconds": 16.010260105133057,
+          "summarySeconds": [
+            15.974658966064453
+          ],
+          "summaryTotalSeconds": 15.974658966064453,
+          "otherSeconds": 0.035601139068603516,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 17019,
+              "completion_tokens": 1548,
+              "total_tokens": 18567,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1328
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "a60651e8-f83a-420b-84d7-4773da35f00c",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 9419,
+          "ratio": 0.2953590467231107,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 6688,
+          "hookId": "370aafe2-543d-4f97-8bff-8adfa13e0f7c",
+          "hookSeconds": 6.692312002182007,
+          "summarySeconds": [
+            6.655535936355591
+          ],
+          "summaryTotalSeconds": 6.655535936355591,
+          "otherSeconds": 0.036776065826416016,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 17011,
+              "completion_tokens": 676,
+              "total_tokens": 17687,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 488
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          15.399410009384155,
+          15.974658966064453,
+          6.655535936355591
+        ],
+        "median": 15.399410009384155,
+        "min": 6.655535936355591,
+        "max": 15.974658966064453
+      },
+      "hookSeconds": {
+        "values": [
+          15.4339439868927,
+          16.010260105133057,
+          6.692312002182007
+        ],
+        "median": 15.4339439868927,
+        "min": 6.692312002182007,
+        "max": 16.010260105133057
+      },
+      "otherSeconds": {
+        "values": [
+          0.03453397750854492,
+          0.035601139068603516,
+          0.036776065826416016
+        ],
+        "median": 0.035601139068603516,
+        "min": 0.03453397750854492,
+        "max": 0.036776065826416016
+      },
+      "compactSeconds": {
+        "values": [
+          15.428,
+          16.006,
+          6.688
+        ],
+        "median": 15.428,
+        "min": 6.688,
+        "max": 16.006
+      },
+      "cliSeconds": {
+        "values": [
+          52.43281178199686,
+          20.208348714979365,
+          9.48888793104561
+        ],
+        "median": 20.208348714979365,
+        "min": 9.48888793104561,
+        "max": 52.43281178199686
+      },
+      "beforeTokens": {
+        "values": [
+          31890,
+          31890,
+          31890
+        ],
+        "median": 31890,
+        "min": 31890,
+        "max": 31890
+      },
+      "afterTokens": {
+        "values": [
+          9639,
+          9461,
+          9419
+        ],
+        "median": 9461,
+        "min": 9419,
+        "max": 9639
+      },
+      "ratio": {
+        "values": [
+          0.30225776105362184,
+          0.2966760740043901,
+          0.2953590467231107
+        ],
+        "median": 0.2966760740043901,
+        "min": 0.2953590467231107,
+        "max": 0.30225776105362184
+      },
+      "providerPromptTokens": {
+        "values": [
+          17007,
+          17019,
+          17011
+        ],
+        "median": 17011,
+        "min": 17007,
+        "max": 17019
+      },
+      "providerCompletionTokens": {
+        "values": [
+          1436,
+          1548,
+          676
+        ],
+        "median": 1436,
+        "min": 676,
+        "max": 1548
+      },
+      "targetMetCount": 0,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 30000,
+      "mode": "between",
+      "version": "new",
+      "runs": 3,
+      "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+      "inputLimit": 34414,
+      "triggerTokens": 30972.600000000002,
+      "targetTokens": 11471,
+      "targetKind": "final-input",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "327da143-830c-4be2-80d4-ace777d5ad1c",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 2055,
+          "ratio": 0.06444026340545625,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 29234,
+          "hookId": "b2bcb311-45e1-4e9b-a83c-12de81ac3570",
+          "hookSeconds": 29.2360200881958,
+          "summarySeconds": [
+            29.204437017440796
+          ],
+          "summaryTotalSeconds": 29.204437017440796,
+          "otherSeconds": 0.03158307075500488,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 20674,
+              "completion_tokens": 4015,
+              "total_tokens": 24689,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 3644
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "94e6b984-f6f0-4616-8b56-4ccff365fd2d",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 1940,
+          "ratio": 0.06083411727814362,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 22614,
+          "hookId": "79c84ca1-cb4a-4e0c-8f48-7ce913b868d6",
+          "hookSeconds": 22.61885094642639,
+          "summarySeconds": [
+            22.582024097442627
+          ],
+          "summaryTotalSeconds": 22.582024097442627,
+          "otherSeconds": 0.03682684898376465,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 20674,
+              "completion_tokens": 2953,
+              "total_tokens": 23627,
+              "prompt_tokens_details": {
+                "cached_tokens": 20608
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2697
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "aef2a9a7-7b02-4f41-b704-32c179f7256d",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 1920,
+          "ratio": 0.060206961429915336,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 15349,
+          "hookId": "fa358c49-1aea-4d9f-919a-cf8c356d2b13",
+          "hookSeconds": 15.350557088851929,
+          "summarySeconds": [
+            15.318368911743164
+          ],
+          "summaryTotalSeconds": 15.318368911743164,
+          "otherSeconds": 0.03218817710876465,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 20674,
+              "completion_tokens": 1895,
+              "total_tokens": 22569,
+              "prompt_tokens_details": {
+                "cached_tokens": 20608
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1621
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          29.204437017440796,
+          22.582024097442627,
+          15.318368911743164
+        ],
+        "median": 22.582024097442627,
+        "min": 15.318368911743164,
+        "max": 29.204437017440796
+      },
+      "hookSeconds": {
+        "values": [
+          29.2360200881958,
+          22.61885094642639,
+          15.350557088851929
+        ],
+        "median": 22.61885094642639,
+        "min": 15.350557088851929,
+        "max": 29.2360200881958
+      },
+      "otherSeconds": {
+        "values": [
+          0.03158307075500488,
+          0.03682684898376465,
+          0.03218817710876465
+        ],
+        "median": 0.03218817710876465,
+        "min": 0.03158307075500488,
+        "max": 0.03682684898376465
+      },
+      "compactSeconds": {
+        "values": [
+          29.234,
+          22.614,
+          15.349
+        ],
+        "median": 22.614,
+        "min": 15.349,
+        "max": 29.234
+      },
+      "cliSeconds": {
+        "values": [
+          31.92845423403196,
+          24.714535407023504,
+          17.39768495800672
+        ],
+        "median": 24.714535407023504,
+        "min": 17.39768495800672,
+        "max": 31.92845423403196
+      },
+      "beforeTokens": {
+        "values": [
+          31890,
+          31890,
+          31890
+        ],
+        "median": 31890,
+        "min": 31890,
+        "max": 31890
+      },
+      "afterTokens": {
+        "values": [
+          2055,
+          1940,
+          1920
+        ],
+        "median": 1940,
+        "min": 1920,
+        "max": 2055
+      },
+      "ratio": {
+        "values": [
+          0.06444026340545625,
+          0.06083411727814362,
+          0.060206961429915336
+        ],
+        "median": 0.06083411727814362,
+        "min": 0.060206961429915336,
+        "max": 0.06444026340545625
+      },
+      "providerPromptTokens": {
+        "values": [
+          20674,
+          20674,
+          20674
+        ],
+        "median": 20674,
+        "min": 20674,
+        "max": 20674
+      },
+      "providerCompletionTokens": {
+        "values": [
+          4015,
+          2953,
+          1895
+        ],
+        "median": 2953,
+        "min": 1895,
+        "max": 4015
+      },
+      "targetMetCount": 3,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 30000,
+      "mode": "within",
+      "version": "old",
+      "runs": 3,
+      "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+      "inputLimit": 34414,
+      "triggerTokens": 30972.600000000002,
+      "targetTokens": 20648.399999999998,
+      "targetKind": "raw-input-before-new-summary",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "6573b90c-b2e6-41f4-a974-c6610751b487",
+          "step": 3,
+          "beforeTokens": 33789,
+          "afterTokens": 11528,
+          "ratio": 0.3411761224067004,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 6397,
+          "hookId": "c4673bbe-f2e6-4736-b740-78b6fb58bd8b",
+          "hookSeconds": 6.401535987854004,
+          "summarySeconds": [
+            6.377633810043335
+          ],
+          "summaryTotalSeconds": 6.377633810043335,
+          "otherSeconds": 0.023902177810668945,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 16548,
+              "completion_tokens": 572,
+              "total_tokens": 17120,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 358
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "d174ed59-83cf-44a6-9add-212a9fe4d5af",
+          "step": 3,
+          "beforeTokens": 33676,
+          "afterTokens": 11401,
+          "ratio": 0.33854970899156667,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 7790,
+          "hookId": "921b42c9-d204-4613-807a-54ec0f7fe940",
+          "hookSeconds": 7.793317079544067,
+          "summarySeconds": [
+            7.765985012054443
+          ],
+          "summaryTotalSeconds": 7.765985012054443,
+          "otherSeconds": 0.027332067489624023,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 16552,
+              "completion_tokens": 815,
+              "total_tokens": 17367,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 614
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "525a9da6-7404-4639-a656-b2d59ea402ea",
+          "step": 3,
+          "beforeTokens": 33675,
+          "afterTokens": 11405,
+          "ratio": 0.33867854491462507,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 9388,
+          "hookId": "5f270042-8ccf-415e-bead-66c0e935bdc2",
+          "hookSeconds": 9.390608072280884,
+          "summarySeconds": [
+            9.361109972000122
+          ],
+          "summaryTotalSeconds": 9.361109972000122,
+          "otherSeconds": 0.02949810028076172,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 16542,
+              "completion_tokens": 904,
+              "total_tokens": 17446,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 699
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          6.377633810043335,
+          7.765985012054443,
+          9.361109972000122
+        ],
+        "median": 7.765985012054443,
+        "min": 6.377633810043335,
+        "max": 9.361109972000122
+      },
+      "hookSeconds": {
+        "values": [
+          6.401535987854004,
+          7.793317079544067,
+          9.390608072280884
+        ],
+        "median": 7.793317079544067,
+        "min": 6.401535987854004,
+        "max": 9.390608072280884
+      },
+      "otherSeconds": {
+        "values": [
+          0.023902177810668945,
+          0.027332067489624023,
+          0.02949810028076172
+        ],
+        "median": 0.027332067489624023,
+        "min": 0.023902177810668945,
+        "max": 0.02949810028076172
+      },
+      "compactSeconds": {
+        "values": [
+          6.397,
+          7.79,
+          9.388
+        ],
+        "median": 7.79,
+        "min": 6.397,
+        "max": 9.388
+      },
+      "cliSeconds": {
+        "values": [
+          19.844054611981846,
+          17.17464668402681,
+          21.35716120194411
+        ],
+        "median": 19.844054611981846,
+        "min": 17.17464668402681,
+        "max": 21.35716120194411
+      },
+      "beforeTokens": {
+        "values": [
+          33789,
+          33676,
+          33675
+        ],
+        "median": 33676,
+        "min": 33675,
+        "max": 33789
+      },
+      "afterTokens": {
+        "values": [
+          11528,
+          11401,
+          11405
+        ],
+        "median": 11405,
+        "min": 11401,
+        "max": 11528
+      },
+      "ratio": {
+        "values": [
+          0.3411761224067004,
+          0.33854970899156667,
+          0.33867854491462507
+        ],
+        "median": 0.33867854491462507,
+        "min": 0.33854970899156667,
+        "max": 0.3411761224067004
+      },
+      "providerPromptTokens": {
+        "values": [
+          16548,
+          16552,
+          16542
+        ],
+        "median": 16548,
+        "min": 16542,
+        "max": 16552
+      },
+      "providerCompletionTokens": {
+        "values": [
+          572,
+          815,
+          904
+        ],
+        "median": 815,
+        "min": 572,
+        "max": 904
+      },
+      "targetMetCount": 0,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 30000,
+      "mode": "within",
+      "version": "new",
+      "runs": 3,
+      "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+      "inputLimit": 34414,
+      "triggerTokens": 30972.600000000002,
+      "targetTokens": 11471,
+      "targetKind": "final-input",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "9ab877fd-85d0-4ab6-a76c-b3fda6ef83e0",
+          "step": 3,
+          "beforeTokens": 33679,
+          "afterTokens": 11460,
+          "ratio": 0.3402713857299801,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 20704,
+          "hookId": "d6e2a6d5-0d1f-4c5d-ae77-4bf3b16eee6d",
+          "hookSeconds": 20.707226991653442,
+          "summarySeconds": [
+            20.66934084892273
+          ],
+          "summaryTotalSeconds": 20.66934084892273,
+          "otherSeconds": 0.03788614273071289,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 21711,
+              "completion_tokens": 1947,
+              "total_tokens": 23658,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1689
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "b9620d14-1aa3-47e9-ae86-197e9ad79688",
+          "step": 3,
+          "beforeTokens": 33700,
+          "afterTokens": 11360,
+          "ratio": 0.3370919881305638,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 12022,
+          "hookId": "36abc1f4-acd4-4ec6-96bc-78c2d4fda3c2",
+          "hookSeconds": 12.027871131896973,
+          "summarySeconds": [
+            11.989987134933472
+          ],
+          "summaryTotalSeconds": 11.989987134933472,
+          "otherSeconds": 0.03788399696350098,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 21725,
+              "completion_tokens": 1382,
+              "total_tokens": 23107,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1202
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "a634e38e-bf29-4bf9-93c7-bc9140a042e1",
+          "step": 3,
+          "beforeTokens": 34282,
+          "afterTokens": 11981,
+          "ratio": 0.34948369406685725,
+          "targetMet": false,
+          "targetTokens": 11471,
+          "summaryCalls": 2,
+          "compactMilliseconds": 30743,
+          "hookId": "4d3cb0f2-408f-474c-9b33-76b21d8bcfb7",
+          "hookSeconds": 30.746126890182495,
+          "summarySeconds": [
+            19.37501311302185,
+            11.32898211479187
+          ],
+          "summaryTotalSeconds": 30.70399522781372,
+          "otherSeconds": 0.042131662368774414,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 21750,
+              "completion_tokens": 2422,
+              "total_tokens": 24172,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2180
+              }
+            },
+            {
+              "prompt_tokens": 6975,
+              "completion_tokens": 333,
+              "total_tokens": 7308,
+              "prompt_tokens_details": {
+                "cached_tokens": 6656
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 105
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          20.66934084892273,
+          11.989987134933472,
+          30.70399522781372
+        ],
+        "median": 20.66934084892273,
+        "min": 11.989987134933472,
+        "max": 30.70399522781372
+      },
+      "hookSeconds": {
+        "values": [
+          20.707226991653442,
+          12.027871131896973,
+          30.746126890182495
+        ],
+        "median": 20.707226991653442,
+        "min": 12.027871131896973,
+        "max": 30.746126890182495
+      },
+      "otherSeconds": {
+        "values": [
+          0.03788614273071289,
+          0.03788399696350098,
+          0.042131662368774414
+        ],
+        "median": 0.03788614273071289,
+        "min": 0.03788399696350098,
+        "max": 0.042131662368774414
+      },
+      "compactSeconds": {
+        "values": [
+          20.704,
+          12.022,
+          30.743
+        ],
+        "median": 20.704,
+        "min": 12.022,
+        "max": 30.743
+      },
+      "cliSeconds": {
+        "values": [
+          45.18985421099933,
+          45.65813758503646,
+          55.730663812020794
+        ],
+        "median": 45.65813758503646,
+        "min": 45.18985421099933,
+        "max": 55.730663812020794
+      },
+      "beforeTokens": {
+        "values": [
+          33679,
+          33700,
+          34282
+        ],
+        "median": 33700,
+        "min": 33679,
+        "max": 34282
+      },
+      "afterTokens": {
+        "values": [
+          11460,
+          11360,
+          11981
+        ],
+        "median": 11460,
+        "min": 11360,
+        "max": 11981
+      },
+      "ratio": {
+        "values": [
+          0.3402713857299801,
+          0.3370919881305638,
+          0.34948369406685725
+        ],
+        "median": 0.3402713857299801,
+        "min": 0.3370919881305638,
+        "max": 0.34948369406685725
+      },
+      "providerPromptTokens": {
+        "values": [
+          21711,
+          21725,
+          21750,
+          6975
+        ],
+        "median": 21718.0,
+        "min": 6975,
+        "max": 21750
+      },
+      "providerCompletionTokens": {
+        "values": [
+          1947,
+          1382,
+          2422,
+          333
+        ],
+        "median": 1664.5,
+        "min": 333,
+        "max": 2422
+      },
+      "targetMetCount": 2,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 30000,
+      "mode": "restore",
+      "version": "old",
+      "runs": 3,
+      "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+      "inputLimit": 34414,
+      "triggerTokens": 30972.600000000002,
+      "targetTokens": 20648.399999999998,
+      "targetKind": "raw-input-before-new-summary",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "8a147bc6-4a71-404b-a4b6-18052a2e9f84",
+          "step": 1,
+          "beforeTokens": 44082,
+          "afterTokens": 9383,
+          "ratio": 0.2128533188149358,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 10345,
+          "hookId": "f4d62eea-4427-4d90-98d2-aed9016eb70b",
+          "hookSeconds": 10.34882402420044,
+          "summarySeconds": [
+            10.3087739944458
+          ],
+          "summaryTotalSeconds": 10.3087739944458,
+          "otherSeconds": 0.04005002975463867,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 25935,
+              "completion_tokens": 763,
+              "total_tokens": 26698,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 618
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "25276211-6f64-414b-93c5-1671cd5343de",
+          "step": 1,
+          "beforeTokens": 44082,
+          "afterTokens": 9546,
+          "ratio": 0.21655097318633457,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 19522,
+          "hookId": "a7149d24-25d7-43b1-8acc-f8ee0fafb63e",
+          "hookSeconds": 19.526615142822266,
+          "summarySeconds": [
+            19.48714280128479
+          ],
+          "summaryTotalSeconds": 19.48714280128479,
+          "otherSeconds": 0.039472341537475586,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 25937,
+              "completion_tokens": 2071,
+              "total_tokens": 28008,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1781
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "db8ebd26-7fb1-40f2-ba93-d0e7a946edd9",
+          "step": 1,
+          "beforeTokens": 44082,
+          "afterTokens": 9584,
+          "ratio": 0.21741300303978947,
+          "targetMet": null,
+          "targetTokens": 20648.399999999998,
+          "summaryCalls": 1,
+          "compactMilliseconds": 13804,
+          "hookId": "c37cc1f9-eb98-40cc-8720-b92e4766c1a6",
+          "hookSeconds": 13.80903697013855,
+          "summarySeconds": [
+            13.770807981491089
+          ],
+          "summaryTotalSeconds": 13.770807981491089,
+          "otherSeconds": 0.03822898864746094,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 25929,
+              "completion_tokens": 1716,
+              "total_tokens": 27645,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1407
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          10.3087739944458,
+          19.48714280128479,
+          13.770807981491089
+        ],
+        "median": 13.770807981491089,
+        "min": 10.3087739944458,
+        "max": 19.48714280128479
+      },
+      "hookSeconds": {
+        "values": [
+          10.34882402420044,
+          19.526615142822266,
+          13.80903697013855
+        ],
+        "median": 13.80903697013855,
+        "min": 10.34882402420044,
+        "max": 19.526615142822266
+      },
+      "otherSeconds": {
+        "values": [
+          0.04005002975463867,
+          0.039472341537475586,
+          0.03822898864746094
+        ],
+        "median": 0.039472341537475586,
+        "min": 0.03822898864746094,
+        "max": 0.04005002975463867
+      },
+      "compactSeconds": {
+        "values": [
+          10.345,
+          19.522,
+          13.804
+        ],
+        "median": 13.804,
+        "min": 10.345,
+        "max": 19.522
+      },
+      "cliSeconds": {
+        "values": [
+          17.185013002017513,
+          24.746802203007974,
+          17.89402702904772
+        ],
+        "median": 17.89402702904772,
+        "min": 17.185013002017513,
+        "max": 24.746802203007974
+      },
+      "beforeTokens": {
+        "values": [
+          44082,
+          44082,
+          44082
+        ],
+        "median": 44082,
+        "min": 44082,
+        "max": 44082
+      },
+      "afterTokens": {
+        "values": [
+          9383,
+          9546,
+          9584
+        ],
+        "median": 9546,
+        "min": 9383,
+        "max": 9584
+      },
+      "ratio": {
+        "values": [
+          0.2128533188149358,
+          0.21655097318633457,
+          0.21741300303978947
+        ],
+        "median": 0.21655097318633457,
+        "min": 0.2128533188149358,
+        "max": 0.21741300303978947
+      },
+      "providerPromptTokens": {
+        "values": [
+          25935,
+          25937,
+          25929
+        ],
+        "median": 25935,
+        "min": 25929,
+        "max": 25937
+      },
+      "providerCompletionTokens": {
+        "values": [
+          763,
+          2071,
+          1716
+        ],
+        "median": 1716,
+        "min": 763,
+        "max": 2071
+      },
+      "targetMetCount": 0,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 30000,
+      "mode": "restore",
+      "version": "new",
+      "runs": 3,
+      "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+      "inputLimit": 34414,
+      "triggerTokens": 30972.600000000002,
+      "targetTokens": 11471,
+      "targetKind": "final-input",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "9ed59a99-d87b-4493-9b52-aa7e10988ff3",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 1891,
+          "ratio": 0.05929758544998432,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 28719,
+          "hookId": "ca730c13-5b70-4b0b-a40c-dedbdf2ea26c",
+          "hookSeconds": 28.721340894699097,
+          "summarySeconds": [
+            28.68379783630371
+          ],
+          "summaryTotalSeconds": 28.68379783630371,
+          "otherSeconds": 0.03754305839538574,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 20674,
+              "completion_tokens": 3924,
+              "total_tokens": 24598,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 3700
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "f8ea3892-16a9-4ba8-b398-05c53f641e6c",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 1889,
+          "ratio": 0.059234869865161494,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 19064,
+          "hookId": "ae87b7c1-e925-4772-a639-5e9349eb1660",
+          "hookSeconds": 19.06853199005127,
+          "summarySeconds": [
+            19.027061939239502
+          ],
+          "summaryTotalSeconds": 19.027061939239502,
+          "otherSeconds": 0.04147005081176758,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 20674,
+              "completion_tokens": 2371,
+              "total_tokens": 23045,
+              "prompt_tokens_details": {
+                "cached_tokens": 20608
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2135
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "fce1844d-9e52-4881-a9e2-cb50e64a68c8",
+          "step": 1,
+          "beforeTokens": 31890,
+          "afterTokens": 1916,
+          "ratio": 0.060081530260269675,
+          "targetMet": true,
+          "targetTokens": 11471,
+          "summaryCalls": 1,
+          "compactMilliseconds": 17357,
+          "hookId": "694c86da-37c2-4bc1-993f-67f6d98091f0",
+          "hookSeconds": 17.35987615585327,
+          "summarySeconds": [
+            17.32435894012451
+          ],
+          "summaryTotalSeconds": 17.32435894012451,
+          "otherSeconds": 0.035517215728759766,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 20674,
+              "completion_tokens": 1861,
+              "total_tokens": 22535,
+              "prompt_tokens_details": {
+                "cached_tokens": 20608
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1601
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          28.68379783630371,
+          19.027061939239502,
+          17.32435894012451
+        ],
+        "median": 19.027061939239502,
+        "min": 17.32435894012451,
+        "max": 28.68379783630371
+      },
+      "hookSeconds": {
+        "values": [
+          28.721340894699097,
+          19.06853199005127,
+          17.35987615585327
+        ],
+        "median": 19.06853199005127,
+        "min": 17.35987615585327,
+        "max": 28.721340894699097
+      },
+      "otherSeconds": {
+        "values": [
+          0.03754305839538574,
+          0.04147005081176758,
+          0.035517215728759766
+        ],
+        "median": 0.03754305839538574,
+        "min": 0.035517215728759766,
+        "max": 0.04147005081176758
+      },
+      "compactSeconds": {
+        "values": [
+          28.719,
+          19.064,
+          17.357
+        ],
+        "median": 19.064,
+        "min": 17.357,
+        "max": 28.719
+      },
+      "cliSeconds": {
+        "values": [
+          31.812478089996148,
+          21.587151179031935,
+          22.100262323045172
+        ],
+        "median": 22.100262323045172,
+        "min": 21.587151179031935,
+        "max": 31.812478089996148
+      },
+      "beforeTokens": {
+        "values": [
+          31890,
+          31890,
+          31890
+        ],
+        "median": 31890,
+        "min": 31890,
+        "max": 31890
+      },
+      "afterTokens": {
+        "values": [
+          1891,
+          1889,
+          1916
+        ],
+        "median": 1891,
+        "min": 1889,
+        "max": 1916
+      },
+      "ratio": {
+        "values": [
+          0.05929758544998432,
+          0.059234869865161494,
+          0.060081530260269675
+        ],
+        "median": 0.05929758544998432,
+        "min": 0.059234869865161494,
+        "max": 0.060081530260269675
+      },
+      "providerPromptTokens": {
+        "values": [
+          20674,
+          20674,
+          20674
+        ],
+        "median": 20674,
+        "min": 20674,
+        "max": 20674
+      },
+      "providerCompletionTokens": {
+        "values": [
+          3924,
+          2371,
+          1861
+        ],
+        "median": 2371,
+        "min": 1861,
+        "max": 3924
+      },
+      "targetMetCount": 3,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 120000,
+      "mode": "between",
+      "version": "old",
+      "runs": 3,
+      "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+      "inputLimit": 132553,
+      "triggerTokens": 119297.7,
+      "targetTokens": 79531.8,
+      "targetKind": "raw-input-before-new-summary",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "c7a86b38-b41e-445b-9fac-cd7bbe61448b",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 32143,
+          "ratio": 0.2619598702547636,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 8016,
+          "hookId": "69e74461-3f7f-45a9-bb57-adcadea78fc9",
+          "hookSeconds": 8.023422002792358,
+          "summarySeconds": [
+            7.940924882888794
+          ],
+          "summaryTotalSeconds": 7.940924882888794,
+          "otherSeconds": 0.08249711990356445,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 66269,
+              "completion_tokens": 598,
+              "total_tokens": 66867,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 390
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "0ec566ca-865d-463d-a954-f1a2627f600d",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 32234,
+          "ratio": 0.26270150445795504,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 22814,
+          "hookId": "62832f04-6a71-4b5e-bfcd-357099bf34a5",
+          "hookSeconds": 22.822249174118042,
+          "summarySeconds": [
+            22.734395027160645
+          ],
+          "summaryTotalSeconds": 22.734395027160645,
+          "otherSeconds": 0.08785414695739746,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 66269,
+              "completion_tokens": 1635,
+              "total_tokens": 67904,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1351
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "9ab7cbc6-d8d9-4eb5-bf48-bfae12ceb176",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 32286,
+          "ratio": 0.26312529543120733,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 25370,
+          "hookId": "0111fb52-175f-4110-8793-b66edc49fa76",
+          "hookSeconds": 25.376750946044922,
+          "summarySeconds": [
+            25.299938917160034
+          ],
+          "summaryTotalSeconds": 25.299938917160034,
+          "otherSeconds": 0.0768120288848877,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 66275,
+              "completion_tokens": 4032,
+              "total_tokens": 70307,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 3722
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          7.940924882888794,
+          22.734395027160645,
+          25.299938917160034
+        ],
+        "median": 22.734395027160645,
+        "min": 7.940924882888794,
+        "max": 25.299938917160034
+      },
+      "hookSeconds": {
+        "values": [
+          8.023422002792358,
+          22.822249174118042,
+          25.376750946044922
+        ],
+        "median": 22.822249174118042,
+        "min": 8.023422002792358,
+        "max": 25.376750946044922
+      },
+      "otherSeconds": {
+        "values": [
+          0.08249711990356445,
+          0.08785414695739746,
+          0.0768120288848877
+        ],
+        "median": 0.08249711990356445,
+        "min": 0.0768120288848877,
+        "max": 0.08785414695739746
+      },
+      "compactSeconds": {
+        "values": [
+          8.016,
+          22.814,
+          25.37
+        ],
+        "median": 22.814,
+        "min": 8.016,
+        "max": 25.37
+      },
+      "cliSeconds": {
+        "values": [
+          12.308323760982603,
+          26.950584314006846,
+          28.418979081965517
+        ],
+        "median": 26.950584314006846,
+        "min": 12.308323760982603,
+        "max": 28.418979081965517
+      },
+      "beforeTokens": {
+        "values": [
+          122702,
+          122702,
+          122702
+        ],
+        "median": 122702,
+        "min": 122702,
+        "max": 122702
+      },
+      "afterTokens": {
+        "values": [
+          32143,
+          32234,
+          32286
+        ],
+        "median": 32234,
+        "min": 32143,
+        "max": 32286
+      },
+      "ratio": {
+        "values": [
+          0.2619598702547636,
+          0.26270150445795504,
+          0.26312529543120733
+        ],
+        "median": 0.26270150445795504,
+        "min": 0.2619598702547636,
+        "max": 0.26312529543120733
+      },
+      "providerPromptTokens": {
+        "values": [
+          66269,
+          66269,
+          66275
+        ],
+        "median": 66269,
+        "min": 66269,
+        "max": 66275
+      },
+      "providerCompletionTokens": {
+        "values": [
+          598,
+          1635,
+          4032
+        ],
+        "median": 1635,
+        "min": 598,
+        "max": 4032
+      },
+      "targetMetCount": 0,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 120000,
+      "mode": "between",
+      "version": "new",
+      "runs": 3,
+      "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+      "inputLimit": 132553,
+      "triggerTokens": 119297.7,
+      "targetTokens": 44184,
+      "targetKind": "final-input",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "57b45094-adc5-48cf-9437-5f567a27d067",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 1794,
+          "ratio": 0.014620788577203305,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 20669,
+          "hookId": "0c9f2533-71e8-429c-9bb1-5521a0df2b23",
+          "hookSeconds": 20.671315908432007,
+          "summarySeconds": [
+            20.600454092025757
+          ],
+          "summaryTotalSeconds": 20.600454092025757,
+          "otherSeconds": 0.07086181640625,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 81480,
+              "completion_tokens": 2173,
+              "total_tokens": 83653,
+              "prompt_tokens_details": {
+                "cached_tokens": 4096
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2017
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "0ede6ba6-7908-49f5-ab2a-b2aeadcebc64",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 1825,
+          "ratio": 0.014873433195872927,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 17764,
+          "hookId": "2887b26d-db83-4ff0-bab8-ba7a2cd49d19",
+          "hookSeconds": 17.765589952468872,
+          "summarySeconds": [
+            17.69005298614502
+          ],
+          "summaryTotalSeconds": 17.69005298614502,
+          "otherSeconds": 0.07553696632385254,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 81480,
+              "completion_tokens": 2069,
+              "total_tokens": 83549,
+              "prompt_tokens_details": {
+                "cached_tokens": 81408
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1881
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "22b48cc8-a6a4-422b-a2b8-ab2e2a3a29f1",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 1639,
+          "ratio": 0.013357565483855194,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 5029,
+          "hookId": "68f90a37-f311-44f4-b056-59ba323874e4",
+          "hookSeconds": 5.032258987426758,
+          "summarySeconds": [
+            4.951807022094727
+          ],
+          "summaryTotalSeconds": 4.951807022094727,
+          "otherSeconds": 0.08045196533203125,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 81480,
+              "completion_tokens": 283,
+              "total_tokens": 81763,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 250
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          20.600454092025757,
+          17.69005298614502,
+          4.951807022094727
+        ],
+        "median": 17.69005298614502,
+        "min": 4.951807022094727,
+        "max": 20.600454092025757
+      },
+      "hookSeconds": {
+        "values": [
+          20.671315908432007,
+          17.765589952468872,
+          5.032258987426758
+        ],
+        "median": 17.765589952468872,
+        "min": 5.032258987426758,
+        "max": 20.671315908432007
+      },
+      "otherSeconds": {
+        "values": [
+          0.07086181640625,
+          0.07553696632385254,
+          0.08045196533203125
+        ],
+        "median": 0.07553696632385254,
+        "min": 0.07086181640625,
+        "max": 0.08045196533203125
+      },
+      "compactSeconds": {
+        "values": [
+          20.669,
+          17.764,
+          5.029
+        ],
+        "median": 17.764,
+        "min": 5.029,
+        "max": 20.669
+      },
+      "cliSeconds": {
+        "values": [
+          34.53163526603021,
+          23.146556655003224,
+          7.1142565769841895
+        ],
+        "median": 23.146556655003224,
+        "min": 7.1142565769841895,
+        "max": 34.53163526603021
+      },
+      "beforeTokens": {
+        "values": [
+          122702,
+          122702,
+          122702
+        ],
+        "median": 122702,
+        "min": 122702,
+        "max": 122702
+      },
+      "afterTokens": {
+        "values": [
+          1794,
+          1825,
+          1639
+        ],
+        "median": 1794,
+        "min": 1639,
+        "max": 1825
+      },
+      "ratio": {
+        "values": [
+          0.014620788577203305,
+          0.014873433195872927,
+          0.013357565483855194
+        ],
+        "median": 0.014620788577203305,
+        "min": 0.013357565483855194,
+        "max": 0.014873433195872927
+      },
+      "providerPromptTokens": {
+        "values": [
+          81480,
+          81480,
+          81480
+        ],
+        "median": 81480,
+        "min": 81480,
+        "max": 81480
+      },
+      "providerCompletionTokens": {
+        "values": [
+          2173,
+          2069,
+          283
+        ],
+        "median": 2069,
+        "min": 283,
+        "max": 2173
+      },
+      "targetMetCount": 3,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 120000,
+      "mode": "within",
+      "version": "old",
+      "runs": 3,
+      "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+      "inputLimit": 132553,
+      "triggerTokens": 119297.7,
+      "targetTokens": 79531.8,
+      "targetKind": "raw-input-before-new-summary",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "63e9c762-819c-4490-a408-395d550d2bc1",
+          "step": 3,
+          "beforeTokens": 124782,
+          "afterTokens": 38614,
+          "ratio": 0.30945168373643633,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 25985,
+          "hookId": "78919111-d083-44dd-90ce-436c48b87606",
+          "hookSeconds": 25.990326166152954,
+          "summarySeconds": [
+            25.921299934387207
+          ],
+          "summaryTotalSeconds": 25.921299934387207,
+          "otherSeconds": 0.06902623176574707,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 62380,
+              "completion_tokens": 2253,
+              "total_tokens": 64633,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2019
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "ccc56c33-09fd-4df3-893a-4712c0e0a428",
+          "step": 3,
+          "beforeTokens": 124615,
+          "afterTokens": 38464,
+          "ratio": 0.3086626810576576,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 10405,
+          "hookId": "252d1546-5ee7-4535-bf8a-5d82af848b72",
+          "hookSeconds": 10.410547018051147,
+          "summarySeconds": [
+            10.353317022323608
+          ],
+          "summaryTotalSeconds": 10.353317022323608,
+          "otherSeconds": 0.05722999572753906,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 62376,
+              "completion_tokens": 976,
+              "total_tokens": 63352,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 719
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "88ed8cd6-d804-47e6-aab5-d061b699762e",
+          "step": 3,
+          "beforeTokens": 124644,
+          "afterTokens": 38511,
+          "ratio": 0.30896794069509964,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 14372,
+          "hookId": "c7591791-1a04-4498-bb4b-2c16a774bfab",
+          "hookSeconds": 14.37979006767273,
+          "summarySeconds": [
+            14.320883989334106
+          ],
+          "summaryTotalSeconds": 14.320883989334106,
+          "otherSeconds": 0.05890607833862305,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 62370,
+              "completion_tokens": 1312,
+              "total_tokens": 63682,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1040
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          25.921299934387207,
+          10.353317022323608,
+          14.320883989334106
+        ],
+        "median": 14.320883989334106,
+        "min": 10.353317022323608,
+        "max": 25.921299934387207
+      },
+      "hookSeconds": {
+        "values": [
+          25.990326166152954,
+          10.410547018051147,
+          14.37979006767273
+        ],
+        "median": 14.37979006767273,
+        "min": 10.410547018051147,
+        "max": 25.990326166152954
+      },
+      "otherSeconds": {
+        "values": [
+          0.06902623176574707,
+          0.05722999572753906,
+          0.05890607833862305
+        ],
+        "median": 0.05890607833862305,
+        "min": 0.05722999572753906,
+        "max": 0.06902623176574707
+      },
+      "compactSeconds": {
+        "values": [
+          25.985,
+          10.405,
+          14.372
+        ],
+        "median": 14.372,
+        "min": 10.405,
+        "max": 25.985
+      },
+      "cliSeconds": {
+        "values": [
+          45.73340287897736,
+          26.26430411095498,
+          34.24325548001798
+        ],
+        "median": 34.24325548001798,
+        "min": 26.26430411095498,
+        "max": 45.73340287897736
+      },
+      "beforeTokens": {
+        "values": [
+          124782,
+          124615,
+          124644
+        ],
+        "median": 124644,
+        "min": 124615,
+        "max": 124782
+      },
+      "afterTokens": {
+        "values": [
+          38614,
+          38464,
+          38511
+        ],
+        "median": 38511,
+        "min": 38464,
+        "max": 38614
+      },
+      "ratio": {
+        "values": [
+          0.30945168373643633,
+          0.3086626810576576,
+          0.30896794069509964
+        ],
+        "median": 0.30896794069509964,
+        "min": 0.3086626810576576,
+        "max": 0.30945168373643633
+      },
+      "providerPromptTokens": {
+        "values": [
+          62380,
+          62376,
+          62370
+        ],
+        "median": 62376,
+        "min": 62370,
+        "max": 62380
+      },
+      "providerCompletionTokens": {
+        "values": [
+          2253,
+          976,
+          1312
+        ],
+        "median": 1312,
+        "min": 976,
+        "max": 2253
+      },
+      "targetMetCount": 0,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 120000,
+      "mode": "within",
+      "version": "new",
+      "runs": 3,
+      "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+      "inputLimit": 132553,
+      "triggerTokens": 119297.7,
+      "targetTokens": 44184,
+      "targetKind": "final-input",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "1e1c91ad-a50f-4e4e-9b3b-46c92e12ef0f",
+          "step": 3,
+          "beforeTokens": 124640,
+          "afterTokens": 38500,
+          "ratio": 0.3088896020539153,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 23771,
+          "hookId": "ba8cc7bd-25f1-4565-a04d-de2d887de999",
+          "hookSeconds": 23.776716947555542,
+          "summarySeconds": [
+            23.70398497581482
+          ],
+          "summaryTotalSeconds": 23.70398497581482,
+          "otherSeconds": 0.07273197174072266,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 82091,
+              "completion_tokens": 1850,
+              "total_tokens": 83941,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1581
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "ccb62ae1-e22e-4462-b7b2-26fa6d3a0d84",
+          "step": 3,
+          "beforeTokens": 124625,
+          "afterTokens": 38361,
+          "ratio": 0.30781143430290875,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 12522,
+          "hookId": "786db36a-f370-44ca-8388-d60382695cd7",
+          "hookSeconds": 12.52734088897705,
+          "summarySeconds": [
+            12.453982830047607
+          ],
+          "summaryTotalSeconds": 12.453982830047607,
+          "otherSeconds": 0.07335805892944336,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 82101,
+              "completion_tokens": 530,
+              "total_tokens": 82631,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 358
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "d76d6677-f641-4f6f-b34d-e6f4fd9a0a31",
+          "step": 3,
+          "beforeTokens": 124843,
+          "afterTokens": 38509,
+          "ratio": 0.3084594250378475,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 17715,
+          "hookId": "f4111486-b50b-4211-b44c-4847c5190133",
+          "hookSeconds": 17.72092080116272,
+          "summarySeconds": [
+            17.64024305343628
+          ],
+          "summaryTotalSeconds": 17.64024305343628,
+          "otherSeconds": 0.08067774772644043,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 82101,
+              "completion_tokens": 1473,
+              "total_tokens": 83574,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1275
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          23.70398497581482,
+          12.453982830047607,
+          17.64024305343628
+        ],
+        "median": 17.64024305343628,
+        "min": 12.453982830047607,
+        "max": 23.70398497581482
+      },
+      "hookSeconds": {
+        "values": [
+          23.776716947555542,
+          12.52734088897705,
+          17.72092080116272
+        ],
+        "median": 17.72092080116272,
+        "min": 12.52734088897705,
+        "max": 23.776716947555542
+      },
+      "otherSeconds": {
+        "values": [
+          0.07273197174072266,
+          0.07335805892944336,
+          0.08067774772644043
+        ],
+        "median": 0.07335805892944336,
+        "min": 0.07273197174072266,
+        "max": 0.08067774772644043
+      },
+      "compactSeconds": {
+        "values": [
+          23.771,
+          12.522,
+          17.715
+        ],
+        "median": 17.715,
+        "min": 12.522,
+        "max": 23.771
+      },
+      "cliSeconds": {
+        "values": [
+          50.611066984944046,
+          31.368285099044442,
+          32.392551099008415
+        ],
+        "median": 32.392551099008415,
+        "min": 31.368285099044442,
+        "max": 50.611066984944046
+      },
+      "beforeTokens": {
+        "values": [
+          124640,
+          124625,
+          124843
+        ],
+        "median": 124640,
+        "min": 124625,
+        "max": 124843
+      },
+      "afterTokens": {
+        "values": [
+          38500,
+          38361,
+          38509
+        ],
+        "median": 38500,
+        "min": 38361,
+        "max": 38509
+      },
+      "ratio": {
+        "values": [
+          0.3088896020539153,
+          0.30781143430290875,
+          0.3084594250378475
+        ],
+        "median": 0.3084594250378475,
+        "min": 0.30781143430290875,
+        "max": 0.3088896020539153
+      },
+      "providerPromptTokens": {
+        "values": [
+          82091,
+          82101,
+          82101
+        ],
+        "median": 82101,
+        "min": 82091,
+        "max": 82101
+      },
+      "providerCompletionTokens": {
+        "values": [
+          1850,
+          530,
+          1473
+        ],
+        "median": 1473,
+        "min": 530,
+        "max": 1850
+      },
+      "targetMetCount": 3,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 120000,
+      "mode": "restore",
+      "version": "old",
+      "runs": 3,
+      "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+      "inputLimit": 132553,
+      "triggerTokens": 119297.7,
+      "targetTokens": 79531.8,
+      "targetKind": "raw-input-before-new-summary",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "c4c35da2-e6ab-4caa-bc31-2c71df8c4772",
+          "step": 1,
+          "beforeTokens": 169552,
+          "afterTokens": 32258,
+          "ratio": 0.19025431725960176,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 21127,
+          "hookId": "fa030a22-b368-42ce-b6b6-c5cba79e7ba5",
+          "hookSeconds": 21.135835886001587,
+          "summarySeconds": [
+            21.04196310043335
+          ],
+          "summaryTotalSeconds": 21.04196310043335,
+          "otherSeconds": 0.0938727855682373,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 100255,
+              "completion_tokens": 3141,
+              "total_tokens": 103396,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2842
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "e3c24c13-fbdf-4e45-a3c1-b744c695834c",
+          "step": 1,
+          "beforeTokens": 169552,
+          "afterTokens": 32221,
+          "ratio": 0.19003609512126074,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 24535,
+          "hookId": "be179557-34d0-4940-92bc-a47b9aa37e35",
+          "hookSeconds": 24.54396390914917,
+          "summarySeconds": [
+            24.452669858932495
+          ],
+          "summaryTotalSeconds": 24.452669858932495,
+          "otherSeconds": 0.0912940502166748,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 100259,
+              "completion_tokens": 3623,
+              "total_tokens": 103882,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 3366
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "f54f1872-1d60-43df-abe9-ea9d9f97d807",
+          "step": 1,
+          "beforeTokens": 169552,
+          "afterTokens": 32330,
+          "ratio": 0.1906789657450222,
+          "targetMet": null,
+          "targetTokens": 79531.8,
+          "summaryCalls": 1,
+          "compactMilliseconds": 27927,
+          "hookId": "102246fb-1e01-4558-9c1a-2afe710e312f",
+          "hookSeconds": 27.933412790298462,
+          "summarySeconds": [
+            27.83421301841736
+          ],
+          "summaryTotalSeconds": 27.83421301841736,
+          "otherSeconds": 0.09919977188110352,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 100259,
+              "completion_tokens": 2174,
+              "total_tokens": 102433,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1831
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          21.04196310043335,
+          24.452669858932495,
+          27.83421301841736
+        ],
+        "median": 24.452669858932495,
+        "min": 21.04196310043335,
+        "max": 27.83421301841736
+      },
+      "hookSeconds": {
+        "values": [
+          21.135835886001587,
+          24.54396390914917,
+          27.933412790298462
+        ],
+        "median": 24.54396390914917,
+        "min": 21.135835886001587,
+        "max": 27.933412790298462
+      },
+      "otherSeconds": {
+        "values": [
+          0.0938727855682373,
+          0.0912940502166748,
+          0.09919977188110352
+        ],
+        "median": 0.0938727855682373,
+        "min": 0.0912940502166748,
+        "max": 0.09919977188110352
+      },
+      "compactSeconds": {
+        "values": [
+          21.127,
+          24.535,
+          27.927
+        ],
+        "median": 24.535,
+        "min": 21.127,
+        "max": 27.927
+      },
+      "cliSeconds": {
+        "values": [
+          24.324904681008775,
+          27.55733775801491,
+          30.788307328009978
+        ],
+        "median": 27.55733775801491,
+        "min": 24.324904681008775,
+        "max": 30.788307328009978
+      },
+      "beforeTokens": {
+        "values": [
+          169552,
+          169552,
+          169552
+        ],
+        "median": 169552,
+        "min": 169552,
+        "max": 169552
+      },
+      "afterTokens": {
+        "values": [
+          32258,
+          32221,
+          32330
+        ],
+        "median": 32258,
+        "min": 32221,
+        "max": 32330
+      },
+      "ratio": {
+        "values": [
+          0.19025431725960176,
+          0.19003609512126074,
+          0.1906789657450222
+        ],
+        "median": 0.19025431725960176,
+        "min": 0.19003609512126074,
+        "max": 0.1906789657450222
+      },
+      "providerPromptTokens": {
+        "values": [
+          100255,
+          100259,
+          100259
+        ],
+        "median": 100259,
+        "min": 100255,
+        "max": 100259
+      },
+      "providerCompletionTokens": {
+        "values": [
+          3141,
+          3623,
+          2174
+        ],
+        "median": 3141,
+        "min": 2174,
+        "max": 3623
+      },
+      "targetMetCount": 0,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    },
+    {
+      "nominalEstimatedTokens": 120000,
+      "mode": "restore",
+      "version": "new",
+      "runs": 3,
+      "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+      "inputLimit": 132553,
+      "triggerTokens": 119297.7,
+      "targetTokens": 44184,
+      "targetKind": "final-input",
+      "operationCount": 3,
+      "operations": [
+        {
+          "executionId": "830a000c-74d9-497b-8f60-06faaf479ce5",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 1867,
+          "ratio": 0.015215725905038223,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 13205,
+          "hookId": "eddfe8a9-575d-48eb-8dd0-f9939f000960",
+          "hookSeconds": 13.207457065582275,
+          "summarySeconds": [
+            13.11909294128418
+          ],
+          "summaryTotalSeconds": 13.11909294128418,
+          "otherSeconds": 0.0883641242980957,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 81480,
+              "completion_tokens": 1510,
+              "total_tokens": 82990,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1302
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "4967b316-4092-44c6-a1ae-2868bc4ac84b",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 1881,
+          "ratio": 0.015329823474759988,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 11862,
+          "hookId": "f3a4af6b-7314-4eed-9a70-23b0c762d1c0",
+          "hookSeconds": 11.864487886428833,
+          "summarySeconds": [
+            11.774003028869629
+          ],
+          "summaryTotalSeconds": 11.774003028869629,
+          "otherSeconds": 0.0904848575592041,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 81480,
+              "completion_tokens": 1527,
+              "total_tokens": 83007,
+              "prompt_tokens_details": {
+                "cached_tokens": 81280
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 1302
+              }
+            }
+          ]
+        },
+        {
+          "executionId": "9d09e9e3-53ac-4bef-aaa0-078b7ebfcf42",
+          "step": 1,
+          "beforeTokens": 122702,
+          "afterTokens": 1776,
+          "ratio": 0.01447409170184675,
+          "targetMet": true,
+          "targetTokens": 44184,
+          "summaryCalls": 1,
+          "compactMilliseconds": 59521,
+          "hookId": "a89f3d28-385f-4a1c-a7bd-2d90f50b1913",
+          "hookSeconds": 59.52331185340881,
+          "summarySeconds": [
+            59.43637990951538
+          ],
+          "summaryTotalSeconds": 59.43637990951538,
+          "otherSeconds": 0.08693194389343262,
+          "summaryUsage": [
+            {
+              "prompt_tokens": 81480,
+              "completion_tokens": 2222,
+              "total_tokens": 83702,
+              "prompt_tokens_details": {
+                "cached_tokens": 4096
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 2074
+              }
+            }
+          ]
+        }
+      ],
+      "summaryTotalSeconds": {
+        "values": [
+          13.11909294128418,
+          11.774003028869629,
+          59.43637990951538
+        ],
+        "median": 13.11909294128418,
+        "min": 11.774003028869629,
+        "max": 59.43637990951538
+      },
+      "hookSeconds": {
+        "values": [
+          13.207457065582275,
+          11.864487886428833,
+          59.52331185340881
+        ],
+        "median": 13.207457065582275,
+        "min": 11.864487886428833,
+        "max": 59.52331185340881
+      },
+      "otherSeconds": {
+        "values": [
+          0.0883641242980957,
+          0.0904848575592041,
+          0.08693194389343262
+        ],
+        "median": 0.0883641242980957,
+        "min": 0.08693194389343262,
+        "max": 0.0904848575592041
+      },
+      "compactSeconds": {
+        "values": [
+          13.205,
+          11.862,
+          59.521
+        ],
+        "median": 13.205,
+        "min": 11.862,
+        "max": 59.521
+      },
+      "cliSeconds": {
+        "values": [
+          15.511814401019365,
+          14.147624748002272,
+          62.19999659602763
+        ],
+        "median": 15.511814401019365,
+        "min": 14.147624748002272,
+        "max": 62.19999659602763
+      },
+      "beforeTokens": {
+        "values": [
+          122702,
+          122702,
+          122702
+        ],
+        "median": 122702,
+        "min": 122702,
+        "max": 122702
+      },
+      "afterTokens": {
+        "values": [
+          1867,
+          1881,
+          1776
+        ],
+        "median": 1867,
+        "min": 1776,
+        "max": 1881
+      },
+      "ratio": {
+        "values": [
+          0.015215725905038223,
+          0.015329823474759988,
+          0.01447409170184675
+        ],
+        "median": 0.015215725905038223,
+        "min": 0.01447409170184675,
+        "max": 0.015329823474759988
+      },
+      "providerPromptTokens": {
+        "values": [
+          81480,
+          81480,
+          81480
+        ],
+        "median": 81480,
+        "min": 81480,
+        "max": 81480
+      },
+      "providerCompletionTokens": {
+        "values": [
+          1510,
+          1527,
+          2222
+        ],
+        "median": 1527,
+        "min": 1510,
+        "max": 2222
+      },
+      "targetMetCount": 3,
+      "allReferencesResolve": true,
+      "allOriginalsPreserved": true,
+      "childExecutions": 0
+    }
+  ],
+  "localRecurrenceEvidence": "/tmp/hjh-compaction-strategy-wvuVHX3a/recurrence-final/compaction-e11q2e58/reports.json",
+  "timingScope": {
+    "hookSeconds": "persisted outer hook including metric wrapper I/O",
+    "compactMilliseconds": "compact() only; Date.now millisecond wall-clock resolution",
+    "summarySeconds": "persisted Host call; provider/transport/bridge included"
+  },
+  "binarySha256": "95c4cfa553f7a0dd19478e0c336dac26b0b6db94af42c55a1b8e5366962803d6",
+  "benchmarkSummaryCharacters": 700,
+  "productSummaryCharacters": 1200,
+  "defaultLengthMeasurement": {
+    "summaryCharacters": 1200,
+    "nominalEstimatedTokens": 30000,
+    "mode": "between",
+    "evidence": "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/reports.json",
+    "conditions": [
+      {
+        "version": "old",
+        "runs": 3,
+        "summaryTotalSeconds": {
+          "values": [
+            21.87727379798889,
+            23.577039003372192,
+            41.621421098709106
+          ],
+          "median": 23.577039003372192,
+          "min": 21.87727379798889,
+          "max": 41.621421098709106
+        },
+        "hookSeconds": {
+          "values": [
+            21.911481857299805,
+            23.612414836883545,
+            41.65894412994385
+          ],
+          "median": 23.612414836883545,
+          "min": 21.911481857299805,
+          "max": 41.65894412994385
+        },
+        "cliSeconds": {
+          "values": [
+            27.501227395958267,
+            28.301454606000334,
+            44.83143518702127
+          ],
+          "median": 28.301454606000334,
+          "min": 27.501227395958267,
+          "max": 44.83143518702127
+        },
+        "sourceSha256": "5650bfa8ef0d842eb8a9d7447b1f559b0c436468e4da2132633b1548c084d57d",
+        "allOriginalsPreserved": true,
+        "reports": [
+          "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/between-30000-1-old/report.json",
+          "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/between-30000-2-old/report.json",
+          "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/between-30000-3-old/report.json"
+        ]
+      },
+      {
+        "version": "new",
+        "runs": 3,
+        "summaryTotalSeconds": {
+          "values": [
+            5.887980222702026,
+            16.427335023880005,
+            21.49908185005188
+          ],
+          "median": 16.427335023880005,
+          "min": 5.887980222702026,
+          "max": 21.49908185005188
+        },
+        "hookSeconds": {
+          "values": [
+            5.918587923049927,
+            16.460257053375244,
+            21.53037190437317
+          ],
+          "median": 16.460257053375244,
+          "min": 5.918587923049927,
+          "max": 21.53037190437317
+        },
+        "cliSeconds": {
+          "values": [
+            10.11445192998508,
+            19.77004826697521,
+            24.618281577015296
+          ],
+          "median": 19.77004826697521,
+          "min": 10.11445192998508,
+          "max": 24.618281577015296
+        },
+        "sourceSha256": "0aa011f776fde7a57c2ac0505e9148ab4fa99534917f15413e8cc4cc4d0102f8",
+        "allOriginalsPreserved": true,
+        "reports": [
+          "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/between-30000-1-new/report.json",
+          "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/between-30000-2-new/report.json",
+          "/tmp/hjh-compaction-strategy-wvuVHX3a/live-default-length/compaction-9e1tiu4u/between-30000-3-new/report.json"
+        ]
+      }
+    ]
+  }
+}

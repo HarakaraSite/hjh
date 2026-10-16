@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var Version = "0.1.0-dev"
+var Version = "1.0.0"
 
 // SourceRevision and SourceDirty are set by distribution builds. Ordinary Go
 // builds use the VCS settings recorded by the Go tool instead.

@@ -1,0 +1,425 @@
+{
+  "date": "2026-10-16",
+  "model": {
+    "provider": "opencode-go-responses",
+    "api": "responses",
+    "modelId": "gpt-6-luna"
+  },
+  "metadata": {
+    "sourceReports": "/tmp/hjh-compaction-behavior-live/behavior-9_ft19_6/reports.json",
+    "fixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+    "binarySha256": "95c4cfa553f7a0dd19478e0c336dac26b0b6db94af42c55a1b8e5366962803d6",
+    "summaryCharacters": 1200,
+    "provider": "opencode-go-responses",
+    "modelId": "gpt-6-luna",
+    "cacheMode": "fresh-prefix",
+    "measurement": "api.model.generate elapsed time including provider/transport/bridge; final DONE excluded"
+  },
+  "sourceRequest": "same actual summary request as DeepSeek effort comparison; fresh nonsemantic measurement ID prepended in each request",
+  "measurementScope": "api.model.generate elapsed time; inherited parent effort; normal final DONE excluded",
+  "deepseekEvidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h",
+  "comparison": [
+    {
+      "modelId": "deepseek-v4.1-flash",
+      "effort": "auto",
+      "samples": 3,
+      "seconds": [
+        9.937,
+        25.366,
+        18.921
+      ],
+      "medianSeconds": 18.921,
+      "minSeconds": 9.937,
+      "maxSeconds": 25.366
+    },
+    {
+      "modelId": "deepseek-v4.1-flash",
+      "effort": "max",
+      "samples": 3,
+      "seconds": [
+        33.64,
+        50.116,
+        25.57
+      ],
+      "medianSeconds": 33.64,
+      "minSeconds": 25.57,
+      "maxSeconds": 50.116
+    },
+    {
+      "modelId": "gpt-6-luna",
+      "effort": "auto",
+      "samples": 3,
+      "seconds": [
+        6.551,
+        5.98,
+        6.9
+      ],
+      "medianSeconds": 6.551,
+      "minSeconds": 5.98,
+      "maxSeconds": 6.9
+    },
+    {
+      "modelId": "gpt-6-luna",
+      "effort": "max",
+      "samples": 3,
+      "seconds": [
+        12.94,
+        7.81,
+        15.212
+      ],
+      "medianSeconds": 12.94,
+      "minSeconds": 7.81,
+      "maxSeconds": 15.212
+    }
+  ],
+  "records": [
+    {
+      "executionId": "ceee2f4f-12a1-4e57-b042-09c931458353",
+      "parentModel": {
+        "provider": "opencode-go-responses",
+        "api": "responses",
+        "authProfile": "opencode-go-api-key",
+        "modelId": "gpt-6-luna",
+        "effort": "auto"
+      },
+      "seconds": 6.551,
+      "text": "作業中の依頼は、`candidates.csv`を読み込み、合意済み仕様と最終訂正に従って`rollout-plan.json`を作成すること。候補一覧はまだ読み取っておらず、ファイル作成も未実施。候補を決定したら、採用候補と主な除外理由を簡潔に報告する。\n\n確定仕様：JSONトップレベルのキーは`schema`, `channel`, `strict_order`, `notify`, `regions`のみ。値は`schema=\"rollout-plan/v2\"`、`channel=\"amber\"`、`strict_order=true`、`notify=\"ops-ja\"`。`regions`は`{name,release,rollback,percent}`の配列で、順序は`osaka`, `tokyo`。各regionで`status=passed`かつ`p95_ms<=125`の候補に限り、build番号が最大の候補を選ぶ。osakaの`rel-736`はCSV上passedでも、ロールバック試験`RB-88`不合格のため必ず除外。`rel-735`は128msで125ms基準を超えるため除外。最終percentはosaka=10、tokyo=5（監査待ち）。rollback先はosaka=`rel-730`、tokyo=`rel-840`で固定。\n\n125ms基準の根拠は`PERF-Q17-125`。ピーク時間帯の再試験で130ms案にタイムアウトが出たため、130ms案は不採用。作業では候補のstatus、遅延値、build番号、`rel-736`の例外を確認し、選定理由をまとめて成果物を検証する。",
+      "characters": 718,
+      "usage": {
+        "input_tokens": 19388,
+        "output_tokens": 561,
+        "total_tokens": 19949,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 19385
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 157
+        }
+      },
+      "finishReason": "completed",
+      "effort": "auto",
+      "repeat": 1,
+      "evidence": "/tmp/hjh-compaction-luna-live/effort-ivfj2v3w/repeat-1-auto",
+      "wholeRunSeconds": 8.440479692013469,
+      "runExitCode": 0,
+      "fixtureSha256": "b301cea587028a607698bf149a4adf9b6c4f068e86b396ccc781d0cce81eee48",
+      "timings": [
+        {
+          "hookId": "d187198d-824f-423c-9b51-194b44898e5b",
+          "hookSeconds": 6.554145097732544,
+          "summarySeconds": [
+            6.5489418506622314
+          ],
+          "summaryTotalSeconds": 6.5489418506622314,
+          "otherSeconds": 0.0052032470703125
+        }
+      ],
+      "recordedSelections": [
+        {
+          "api": "responses",
+          "authProfile": "opencode-go-api-key",
+          "effort": "auto",
+          "modelId": "gpt-6-luna",
+          "provider": "opencode-go-responses"
+        }
+      ],
+      "qualitativeObservations": {
+        "adoptedRulesAndLatestCorrectionRetained": true,
+        "adoptionReasonRetained": true,
+        "adoptionTestIdRetained": true,
+        "unrelatedErrandDetailsRetained": false
+      }
+    },
+    {
+      "executionId": "46a774d3-2d89-41fa-8845-3270966b235e",
+      "parentModel": {
+        "provider": "opencode-go-responses",
+        "api": "responses",
+        "authProfile": "opencode-go-api-key",
+        "modelId": "gpt-6-luna",
+        "effort": "max"
+      },
+      "seconds": 12.94,
+      "text": "現在の作業Eは未完了です。次に`candidates.csv`を読み、合意済みの条件で候補を選定して`rollout-plan.json`を作成・検証し、採用候補と主な除外理由を簡潔に報告してください。現時点ではCSVの内容は未確認で、候補の確定やJSON作成も未実施です。\n\n確定仕様：トップレベルのキーは`schema`、`channel`、`strict_order`、`notify`、`regions`のみ。値は`rollout-plan/v2`、`amber`、`true`、`ops-ja`。`regions`は`osaka`、`tokyo`の順で、各要素は`name`、`release`、`rollback`、`percent`のみ。候補は`status=passed`かつ`p95_ms<=125`に限定し、regionごとにbuild番号が最大のものを採用する。ただしosakaの`rel-736`はCSV上passedでも、ロールバック試験`RB-88`不合格のため必ず除外。`rel-735`は128msのため除外する。固定値はosakaのrollback=`rel-730`、percent=10、tokyoのrollback=`rel-840`、percent=5（最終訂正）。125ms基準の根拠は`PERF-Q17-125`で、ピーク時の再試験で130ms案にタイムアウトが発生した。",
+      "characters": 609,
+      "usage": {
+        "input_tokens": 19389,
+        "output_tokens": 1245,
+        "total_tokens": 20634,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 19386
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 893
+        }
+      },
+      "finishReason": "completed",
+      "effort": "max",
+      "repeat": 1,
+      "evidence": "/tmp/hjh-compaction-luna-live/effort-ivfj2v3w/repeat-1-max",
+      "wholeRunSeconds": 14.809011232980993,
+      "runExitCode": 0,
+      "fixtureSha256": "461b23ee906551a040a0b16ca47c48ec9fd3effac95cede2aed7aac08889b7e0",
+      "timings": [
+        {
+          "hookId": "5b98c20a-22f9-4112-a03e-745d94312e3f",
+          "hookSeconds": 12.943427085876465,
+          "summarySeconds": [
+            12.9395170211792
+          ],
+          "summaryTotalSeconds": 12.9395170211792,
+          "otherSeconds": 0.003910064697265625
+        }
+      ],
+      "recordedSelections": [
+        {
+          "api": "responses",
+          "authProfile": "opencode-go-api-key",
+          "effort": "max",
+          "modelId": "gpt-6-luna",
+          "provider": "opencode-go-responses"
+        }
+      ],
+      "qualitativeObservations": {
+        "adoptedRulesAndLatestCorrectionRetained": true,
+        "adoptionReasonRetained": true,
+        "adoptionTestIdRetained": true,
+        "unrelatedErrandDetailsRetained": false
+      }
+    },
+    {
+      "executionId": "18c69cfa-57a8-4094-9d60-84fd549b1167",
+      "parentModel": {
+        "provider": "opencode-go-responses",
+        "api": "responses",
+        "authProfile": "opencode-go-api-key",
+        "modelId": "gpt-6-luna",
+        "effort": "max"
+      },
+      "seconds": 7.81,
+      "text": "【継続タスク E】合意済み仕様と最終訂正に従い、`candidates.csv`を読み込んで`rollout-plan.json`を作成する。ファイル操作・候補選定は未実施。\n\n成果物はトップレベルに`schema`,`channel`,`strict_order`,`notify`,`regions`だけを持つ。`schema`=`rollout-plan/v2`、`channel`=`amber`、`strict_order`=`true`、`notify`=`ops-ja`。`regions`は`osaka`,`tokyo`の順で、各要素は`{name,release,rollback,percent}`。候補は`status=passed`かつ`p95_ms<=125`に限定し、regionごとにbuild番号最大を採用する。rollbackはosaka=`rel-730`、tokyo=`rel-840`。初期percentはosaka=10、tokyo=5（最終訂正。tokyoは監査待ち）。\n\n例外として、osakaの`rel-736`はCSV上passedでもロールバック試験`RB-88`不合格のため必ず除外。`rel-735`は128msなので125ms基準で除外（旧130ms案なら対象だった）。125ms基準の根拠は`PERF-Q17-125`。130ms案にはピーク時間帯の再試験でタイムアウトがあった。これらの値・判断は確定済み。CSVから実際の採用候補を決め、JSONを作成・検証した後、採用候補と主な除外理由を簡潔に報告する。",
+      "characters": 684,
+      "usage": {
+        "input_tokens": 19390,
+        "output_tokens": 898,
+        "total_tokens": 20288,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 19387
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 516
+        }
+      },
+      "finishReason": "completed",
+      "effort": "max",
+      "repeat": 2,
+      "evidence": "/tmp/hjh-compaction-luna-live/effort-ivfj2v3w/repeat-2-max",
+      "wholeRunSeconds": 9.757360521005467,
+      "runExitCode": 0,
+      "fixtureSha256": "564068594a41b44928e0fc370728ef09a707522192ceed2f65c977d76e6ebb20",
+      "timings": [
+        {
+          "hookId": "f2fa49c0-1555-48ca-8293-f5799d7f35ac",
+          "hookSeconds": 7.812580823898315,
+          "summarySeconds": [
+            7.808274030685425
+          ],
+          "summaryTotalSeconds": 7.808274030685425,
+          "otherSeconds": 0.004306793212890625
+        }
+      ],
+      "recordedSelections": [
+        {
+          "api": "responses",
+          "authProfile": "opencode-go-api-key",
+          "effort": "max",
+          "modelId": "gpt-6-luna",
+          "provider": "opencode-go-responses"
+        }
+      ],
+      "qualitativeObservations": {
+        "adoptedRulesAndLatestCorrectionRetained": true,
+        "adoptionReasonRetained": true,
+        "adoptionTestIdRetained": true,
+        "unrelatedErrandDetailsRetained": false
+      }
+    },
+    {
+      "executionId": "ca98cd26-5c20-4f46-abdf-0769c599b433",
+      "parentModel": {
+        "provider": "opencode-go-responses",
+        "api": "responses",
+        "authProfile": "opencode-go-api-key",
+        "modelId": "gpt-6-luna",
+        "effort": "auto"
+      },
+      "seconds": 5.98,
+      "text": "現在の作業は、合意済み仕様と最終訂正に従って`candidates.csv`を読み、`rollout-plan.json`を作成すること。まだファイル操作・候補選定は未実施。作成後、採用候補と主な除外理由を簡潔に報告する。\n\n確定仕様：トップレベルのキーは`schema`,`channel`,`strict_order`,`notify`,`regions`のみ。`schema`=`rollout-plan/v2`、`channel`=`amber`、`strict_order`=`true`、`notify`=`ops-ja`。`regions`はosaka、tokyoの順で、各要素は`name`,`release`,`rollback`,`percent`を持つ。rollback先はosaka=`rel-730`、tokyo=`rel-840`。percentはosaka=10、tokyo=5（監査待ちの最終訂正）。\n\n候補は`status=passed`かつ`p95_ms<=125`を対象にし、regionごとにbuild番号最大の候補を選ぶ。ただしosakaの`rel-736`はCSV上passedでも、ロールバック試験`RB-88`不合格のため必ず除外。`rel-735`は128msなので除外。125ms基準は試験`PERF-Q17-125`に基づき、ピーク時間帯の再試験で130ms案にタイムアウトが出たため採用済み。候補の実値は`candidates.csv`を確認して確定する。",
+      "characters": 656,
+      "usage": {
+        "input_tokens": 19393,
+        "output_tokens": 528,
+        "total_tokens": 19921,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 19390
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 171
+        }
+      },
+      "finishReason": "completed",
+      "effort": "auto",
+      "repeat": 2,
+      "evidence": "/tmp/hjh-compaction-luna-live/effort-ivfj2v3w/repeat-2-auto",
+      "wholeRunSeconds": 7.733287413022481,
+      "runExitCode": 0,
+      "fixtureSha256": "0278efdd203c77267202f34a012696f5e2a8821682d26d7363d991b83aa03b02",
+      "timings": [
+        {
+          "hookId": "ab0fed07-1ed5-4311-8bf1-dffef5af7d1f",
+          "hookSeconds": 5.984989166259766,
+          "summarySeconds": [
+            5.978356122970581
+          ],
+          "summaryTotalSeconds": 5.978356122970581,
+          "otherSeconds": 0.00663304328918457
+        }
+      ],
+      "recordedSelections": [
+        {
+          "api": "responses",
+          "authProfile": "opencode-go-api-key",
+          "effort": "auto",
+          "modelId": "gpt-6-luna",
+          "provider": "opencode-go-responses"
+        }
+      ],
+      "qualitativeObservations": {
+        "adoptedRulesAndLatestCorrectionRetained": true,
+        "adoptionReasonRetained": true,
+        "adoptionTestIdRetained": true,
+        "unrelatedErrandDetailsRetained": false
+      }
+    },
+    {
+      "executionId": "d2088b60-dd35-43df-aa30-f7d484312add",
+      "parentModel": {
+        "provider": "opencode-go-responses",
+        "api": "responses",
+        "authProfile": "opencode-go-api-key",
+        "modelId": "gpt-6-luna",
+        "effort": "auto"
+      },
+      "seconds": 6.9,
+      "text": "作業中の依頼は、`candidates.csv`を読み、合意済み仕様と最終訂正に基づいて`rollout-plan.json`を実際に作成し、採用候補と主な除外理由を簡潔に報告すること。別件の搬入作業は対象外。まだCSVの読み込み・ファイル作成は実施されていないため、まず作業環境でファイルを確認する。\n\n採用済み仕様：JSONのトップレベルキーは`schema, channel, strict_order, notify, regions`のみ。`schema`=`rollout-plan/v2`、`channel`=`amber`、`strict_order`=`true`、`notify`=`ops-ja`。`regions`は`osaka`、`tokyo`の順で、各要素は`name, release, rollback, percent`。候補は`status=passed`かつ`p95_ms<=125`を対象にし、各regionでbuild番号が最大の候補を選ぶ。例外としてosakaの`rel-736`はstatusがpassedでも、rollback試験`RB-88`不合格のため必ず除外。`rel-735`は128msで125ms基準を超えるため除外。125ms基準は試験`PERF-Q17-125`に基づく。130ms案はピーク時再試験でタイムアウトがあり不採用。rollback先はosaka=`rel-730`、tokyo=`rel-840`で固定。最終訂正により初期percentはosaka=10、tokyo=5（監査待ち）。CSVから条件に合う候補とbuild番号を特定後、JSONを作成・検証して、選定値と主な除外理由を報告する。",
+      "characters": 735,
+      "usage": {
+        "input_tokens": 19392,
+        "output_tokens": 626,
+        "total_tokens": 20018,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 19389
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 207
+        }
+      },
+      "finishReason": "completed",
+      "effort": "auto",
+      "repeat": 3,
+      "evidence": "/tmp/hjh-compaction-luna-live/effort-ivfj2v3w/repeat-3-auto",
+      "wholeRunSeconds": 8.93895621295087,
+      "runExitCode": 0,
+      "fixtureSha256": "468367c4be98f6f4c56c5a152f3a6c94359f982ca9ab54d9323453b976440d81",
+      "timings": [
+        {
+          "hookId": "14664f8b-e0c7-46c4-acc5-8ce4873905cf",
+          "hookSeconds": 6.90316104888916,
+          "summarySeconds": [
+            6.8989341259002686
+          ],
+          "summaryTotalSeconds": 6.8989341259002686,
+          "otherSeconds": 0.0042269229888916016
+        }
+      ],
+      "recordedSelections": [
+        {
+          "api": "responses",
+          "authProfile": "opencode-go-api-key",
+          "effort": "auto",
+          "modelId": "gpt-6-luna",
+          "provider": "opencode-go-responses"
+        }
+      ],
+      "qualitativeObservations": {
+        "adoptedRulesAndLatestCorrectionRetained": true,
+        "adoptionReasonRetained": true,
+        "adoptionTestIdRetained": true,
+        "unrelatedErrandDetailsRetained": false
+      }
+    },
+    {
+      "executionId": "9bd2854e-0301-4369-a78d-7733359c5fab",
+      "parentModel": {
+        "provider": "opencode-go-responses",
+        "api": "responses",
+        "authProfile": "opencode-go-api-key",
+        "modelId": "gpt-6-luna",
+        "effort": "max"
+      },
+      "seconds": 15.212,
+      "text": "【継続タスク E】合意済み仕様と最終訂正に従い、作業環境の `candidates.csv` を読み、`rollout-plan.json` を作成する。会話内ではCSVの候補内容は確認されておらず、成果物も未作成。候補を推測せず、ファイルを確認してから採用候補を決める。\n\n採用条件は `status=passed` かつ `p95_ms<=125`。各regionで条件を満たす候補からbuild番号が最大のものを選ぶ。ただしosakaの `rel-736` は、CSV上passedでもロールバック試験 `RB-88` 不合格のため必ず除外。`rel-735` は128msなので125ms基準では除外。125ms基準の根拠は `PERF-Q17-125`（ピーク時間帯の再試験で130ms案にタイムアウト）。\n\nJSONのトップレベルキーは `schema,channel,strict_order,notify,regions` のみ。値は `schema=\"rollout-plan/v2\"`、`channel=\"amber\"`、`strict_order=true`、`notify=\"ops-ja\"`。`regions` は `{name,release,rollback,percent}` の配列で順序はosaka、tokyo。rollbackはosaka=`rel-730`、tokyo=`rel-840`。初期percentは最終訂正を反映し、osaka=10、tokyo=5。\n\nファイル作成後、JSONの構文・キー・順序・値を確認し、最後に採用した候補と主な除外理由（125ms超、status不適合、`rel-736` のRB-88不合格など）を簡潔に報告する。",
+      "characters": 746,
+      "usage": {
+        "input_tokens": 19393,
+        "output_tokens": 1448,
+        "total_tokens": 20841,
+        "input_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 19390
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 1034
+        }
+      },
+      "finishReason": "completed",
+      "effort": "max",
+      "repeat": 3,
+      "evidence": "/tmp/hjh-compaction-luna-live/effort-ivfj2v3w/repeat-3-max",
+      "wholeRunSeconds": 16.916017705982085,
+      "runExitCode": 0,
+      "fixtureSha256": "bc8910f62d00ba00db550b35e5d26a1c751b972a5808cabd4d34db9a2bb0a024",
+      "timings": [
+        {
+          "hookId": "bdd401bb-3786-42e4-8ec1-f4b3c4323c80",
+          "hookSeconds": 15.214401960372925,
+          "summarySeconds": [
+            15.210437059402466
+          ],
+          "summaryTotalSeconds": 15.210437059402466,
+          "otherSeconds": 0.003964900970458984
+        }
+      ],
+      "recordedSelections": [
+        {
+          "api": "responses",
+          "authProfile": "opencode-go-api-key",
+          "effort": "max",
+          "modelId": "gpt-6-luna",
+          "provider": "opencode-go-responses"
+        }
+      ],
+      "qualitativeObservations": {
+        "adoptedRulesAndLatestCorrectionRetained": true,
+        "adoptionReasonRetained": true,
+        "adoptionTestIdRetained": true,
+        "unrelatedErrandDetailsRetained": false
+      }
+    }
+  ]
+}

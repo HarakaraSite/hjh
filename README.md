@@ -12,7 +12,7 @@ Built in Go, hjh embeds [go-quickjs](https://github.com/go-quickjs/go-quickjs),
 a pure Go implementation of QuickJS-NG, to run JavaScript tools, hooks, and
 `run_js` scripts. No Node.js or Deno installation is needed for JavaScript execution.
 
-This project is still under development. The build produces two executables,
+The build produces two executables,
 `hjh` and `hjh-tui`; runtime testing has been performed on Linux/amd64.
 
 ## Features
@@ -24,6 +24,19 @@ This project is still under development. The build produces two executables,
 - Editable JavaScript tools and hooks, roles, workspace instructions, and skills.
 
 ## Get started
+
+Download the Linux/amd64 bundle and `SHA256SUMS` from
+[Releases](https://forge.harakara.site/littleisland/hjh/releases).
+Verify and extract the archive, then start the TUI:
+
+```sh
+sha256sum -c SHA256SUMS
+tar -xzf hjh-linux-amd64.tar.gz
+./hjh-linux-amd64/hjh-tui
+```
+
+The bundle includes both executables, editable extensions, and dependency licenses.
+Go is needed only when building from source.
 
 Build from source with Go 1.27 or later; dependencies are listed in [go.mod](go.mod).
 Content search uses ripgrep (`rg`) when installed, otherwise GNU grep.
@@ -43,7 +56,8 @@ Use `./dist/hjh-tui --continue` to resume the latest session in the same workspa
 
 In the TUI, use `/login` to configure credentials, then `/provider` and `/model`
 to choose a connection and model. OpenRouter is the default connection.
-Type a request and press Enter to send it.
+Press Enter to send a request while idle. During a run, Enter keeps the draft;
+F2 queues a follow-up and F3 sends steering.
 Type `/` to browse commands; use arrows to select, Tab to complete, and Enter to choose.
 
 | Command | Action |
@@ -54,8 +68,9 @@ Type `/` to browse commands; use arrows to select, Tab to complete, and Enter to
 | `/login` `/auth` | Set up credentials or show authentication status |
 | `/roles` `/role` | List roles with their tools or choose the next role |
 | `/history` `/executions` `/inspect` | Review the conversation and saved executions |
-| `/inputs` `/tools` `/tool` | Review saved follow-up input and tool calls |
-| `/context` `/recall` | Show the assembled context or reuse a stopped execution |
+| `/inputs` `/tools` `/tool` | Review input receipt statuses and saved tool calls |
+| `/context` | Show context sources and usage |
+| `/recall` | Use a stopped execution’s records as reference for the next run |
 | `/detach` | Close the TUI while the Core keeps running |
 | `/quit` | Stop the Core and close the TUI |
 | `/help` | Show commands and keyboard shortcuts |

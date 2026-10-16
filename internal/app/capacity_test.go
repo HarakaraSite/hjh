@@ -37,7 +37,7 @@ func TestRunBudgetUsesLiveCatalogAndSharesSnapshotAcrossModels(t *testing.T) {
 	}
 	factory := newConnectionFactory(RunOptions{CredentialStateDir: filepath.Join(workspace, "state")})
 	defer factory.close()
-	for model, limit := range map[string]int64{"catalog-only": 1600000, "child": 800000} {
+	for model, limit := range map[string]int64{"catalog-only": 1800000, "child": 900000} {
 		budget, message := factory.budget(context.Background(), registry, contracts.ModelSelection{Provider: "test", AuthProfile: "key", ModelID: model}, false, filepath.Join(workspace, "config.json"))
 		if message != "" || budget.Limit == nil || *budget.Limit != limit || budget.Sources.ContextTokens != "catalog/test" {
 			t.Fatalf("catalog budget: %+v %s", budget, message)

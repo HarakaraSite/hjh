@@ -19,11 +19,14 @@
 ```sh
 go build -o dist/hjh ./cmd/hjh
 go build -o dist/hjh-tui ./cmd/hjh-tui
-python3 scripts/package-linux.py
+go run ./scripts/package-linux
 ```
 
 配布scriptはLinux/amd64静的binary、外部JS、依存license、manifestを`dist/packages/`へ作る。
-Python 3とreadelfも使う。[配布物の使い方](distribution-linux.md)を参照する。
+Goで配布処理とELFの確認を行う。従来のPython入口は同じGo実装を呼び出す。
+[配布物の使い方](distribution-linux.md)を参照する。
+タグreleaseのprofile・CIでのtest／vet・配布物と確認記録は
+[release checks](release-checkpoints.md)を参照する。
 
 変更箇所のfocused test、必要なvet、formatとdiff checkで確認する。外部拡張変更時の例：
 
@@ -153,7 +156,7 @@ S-01〜S-05スパイクは実施済み。[実験コード](../spikes/s01/README.
 
 ソースからは `go build -o dist/hjh ./cmd/hjh` でコアを、
 `go build -o dist/hjh-tui ./cmd/hjh-tui` でTUIをビルドする。
-Linux静的配布物は `python3 scripts/package-linux.py` で `dist/packages/` に作成できる。
+Linux静的配布物は `go run ./scripts/package-linux` で `dist/packages/` に作成できる。
 配布先ではGo・Node・Deno・curlを必要としない。[配布物の使い方](distribution-linux.md)を参照する。
 
 接続は外部 `.hjh/extensions/config.json` の `providers` で指定する。

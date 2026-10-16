@@ -1,0 +1,55 @@
+# Rendered from .forgejo/release-profile.yml (version 2).
+# Project-specific packaging preserves both executables and their editable extensions.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # Render only portable, non-interactive test/vet gates here. Reference-host
+      # race, PTY/TTY, tmux/fzf, GUI, and real-data checks are pre-tag evidence.
+      - name: Test
+        run: |
+          set -euo pipefail
+          go test ./...
+
+      - name: Vet
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Build binaries
+        id: build
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          go run ./scripts/package-linux --version "${{ forgejo.ref_name }}" --release-dir dist/release
+          (
+            cd dist/release
+            sha256sum hjh-linux-amd64.tar.gz > SHA256SUMS
+          )
+
+      - name: Upload release
+        if: success()
+        uses: actions/forgejo-release@v2
+        with:
+          direction: upload
+          url: ${{ forgejo.server_url }}
+          repo: ${{ forgejo.repository }}
+          token: ${{ forgejo.token }}
+          tag: ${{ forgejo.ref_name }}
+          release-dir: dist/release
+          release-notes: ${{ format('Release {0}', forgejo.ref_name) }}

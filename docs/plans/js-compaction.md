@@ -2,6 +2,9 @@
 
 状態：S1〜S3実装・確認済み。[結果](../results/js-compaction.md)を参照する。
 
+2026-10-16の後続計画：[削除優先・最終入力3分の1への圧縮と所要時間の実測](js-compaction-strategy.md)。
+後続の[実装・実測結果](../results/js-compaction-strategy.md)は別に記録した。以下は従来方式の実装記録とする。
+
 2026-10-15。利用者は親と同じprovider/model/effortへ要約専用instructionで一回問い合わせる方式を採用した。
 JSで要約・差替えを行い、原文範囲と完了turnの最終回答への参照を付け、要約はSession単位のメモリで保持する。
 agent全体のDB非保存modeは将来検討に分ける。

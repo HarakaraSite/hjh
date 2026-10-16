@@ -1,0 +1,859 @@
+{
+  "date": "2026-10-16",
+  "model": {
+    "provider": "opencode-go-chat",
+    "modelId": "deepseek-v4.1-flash"
+  },
+  "sourceRequest": "first actual summary request from previous behavior comparison, repeat-1-on/create",
+  "sourceReports": "/tmp/hjh-compaction-behavior-live/behavior-9_ft19_6/reports.json",
+  "summaryLengthInstruction": "approximately 1200 characters",
+  "measurementScope": "api.model.generate elapsed time; inherited parent effort; normal final DONE excluded",
+  "sourceFiles": {
+    "generator": "internal/app/request_model.go",
+    "encoder": "internal/provider/protocol/encode.go",
+    "script": "scripts/measure-compaction-effort.py"
+  },
+  "series": [
+    {
+      "mode": "natural",
+      "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh",
+      "metadata": {
+        "sourceReports": "/tmp/hjh-compaction-behavior-live/behavior-9_ft19_6/reports.json",
+        "fixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+        "binarySha256": "95c4cfa553f7a0dd19478e0c336dac26b0b6db94af42c55a1b8e5366962803d6",
+        "summaryCharacters": 1200,
+        "provider": "opencode-go-chat",
+        "modelId": "deepseek-v4.1-flash",
+        "measurement": "api.model.generate elapsed time including provider/transport/bridge; final DONE excluded"
+      },
+      "aggregate": [
+        {
+          "effort": "auto",
+          "samples": 3,
+          "seconds": [
+            20.403,
+            30.797,
+            23.473
+          ],
+          "medianSeconds": 23.473,
+          "minSeconds": 20.403,
+          "maxSeconds": 30.797,
+          "cachedTokens": [
+            0,
+            19328,
+            19328
+          ],
+          "promptTokens": [
+            19349,
+            19349,
+            19349
+          ],
+          "reasoningTokens": [
+            2557,
+            3136,
+            2578
+          ],
+          "adoptionReasonRetainedCount": 1,
+          "adoptionTestIdRetainedCount": 3
+        },
+        {
+          "effort": "max",
+          "samples": 3,
+          "seconds": [
+            29.905,
+            18.253,
+            27.596
+          ],
+          "medianSeconds": 27.596,
+          "minSeconds": 18.253,
+          "maxSeconds": 29.905,
+          "cachedTokens": [
+            0,
+            19328,
+            0
+          ],
+          "promptTokens": [
+            19349,
+            19349,
+            19349
+          ],
+          "reasoningTokens": [
+            3299,
+            1585,
+            3748
+          ],
+          "adoptionReasonRetainedCount": 1,
+          "adoptionTestIdRetainedCount": 3
+        }
+      ],
+      "records": [
+        {
+          "executionId": "b04faf26-d8ef-4588-aa9e-10153eb507e3",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "auto"
+          },
+          "seconds": 20.403,
+          "text": "【継続メモ：E】\n現在作業: 合意済み仕様・確認結果・最終訂正に基づき candidates.csv を読み、rollout-plan.json を完成させる。必要なファイル操作を実行し、最後に採用候補と主な除外理由を簡潔に報告する。現時点で本作業は未完了。candidates.csv は照合完了済みで利用可能。rollout-plan.json の作成/更新は未実施。\n\n確定仕様（採用済み）:\n- rollout-plan.json のトップレベルは schema, channel, strict_order, notify, regions のみ。余計なキーは入れない。\n- schema=rollout-plan/v2、channel=amber、strict_order=true、notify=ops-ja。\n- regions は {name, release, rollback, percent} の配列。順序は osaka, tokyo。\n- rollback は osaka=rel-730、tokyo=rel-840 に固定。region順序も変更しない。\n- 初期 percent は osaka=10、tokyo=5（最終訂正。tokyo は監査待ちで10→5、osakaは10のまま）。\n- 候補条件は status=passed かつ p95_ms<=125。regionごとに build 番号最大を選ぶ。\n- 125ms の根拠は試験 PERF-Q17-125。130ms 案はピーク時間帯再試験でタイムアウトしたため未採用。\n- 除外必須: osaka rel-736 は CSV の status=passed でもロールバック試験 RB-88 不合格のため除外。rel-735 は p95=128ms のため 125ms 基準では除外（旧130ms案なら通る）。\n- 初案 channel=blue と130ms基準は未採用。\n\n次アクション:\n1) candidates.csv を読み、osaka/tokyo それぞれ条件適合候補から build 最大を選び、採用 release を確定。\n2) 上記トップレベルと regions のみを含む rollout-plan.json を書き出す。\n3) 採用した候補と主な除外理由（例: rel-736: RB-88不合格、rel-735: 128ms>125）を報告。\n現時点で採用候補は未確定（CSV読込後に確定）。",
+          "characters": 1059,
+          "usage": {
+            "prompt_tokens": 19349,
+            "completion_tokens": 3088,
+            "total_tokens": 22437,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 2557
+            }
+          },
+          "finishReason": "stop",
+          "effort": "auto",
+          "repeat": 1,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh/repeat-1-auto",
+          "wholeRunSeconds": 24.181669145007618,
+          "runExitCode": 0,
+          "timings": [
+            {
+              "hookId": "121768d0-8b7c-4a47-adf7-b3efa39c4ade",
+              "hookSeconds": 20.405241012573242,
+              "summarySeconds": [
+                20.40123987197876
+              ],
+              "summaryTotalSeconds": 20.40123987197876,
+              "otherSeconds": 0.004001140594482422
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "auto",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": true,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "571319bd-9999-4058-9235-a264a86500c2",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "max"
+          },
+          "seconds": 29.905,
+          "text": "E続行メモ（未完了）: candidates.csvを読み、合意済み仕様・確認済み例外・最終訂正に従ってrollout-plan.jsonを作成・保存する。必要なファイル操作後、採用候補と主な除外理由を簡潔に報告する。搬入作業は対象外。\n\n採用済み仕様: rollout-plan.jsonのトップレベルは schema, channel, strict_order, notify, regions のみ。schema=rollout-plan/v2、channel=amber、strict_order=true、notify=ops-ja。regions順序は osaka, tokyo。各regionは {name,release,rollback,percent}。候補条件は status=passed かつ p95_ms<=125 で、regionごとに build番号最大を選ぶ。125ms採用の根拠は試験ID PERF-Q17-125。rollback先は osaka=rel-730、tokyo=rel-840 で固定。percentは osaka=10、tokyo=5（tokyoは監査待ちのため10→5へ最終訂正済み）。channel、125ms、rollback先、region順序は変更しない。\n\n確認済み例外: osakaの rel-736 は CSV 上 status=passed でもロールバック試験 RB-88 不合格のため必ず除外。rel-735 は p95_ms=128 のため条件 p95_ms<=125 に合わず除外。candidates.csv は利用可能。\n\n作業手順: CSV読込→status=passedかつp95_ms<=125で絞込→regionごとにbuild最大を選定（rel-736除外を優先）→上記schemaでJSON生成→保存→採用候補と除外理由を報告。未確定なのはCSVから選ぶ実際のrelease名。",
+          "characters": 838,
+          "usage": {
+            "prompt_tokens": 19349,
+            "completion_tokens": 3701,
+            "total_tokens": 23050,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 3299
+            }
+          },
+          "finishReason": "stop",
+          "effort": "max",
+          "repeat": 1,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh/repeat-1-max",
+          "wholeRunSeconds": 33.52814130700426,
+          "runExitCode": 0,
+          "timings": [
+            {
+              "hookId": "27216a1d-59d9-4c31-8776-c59c222f866d",
+              "hookSeconds": 29.906665086746216,
+              "summarySeconds": [
+                29.90310788154602
+              ],
+              "summaryTotalSeconds": 29.90310788154602,
+              "otherSeconds": 0.0035572052001953125
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "max",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "0bfb3b9e-1e41-425b-941f-c988479846eb",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "max"
+          },
+          "seconds": 18.253,
+          "text": "継続タスクE: 合意済み仕様に従い `candidates.csv` を読み、`rollout-plan.json` を完成させる。必要なファイル操作を行い、最後に採用候補と主な除外理由を簡潔に報告する。搬入案件は対象外。\n\n確定仕様: `channel=amber`、`strict_order=true`、`notify=ops-ja`。region順は `osaka,tokyo`。`schema=rollout-plan/v2`。JSONのトップレベルは `schema,channel,strict_order,notify,regions` のみ。`regions` は `{name,release,rollback,percent}` の配列。\n\n選定規則: `status=passed` かつ `p95_ms<=125` の候補だけを対象にし、regionごとにbuild番号最大を採用。125ms採用の根拠は `PERF-Q17-125`（ピーク時間帯の再試験で130ms案にタイムアウト）。\n\n固定値・例外: rollbackは `osaka=rel-730`、`tokyo=rel-840`。percentは最終訂正により `osaka=10`、`tokyo=5`（tokyoは監査待ちで10から5へ変更済み）。`osaka` の `rel-736` はCSV上 `status=passed` でも、ロールバック試験 `RB-88` 不合格のため必ず除外。`rel-735` は128msなので125ms基準では除外（旧130ms案なら通過）。channel、125ms、rel-736除外、rollback先、region順は変更しない。\n\n未了: `candidates.csv` は照合済みで利用可能。実際のCSVを読み、上記条件で各regionのreleaseを確定して `rollout-plan.json` を書き出す必要がある。作成時は許可されたトップレベル項目だけか確認する。完了後に採用候補と主な除外理由を報告する。",
+          "characters": 881,
+          "usage": {
+            "prompt_tokens": 19349,
+            "completion_tokens": 2040,
+            "total_tokens": 21389,
+            "prompt_tokens_details": {
+              "cached_tokens": 19328
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 1585
+            }
+          },
+          "finishReason": "stop",
+          "effort": "max",
+          "repeat": 2,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh/repeat-2-max",
+          "wholeRunSeconds": 21.694464792963117,
+          "runExitCode": 0,
+          "timings": [
+            {
+              "hookId": "14b610de-7d0d-4be6-b520-c85f468d1364",
+              "hookSeconds": 18.255584001541138,
+              "summarySeconds": [
+                18.250885009765625
+              ],
+              "summaryTotalSeconds": 18.250885009765625,
+              "otherSeconds": 0.004698991775512695
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "max",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": true,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "d4f05ef3-775b-4a0a-bdf4-a9f8f2db9429",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "auto"
+          },
+          "seconds": 30.797,
+          "text": "【継続メモ】\n作業E（未完了）: candidates.csvを読み、確定済み仕様に従ってrollout-plan.jsonを作成し、必要なファイル操作を実行する。最後に採用した候補と主な除外理由を簡潔に報告する。別件の搬入作業は対象外。\n\n採用済み仕様:\n- 成果物: rollout-plan.json。トップレベルはschema, channel, strict_order, notify, regionsのみ。\n- schema=rollout-plan/v2。\n- channel=amber、strict_order=true、notify=ops-ja。\n- regionsの順序はosaka,tokyo。各要素は{name,release,rollback,percent}。\n- rollback先は固定でosaka=rel-730、tokyo=rel-840。\n- percentは最終訂正どおりosaka=10、tokyo=5（tokyoは監査待ちのため10から5へ変更。osakaは10のまま）。\n- 候補条件はstatus=passedかつp95_ms<=125。regionごとにbuild番号最大の候補を選ぶ。\n- 125ms基準の根拠はPERF-Q17-125。\n\n直近完了分の引継ぎ:\n- リリース候補一覧の照合は完了済みで、candidates.csvを使用可能。\n- 例外: osakaのrel-736はCSV上status=passedでも、ロールバック試験RB-88が不合格のため必ず除外する。\n- rel-735は128msのため、採用基準125msでは除外する。\n- 上記の例外、rollback先、region順序、channel、125ms基準、rel-736除外は最終訂正後も変更なし。採用済みとして扱う。\n\n未完了:\ncandidates.csvを実際に読み、status=passedかつp95_ms<=125の候補からregion別にbuild番号最大のreleaseを確定する。その結果でrollout-plan.jsonを上記トップレベル項目とregions配列だけで作成する。作成後、採用候補と主な除外理由（例: rel-736はRB-88不合格、rel-735は128ms）を報告する。",
+          "characters": 977,
+          "usage": {
+            "prompt_tokens": 19349,
+            "completion_tokens": 3617,
+            "total_tokens": 22966,
+            "prompt_tokens_details": {
+              "cached_tokens": 19328
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 3136
+            }
+          },
+          "finishReason": "stop",
+          "effort": "auto",
+          "repeat": 2,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh/repeat-2-auto",
+          "wholeRunSeconds": 33.284342019993346,
+          "runExitCode": 0,
+          "timings": [
+            {
+              "hookId": "b68f29ed-d595-4277-a8ca-c4701446ce2c",
+              "hookSeconds": 30.799378871917725,
+              "summarySeconds": [
+                30.794947862625122
+              ],
+              "summaryTotalSeconds": 30.794947862625122,
+              "otherSeconds": 0.004431009292602539
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "auto",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "83c5e9a1-551d-4099-be3a-a12ae8408580",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "auto"
+          },
+          "seconds": 23.473,
+          "text": "継続メモ（E）：`candidates.csv` を読み、`rollout-plan.json` を完成させ、必要なファイル操作の後に採用候補と主な除外理由を簡潔に報告する。別件の搬入作業は対象外。\n\n採用済み仕様:\n- トップレベルは `schema`, `channel`, `strict_order`, `notify`, `regions` のみ。\n- `schema=rollout-plan/v2`、`channel=amber`、`strict_order=true`、`notify=ops-ja`。\n- `regions` の順序は `osaka`,`tokyo`。各要素は `{name,release,rollback,percent}`。\n- `rollback` は固定で `osaka=rel-730`、`tokyo=rel-840`。\n- 初期 `percent` は `osaka=10`、`tokyo=5`。tokyoは監査待ちのため10→5へ最終訂正済み。\n\n候補選定:\n- `status=passed` かつ `p95_ms<=125` のみ対象。\n- regionごとにbuild番号最大を選ぶ。\n- 125ms基準の根拠は試験 `PERF-Q17-125`。この基準は採用済み。\n- 例外: `osaka` の `rel-736` はCSV上 `passed` でもロールバック試験 `RB-88` 不合格のため必ず除外。\n- `rel-735` は128msなので125ms基準では除外。\n\n進捗:\n- 候補一覧の照合は完了し、`candidates.csv` は使用可能。検証結果と上記例外を引き継ぐ。\n- 最終訂正（tokyo percent=5）は採用済み。\n- 未完了（E）: `candidates.csv` から条件に合う候補を決定し、`rollout-plan.json` を保存。報告には採用候補と主な除外理由を含める。",
+          "characters": 842,
+          "usage": {
+            "prompt_tokens": 19349,
+            "completion_tokens": 3029,
+            "total_tokens": 22378,
+            "prompt_tokens_details": {
+              "cached_tokens": 19328
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 2578
+            }
+          },
+          "finishReason": "stop",
+          "effort": "auto",
+          "repeat": 3,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh/repeat-3-auto",
+          "wholeRunSeconds": 27.959315658954438,
+          "runExitCode": 0,
+          "timings": [
+            {
+              "hookId": "28591cc6-fa86-461a-bbb7-8471ee260f6d",
+              "hookSeconds": 23.47521185874939,
+              "summarySeconds": [
+                23.47071385383606
+              ],
+              "summaryTotalSeconds": 23.47071385383606,
+              "otherSeconds": 0.004498004913330078
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "auto",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "2779cea7-c36d-437b-a36f-797e5f4ebb22",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "max"
+          },
+          "seconds": 27.596,
+          "text": "【継続メモ E】合意済み仕様・照合結果・最終訂正を使い、candidates.csvを読んでrollout-plan.jsonを完成させ、必要なファイル操作を行う。最後に採用候補と主な除外理由を簡潔に報告する。Eは未完了。candidates.csvの照合は完了済みで利用可能。\n\n採用済み仕様: channel=amber、strict_order=true、notify=ops-ja、regions順序はosaka,tokyo。rollout-plan.jsonのトップレベルはschema, channel, strict_order, notify, regionsの5キーのみ。schema=rollout-plan/v2。regionsは{name,release,rollback,percent}を持つ配列。候補条件はstatus=passedかつp95_ms<=125のみ。regionごとにbuild番号最大の候補を選ぶ。rollback先はosaka=rel-730、tokyo=rel-840で固定。初期percentはosaka=10、tokyo=5（tokyoは監査待ちのため10→5に最終訂正済み）。125ms採用の根拠はPERF-Q17-125。\n\n例外・除外: osakaのrel-736はCSV上status=passedでも、ロールバック試験RB-88不合格のため必ず除外する。rel-735はp95_ms=128のため125ms基準では除外する。\n\n次の作業: candidates.csvを読み、status=passedかつp95_ms<=125で絞り込み、rel-736除外を適用し、region別最大buildをreleaseに設定。rollbackとpercentを固定値にしてregions配列を作り、rollout-plan.jsonへ書き出す。保存後、採用したrelease（osaka/tokyo）と主な除外理由（rel-736/RB-88、rel-735/128ms等）を報告する。ファイル操作はcandidates.csvの読み込みとrollout-plan.jsonの書き込み。",
+          "characters": 922,
+          "usage": {
+            "prompt_tokens": 19349,
+            "completion_tokens": 4179,
+            "total_tokens": 23528,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 3748
+            }
+          },
+          "finishReason": "stop",
+          "effort": "max",
+          "repeat": 3,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-sqky5_vh/repeat-3-max",
+          "wholeRunSeconds": 29.50410709902644,
+          "runExitCode": 0,
+          "timings": [
+            {
+              "hookId": "a786e908-e806-46d2-8be1-d8da99135aca",
+              "hookSeconds": 27.598180055618286,
+              "summarySeconds": [
+                27.594242811203003
+              ],
+              "summaryTotalSeconds": 27.594242811203003,
+              "otherSeconds": 0.003937244415283203
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "max",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        }
+      ]
+    },
+    {
+      "mode": "fresh-prefix",
+      "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h",
+      "metadata": {
+        "sourceReports": "/tmp/hjh-compaction-behavior-live/behavior-9_ft19_6/reports.json",
+        "fixtureSha256": "d6e96af33b25221cf2c225d70e7acbd3fa16899fbbd3906c35df19cc362f4d81",
+        "binarySha256": "95c4cfa553f7a0dd19478e0c336dac26b0b6db94af42c55a1b8e5366962803d6",
+        "summaryCharacters": 1200,
+        "provider": "opencode-go-chat",
+        "modelId": "deepseek-v4.1-flash",
+        "cacheMode": "fresh-prefix",
+        "measurement": "api.model.generate elapsed time including provider/transport/bridge; final DONE excluded"
+      },
+      "aggregate": [
+        {
+          "effort": "auto",
+          "samples": 3,
+          "seconds": [
+            9.937,
+            25.366,
+            18.921
+          ],
+          "medianSeconds": 18.921,
+          "minSeconds": 9.937,
+          "maxSeconds": 25.366,
+          "cachedTokens": [
+            0,
+            0,
+            0
+          ],
+          "promptTokens": [
+            19382,
+            19379,
+            19380
+          ],
+          "reasoningTokens": [
+            583,
+            2560,
+            2553
+          ],
+          "adoptionReasonRetainedCount": 1,
+          "adoptionTestIdRetainedCount": 3
+        },
+        {
+          "effort": "max",
+          "samples": 3,
+          "seconds": [
+            33.64,
+            50.116,
+            25.57
+          ],
+          "medianSeconds": 33.64,
+          "minSeconds": 25.57,
+          "maxSeconds": 50.116,
+          "cachedTokens": [
+            0,
+            0,
+            0
+          ],
+          "promptTokens": [
+            19380,
+            19377,
+            19380
+          ],
+          "reasoningTokens": [
+            5364,
+            5138,
+            2366
+          ],
+          "adoptionReasonRetainedCount": 1,
+          "adoptionTestIdRetainedCount": 2
+        }
+      ],
+      "records": [
+        {
+          "executionId": "a5b6cc63-336a-46df-a43f-5705ba336042",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "auto"
+          },
+          "seconds": 9.937,
+          "text": "【継続メモ：ロールアウト計画（E）】\n\n現状：仕様・確認・最終訂正はすべて合意済み。candidates.csvは照合完了で利用可能。未実行は成果物の生成のみ（candidates.csvを読み、rollout-plan.jsonを作成し、ファイル操作を実行、最後に採用候補と主な除外理由を報告）。以下は採用済みの確定事項であり、再提案・再確認は不要。\n\n成果物 rollout-plan.json（トップレベルは schema,channel,strict_order,notify,regions のみ）:\n- schema=rollout-plan/v2\n- channel=amber（blueは初案・未採用）\n- strict_order=true\n- notify=ops-ja\n- regions は osaka,tokyo の順、各要素は {name,release,rollback,percent}\n\nrollback先は固定：osaka=rel-730、tokyo=rel-840。\n初期percent：osaka=10、tokyo=5（tokyoは監査待ちのため10→5に最終訂正済み）。\n\n候補の選定基準：status=passed かつ p95_ms<=125 のみ対象。regionごとにbuild番号最大を採用。125msは試験ID PERF-Q17-125が根拠（ピーク時間帯再試験で130ms案にタイムアウト発生）。130ms基準・rel-735（128ms）は採用基準では対象外。\n\n必須の除外例外：osakaのrel-736はロールバック試験RB-88で不合格。CSV上status=passedでも必ず除外する。したがってosakaはrel-736を除いた中でp95_ms<=125かつbuild最大のものをreleaseに採用する。\n\n次の作業：candidates.csvを実際に読み、上記基準でregionごとのreleaseを確定し、rollback・percentと合わせてrollout-plan.jsonを書き出す。ファイル操作を実行後、採用候補（osaka/tokyoのrelease番号）と主な除外理由（RB-88不合格のrel-736、p95_ms>125の候補、130ms基準でしか通らないrel-735等）を簡潔に報告する。別件の搬入作業は対象外。",
+          "characters": 1007,
+          "usage": {
+            "prompt_tokens": 19382,
+            "completion_tokens": 1084,
+            "total_tokens": 20466,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 583
+            }
+          },
+          "finishReason": "stop",
+          "effort": "auto",
+          "repeat": 1,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h/repeat-1-auto",
+          "wholeRunSeconds": 14.175827885046601,
+          "runExitCode": 0,
+          "fixtureSha256": "6e949f520606919bd1ad28343384dfe28413073846600a445b84e9f9d98016ca",
+          "timings": [
+            {
+              "hookId": "5aae2e5a-da19-4391-a7d4-82f68e79f2d1",
+              "hookSeconds": 9.9392728805542,
+              "summarySeconds": [
+                9.93508005142212
+              ],
+              "summaryTotalSeconds": 9.93508005142212,
+              "otherSeconds": 0.004192829132080078
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "auto",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "6e949f520606919bd1ad28343384dfe28413073846600a445b84e9f9d98016ca",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": true,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "53325beb-20ac-4c93-bebd-75d7bcbb789f",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "max"
+          },
+          "seconds": 33.64,
+          "text": "継続タスクE（現在の依頼）: 合意済みの仕様・確認結果・最終訂正を使い、candidates.csv を読んで rollout-plan.json を完成させる。必要なファイル操作（読み込み・書き出し）を実行し、最後に採用した候補と主な除外理由を簡潔に報告する。rollout-plan.json は未作成で、Eの実行により作成する。\n\n【採用済み仕様（初案の channel=blue・130ms基準は不採用）】\n- rollout-plan.json のトップレベルは schema, channel, strict_order, notify, regions の5つのみ。\n- schema=rollout-plan/v2、channel=amber、strict_order=true、notify=ops-ja。\n- regions の順序は osaka → tokyo。各要素は {name, release, rollback, percent}。\n- rollback は固定: osaka=rel-730、tokyo=rel-840。\n- percent: osaka=10、tokyo=5（tokyo は監査待ちのため10→5へ最終訂正、採用済み）。\n- 候補の選定条件: status=passed かつ p95_ms<=125 のみを対象とし、region ごとに build 番号が最大のものを採用。\n- 125ms の根拠は試験ID PERF-Q17-125。ピーク時間帯の再試験で130ms案にタイムアウトが出たため。\n\n【確認済み結果・例外（照合完了、必ず適用）】\n- candidates.csv は照合完了で利用可能。\n- osaka rel-736 は rollback 試験 RB-88 で不合格。CSV 上 status=passed のままでも必ず除外する。\n- osaka rel-735 は p95=128ms のため125ms基準で除外（旧130ms案なら通過したが不採用）。\n\n【出力イメージ】\n{\"schema\":\"rollout-plan/v2\",\"channel\":\"amber\",\"strict_order\":true,\"notify\":\"ops-ja\",\"regions\":[{\"name\":\"osaka\",\"release\":<CSVから選定>,\"rollback\":\"rel-730\",\"percent\":10},{\"name\":\"tokyo\",\"release\":<CSVから選定>,\"rollback\":\"rel-840\",\"percent\":5}]}\n\n【次アクション】candidates.csv を読み、上記条件で region ごとに最大 build を選び、rollout-plan.json を書き出す。報告では採用した release と percent を挙げ、主な除外理由（RB-88不合格、p95_ms>125、status≠passed、非最大build など）を簡潔に述べる。",
+          "characters": 1286,
+          "usage": {
+            "prompt_tokens": 19380,
+            "completion_tokens": 5962,
+            "total_tokens": 25342,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 5364
+            }
+          },
+          "finishReason": "stop",
+          "effort": "max",
+          "repeat": 1,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h/repeat-1-max",
+          "wholeRunSeconds": 35.59823870495893,
+          "runExitCode": 0,
+          "fixtureSha256": "71a1080768e8fb24e5ccd6f692d73b3c91841aa45c46281be07d9c501b985998",
+          "timings": [
+            {
+              "hookId": "bdbe1827-e4bb-42fe-b843-eba71167df0a",
+              "hookSeconds": 33.64259719848633,
+              "summarySeconds": [
+                33.63813495635986
+              ],
+              "summaryTotalSeconds": 33.63813495635986,
+              "otherSeconds": 0.004462242126464844
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "max",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "71a1080768e8fb24e5ccd6f692d73b3c91841aa45c46281be07d9c501b985998",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": true,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "dc62fa8b-5d2c-40ed-8ab6-38d54cac8cce",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "max"
+          },
+          "seconds": 50.116,
+          "text": "E（進行中）: 合意済み仕様・確認結果・最終訂正を使い、candidates.csv を読んで rollout-plan.json を完成させ、必要なファイル操作を実行する。完了後、採用候補と主な除外理由を簡潔に報告する。\n\n確定・採用済み仕様:\n- rollout-plan.json のトップレベルは schema, channel, strict_order, notify, regions のみ。\n- schema=rollout-plan/v2、channel=amber、strict_order=true、notify=ops-ja。\n- regions は {name, release, rollback, percent} の配列。順序は osaka, tokyo。\n- rollback は osaka=rel-730、tokyo=rel-840 に固定。\n- percent は osaka=10、tokyo=5（tokyo は監査待ちの最終訂正）。\n- 候補条件は status=passed かつ p95_ms<=125。region ごとに build 番号最大の release を採用。\n- 125ms 採用の根拠は PERF-Q17-125。\n- 例外: osaka の rel-736 は RB-88 不合格のため、CSV 上 status=passed でも必ず除外。\n- p95_ms>125 も除外。rel-735 は 128ms のため対象外。\n\n確認結果と未完了:\n- candidates.csv の照合は完了済みで利用可能。\n- candidates.csv の読み込み、条件適用、rollout-plan.json の作成・書き出しは未実施。\n- 次に osaka/tokyo それぞれの適格候補を確定し、release と固定 rollback、percent を設定して JSON を出力する。\n- 出力後、トップレベルキー、region 順、rollback、percent（osaka=10/tokyo=5）、除外条件、選定 build を検証する。\n- 最終報告では採用した release と主な除外理由（rel-736 の RB-88、p95_ms>125、最大 build 未満）を述べる。",
+          "characters": 981,
+          "usage": {
+            "prompt_tokens": 19377,
+            "completion_tokens": 5611,
+            "total_tokens": 24988,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 5138
+            }
+          },
+          "finishReason": "stop",
+          "effort": "max",
+          "repeat": 2,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h/repeat-2-max",
+          "wholeRunSeconds": 51.94361062103417,
+          "runExitCode": 0,
+          "fixtureSha256": "ff908368061b2423ffb1b1e45ea804a8dc6e900161788812b70dec96b4ae5f9f",
+          "timings": [
+            {
+              "hookId": "c3b3243b-351d-4b35-ac17-e3c72067f341",
+              "hookSeconds": 50.1190710067749,
+              "summarySeconds": [
+                50.11430811882019
+              ],
+              "summaryTotalSeconds": 50.11430811882019,
+              "otherSeconds": 0.004762887954711914
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "max",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "ff908368061b2423ffb1b1e45ea804a8dc6e900161788812b70dec96b4ae5f9f",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "afc87e6f-30b8-4a69-8b65-491142cdf840",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "auto"
+          },
+          "seconds": 25.366,
+          "text": "【E継続メモ】\nEは、合意済み仕様・確認結果・最終訂正に従い candidates.csv を読み、rollout-plan.json を完成・保存し、最後に採用候補と主な除外理由を簡潔に報告する作業。別件搬入は対象外。候補一覧の照合は完了済みで candidates.csv は利用可。\n\n確定仕様（採用済み）:\n- 出力 rollout-plan.json のトップレベルは schema, channel, strict_order, notify, regions のみ。\n- schema=\"rollout-plan/v2\"; channel=\"amber\"; strict_order=true; notify=\"ops-ja\"。\n- regions は {name, release, rollback, percent} の配列。順序は osaka, tokyo。\n- rollback先: osaka=\"rel-730\", tokyo=\"rel-840\"。\n- percent: osaka=10、tokyo=5（tokyo監査待ちにより10→5の最終訂正採用済み）。\n- 選定条件: candidates.csv の status=passed かつ p95_ms<=125 のみ。regionごとに build番号最大を選ぶ。\n- 125ms基準の根拠は PERF-Q17-125。\n- 例外: osaka rel-736 は CSV 上 status=passed でも RB-88 不合格のため必ず除外。\n- rel-735 は p95=128ms のため採用不可。主な除外理由として報告に含める。\n\n未完了:\n1. candidates.csv を読む。\n2. status=passed && p95_ms<=125 で絞り、rel-736を手動除外し、osaka/tokyo各regionで build最大の release を決める。\n3. 上記仕様で rollout-plan.json を作成・保存。\n4. 採用候補（各regionのrelease、rollback、percent）と主な除外理由（rel-736=RB-88不合格、rel-735=128ms超過）を簡潔に報告。\n\n注意: schema/channel/strict_order/notify/region順序/rollback先は変更しない。不要なトップレベル項目を追加しない。",
+          "characters": 1043,
+          "usage": {
+            "prompt_tokens": 19379,
+            "completion_tokens": 3047,
+            "total_tokens": 22426,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 2560
+            }
+          },
+          "finishReason": "stop",
+          "effort": "auto",
+          "repeat": 2,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h/repeat-2-auto",
+          "wholeRunSeconds": 27.194180990976747,
+          "runExitCode": 0,
+          "fixtureSha256": "869b01e3e9682d3d9609a71223314dfc3d1a312882ee165526b2904bae0767e9",
+          "timings": [
+            {
+              "hookId": "e239256f-e8a8-4fba-bae9-35ad5b7fa4bc",
+              "hookSeconds": 25.368136167526245,
+              "summarySeconds": [
+                25.364407062530518
+              ],
+              "summaryTotalSeconds": 25.364407062530518,
+              "otherSeconds": 0.003729104995727539
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "auto",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "869b01e3e9682d3d9609a71223314dfc3d1a312882ee165526b2904bae0767e9",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "772206fc-2829-4153-af09-2b84ee2cc0ca",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "auto"
+          },
+          "seconds": 18.921,
+          "text": "継続メモ（E）: 現在の作業は、合意済み仕様に従い candidates.csv を読み、rollout-plan.json を作成し、必要なファイル操作を実行したうえで、採用候補と主な除外理由を簡潔に報告すること。対象はリリース計画のみ。\n\n確定仕様（採用済み）: 成果物=rollout-plan.json。トップレベルは schema, channel, strict_order, notify, regions の5つのみ。schema=rollout-plan/v2、channel=amber、strict_order=true、notify=ops-ja。regions は {name,release,rollback,percent} の配列で、順序は osaka, tokyo。rollback は固定で osaka=rel-730、tokyo=rel-840。初期 percent は osaka=10、tokyo=5（tokyo は監査待ちのため 5 に最終訂正済み）。\n\n候補選定ルール: status=passed かつ p95_ms<=125 のみ対象。region ごとに build 番号最大の候補を release に採用。125ms 基準は試験 ID PERF-Q17-125 に基づく採用済み判断。\n\n照合済みの例外・除外: osaka の rel-736 は CSV 上 status=passed でも、ロールバック試験 RB-88 不合格のため必ず除外。rel-735 は p95=128 のため 125ms 基準では除外。candidates.csv は照合完了済みで利用可能。\n\n未完了: candidates.csv を実際に読み、osaka/tokyo の release に入れる最大 build を確定する。rollout-plan.json を上記スキーマで作成・保存する。最後に採用した候補（osaka/tokyo の release）と主な除外理由（rel-736=RB-88、rel-735=p95 128 など）を報告する。まだファイル操作は実行していない。",
+          "characters": 914,
+          "usage": {
+            "prompt_tokens": 19380,
+            "completion_tokens": 3007,
+            "total_tokens": 22387,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 2553
+            }
+          },
+          "finishReason": "stop",
+          "effort": "auto",
+          "repeat": 3,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h/repeat-3-auto",
+          "wholeRunSeconds": 21.366207350045443,
+          "runExitCode": 0,
+          "fixtureSha256": "e0d8bc1ea95b9fe4632752cf262e5c25e01e2c444d914399c2ec9b305bc38067",
+          "timings": [
+            {
+              "hookId": "5fb992de-3a08-408e-afb2-88ec4e8fd42b",
+              "hookSeconds": 18.923331022262573,
+              "summarySeconds": [
+                18.918873071670532
+              ],
+              "summaryTotalSeconds": 18.918873071670532,
+              "otherSeconds": 0.004457950592041016
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "auto",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "e0d8bc1ea95b9fe4632752cf262e5c25e01e2c444d914399c2ec9b305bc38067",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": true,
+            "unrelatedErrandDetailsRetained": false
+          }
+        },
+        {
+          "executionId": "fc51f2bd-9d6d-41f4-a46b-74fd971bfae4",
+          "parentModel": {
+            "provider": "opencode-go-chat",
+            "api": "chat-completions",
+            "authProfile": "opencode-go-api-key",
+            "modelId": "deepseek-v4.1-flash",
+            "effort": "max"
+          },
+          "seconds": 25.57,
+          "text": "【E継続メモ】  \n`candidates.csv` を読み、`rollout-plan.json` を完成・保存する。まだ作成していない。\n\n確定仕様（採用済み）:\n- 出力ファイルは `rollout-plan.json`。トップレベルは `schema`, `channel`, `strict_order`, `notify`, `regions` のみ。追加キー不可。\n- `schema=rollout-plan/v2`、`channel=amber`、`strict_order=true`、`notify=ops-ja`。\n- `regions` の順序は `osaka`, `tokyo`。各要素は `{name, release, rollback, percent}` のみ。\n- `rollback`: `osaka=rel-730`、`tokyo=rel-840`。\n- `percent`: `osaka=10`、`tokyo=5`。tokyoは監査待ちのため10から5へ最終訂正済み。osakaは10のまま。\n- 候補採用条件: `status=passed` かつ `p95_ms<=125`。regionごとにbuild番号最大のものを選ぶ。\n- `osaka` の `rel-736` はCSV上 `passed` でもロールバック試験 `RB-88` 不合格のため必ず除外。\n- `rel-735` は `128ms` なので `<=125` を満たさず除外。\n\n作業手順:\n1. `candidates.csv` を読み、`region`, `build`, `release`, `status`, `p95_ms` 等の実列を確認する。\n2. regionごとに `status=passed` かつ `p95_ms<=125` を満たす候補からbuild番号最大のreleaseを特定する。\n3. 上記仕様どおり `rollout-plan.json` を作成し、必要なファイル操作を実行する。\n4. 最後に採用した候補と主な除外理由を簡潔に報告する。CSV未読のため、採用release値は現時点では未確定。",
+          "characters": 928,
+          "usage": {
+            "prompt_tokens": 19380,
+            "completion_tokens": 2832,
+            "total_tokens": 22212,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 2366
+            }
+          },
+          "finishReason": "stop",
+          "effort": "max",
+          "repeat": 3,
+          "evidence": "/tmp/hjh-compaction-effort-live/effort-05y3r59h/repeat-3-max",
+          "wholeRunSeconds": 29.835160324000753,
+          "runExitCode": 0,
+          "fixtureSha256": "8b21e97a8bd384a3a41e876a38443b1859fe7a25666814915be5cc77cceb2230",
+          "timings": [
+            {
+              "hookId": "50563019-c299-4d1e-9309-a0d30a6810f3",
+              "hookSeconds": 25.572241067886353,
+              "summarySeconds": [
+                25.567552089691162
+              ],
+              "summaryTotalSeconds": 25.567552089691162,
+              "otherSeconds": 0.00468897819519043
+            }
+          ],
+          "recordedSelections": [
+            {
+              "api": "chat-completions",
+              "authProfile": "opencode-go-api-key",
+              "effort": "max",
+              "modelId": "deepseek-v4.1-flash",
+              "provider": "opencode-go-chat"
+            }
+          ],
+          "actualFixtureSha256": "8b21e97a8bd384a3a41e876a38443b1859fe7a25666814915be5cc77cceb2230",
+          "qualitativeObservations": {
+            "adoptedRulesAndLatestCorrectionRetained": true,
+            "adoptionReasonRetained": false,
+            "adoptionTestIdRetained": false,
+            "unrelatedErrandDetailsRetained": false
+          }
+        }
+      ]
+    }
+  ]
+}

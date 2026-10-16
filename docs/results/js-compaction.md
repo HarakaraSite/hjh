@@ -1,5 +1,8 @@
 # JSコンパクション拡張
 
+2026-10-16の後続変更：[削除優先・最終入力3分の1への圧縮と実測結果](js-compaction-strategy.md)。
+本書は従来方式の実装・確認記録とする。
+
 2026-10-15。[計画](../plans/js-compaction.md)のS1〜S3を実装・確認した。
 サンプルは[compaction.js](../../examples/hooks/compaction.js)、契約は[JS compaction](../design/js-compaction.md)。
 標準hookとしては有効化していない。

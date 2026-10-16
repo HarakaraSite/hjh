@@ -1,0 +1,45 @@
+version: 2
+
+runner_label: ubuntu-latest
+actions:
+  checkout: actions/checkout@v4
+  setup_go: actions/setup-go@v5
+  release: actions/forgejo-release@v2
+
+release:
+  uploader_kind: forgejo-release-v2-public
+  url_expression: ${{ forgejo.server_url }}
+  repository_expression: ${{ forgejo.repository }}
+  token_expression: ${{ forgejo.token }}
+  tag_expression: ${{ forgejo.ref_name }}
+  notes_expression: ${{ format('Release {0}', forgejo.ref_name) }}
+
+build:
+  product: hjh
+  package: ./cmd/hjh
+  companion_packages:
+    hjh-tui: ./cmd/hjh-tui
+  cgo_enabled: false
+  ldflags: >-
+    -X hjh/internal/buildinfo.Version=${{ forgejo.ref_name }}
+    -X hjh/internal/buildinfo.SourceRevision=${{ forgejo.sha }}
+    -X hjh/internal/buildinfo.SourceDirty=false
+  targets:
+    - linux/amd64
+  # Project-specific packaging: both executables, extensions, licenses, manifest.
+  command: go run ./scripts/package-linux --version "${{ forgejo.ref_name }}" --release-dir dist/release
+  release_directory: dist/release
+  archive: hjh-linux-amd64.tar.gz
+
+quality:
+  test_command: go test ./...
+  vet_command: go vet ./...
+  checksums: true
+
+diagnostics:
+  mode: native-actions-logs
+
+pre_release:
+  reference_environment: Linux/amd64 development VM with Go 1.27.2
+  reference_checks: []
+  evidence_location: docs/release-checkpoints.md

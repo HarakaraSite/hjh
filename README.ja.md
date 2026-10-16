@@ -13,7 +13,7 @@ hjhはGoで実装し、QuickJS-NGをPure Goで実装した
 JavaScriptのツール・hook・`run_js`スクリプトを実行でき、
 JavaScriptの実行にNode.jsやDenoのインストールは必要ありません。
 
-このプロジェクトは現在開発途中です。ビルドで得られる実行ファイルは
+ビルドで得られる実行ファイルは
 `hjh`と`hjh-tui`の2つで、動作確認はLinux/amd64で行っています。
 
 ## 主な機能
@@ -25,6 +25,18 @@ JavaScriptの実行にNode.jsやDenoのインストールは必要ありませ�
 - 編集可能なJavaScriptツール・hook、role、workspaceの指示ファイル、skills。
 
 ## 使い始める
+
+[Releases](https://forge.harakara.site/littleisland/hjh/releases)からLinux/amd64の配布物と
+`SHA256SUMS`をダウンロードし、確認・展開してTUIを起動します。
+
+```sh
+sha256sum -c SHA256SUMS
+tar -xzf hjh-linux-amd64.tar.gz
+./hjh-linux-amd64/hjh-tui
+```
+
+配布物には2つの実行ファイル、編集可能な拡張、依存ライセンスを同梱しています。
+Goが必要なのはソースからビルドする場合だけです。
 
 Go 1.27以降でソースからビルドします。依存関係は[go.mod](go.mod)を参照してください。
 本文検索はripgrep（`rg`）があれば優先し、なければGNU grepを使います。
@@ -43,7 +55,8 @@ TUIは必要に応じてローカルのCoreを起動し、起動済みなら再�
 `./dist/hjh-tui --continue`で同じworkspaceの最新セッションを再開できます。
 
 TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモデルを選びます。
-既定の接続先はOpenRouterです。依頼を入力し、Enterで送信します。
+既定の接続先はOpenRouterです。待機中はEnterで依頼を送信します。
+実行中のEnterは下書きを保持し、F2は追加依頼の予約、F3は途中指示の送信です。
 `/`でコマンド候補を開き、上下で選択・Tabで補完・Enterで確定できます。
 
 | コマンド | 操作 |
@@ -54,8 +67,9 @@ TUIの`/login`で認証を設定し、`/provider`と`/model`で接続先とモ�
 | `/login` `/auth` | 認証を設定する、認証状態を表示する |
 | `/roles` `/role` | roleとツール一覧の表示、次のroleの選択 |
 | `/history` `/executions` `/inspect` | 会話と保存済み実行を確認する |
-| `/inputs` `/tools` `/tool` | 保存済みの追加指示・tool呼び出しを確認する |
-| `/context` `/recall` | contextの構成表示、停止した実行を次回実行で再利用する |
+| `/inputs` `/tools` `/tool` | 追加指示の受付・適用状態、保存済みtool呼び出しを確認する |
+| `/context` | contextの参照元と使用量を表示する |
+| `/recall` | 停止した実行の記録を次回実行の参考情報にする |
 | `/detach` | Coreを動かしたままTUIを閉じる |
 | `/quit` | Coreを停止してTUIを閉じる |
 | `/help` | コマンドとキー操作を表示する |
