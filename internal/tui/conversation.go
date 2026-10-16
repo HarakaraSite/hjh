@@ -84,7 +84,7 @@ func (m *model) renderFullTranscript() string {
 			previousEntityEndsWithNewline = true
 			continue
 		}
-		label := prefix + entityLabelStyle(entity, max(1, m.width))
+		label := prefix + entityLabelStyle(entity)
 		styled.WriteString(label)
 		blocks, _ := m.bodyBlocksForSource("entity:"+entity.ID+":body", entity.Text, entity.Kind)
 		currentEntityHasBody := false
@@ -128,7 +128,7 @@ func entityLabel(entity api.ConversationEntity) string {
 	var label string
 	switch entity.Kind {
 	case "task":
-		label = "you"
+		label = "user"
 	case "assistant":
 		label = "assistant"
 	case "thinking":

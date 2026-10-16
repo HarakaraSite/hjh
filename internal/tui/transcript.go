@@ -237,7 +237,7 @@ func (m *model) buildTranscript() *transcriptDocument {
 		activeSources[bodyCacheKey] = true
 		labelKey := "entity:" + entity.ID + ":label"
 		canonicalLabel := entityLabel(entity) + ":\n"
-		appendPart(labelKey, canonicalLabel, 0, len(canonicalLabel), prefix+entityLabelStyle(entity, doc.width), false)
+		appendPart(labelKey, canonicalLabel, 0, len(canonicalLabel), prefix+entityLabelStyle(entity), false)
 
 		blocks, cacheKeys := m.bodyBlocksForSource(bodyCacheKey, entity.Text, entity.Kind)
 		currentEntityHasBody := false

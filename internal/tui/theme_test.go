@@ -11,6 +11,49 @@ import (
 	"hjh/internal/tui/renderer"
 )
 
+func TestUserLabelMatchesAssistantBackground(t *testing.T) {
+	m, _, cancel := testModel(&fakeBackend{}, Options{})
+	defer func() { cancel(); m.shutdown() }()
+	task := conversationEntity("task", "task", "request", 1)
+	m.sessionEntities[task.ID] = task
+	wantLabel := yellowSGR + "user:" + resetSGR + "\n"
+	for _, rendered := range []string{m.renderTranscript(), strings.Join(m.ensureTranscript().rows, "\n")} {
+		if !strings.HasPrefix(rendered, wantLabel) {
+			t.Fatalf("user label must use assistant's default background: %q", rendered)
+		}
+		if !strings.Contains(rendered, solarizedMarkdownBackgroundSGR+task.Text) {
+			t.Fatalf("user body must use assistant body background: %q", rendered)
+		}
+	}
+	if entityLabelStyle(task) != strings.Replace(entityLabelStyle(api.ConversationEntity{Kind: "assistant"}), "assistant:", "user:", 1) {
+		t.Fatal("user and assistant label styles differ")
+	}
+}
+
+func TestUserBodyMatchesAssistantBackgroundWithoutRenderingMarkdown(t *testing.T) {
+	m, _, cancel := testModel(&fakeBackend{}, Options{})
+	defer func() { cancel(); m.shutdown() }()
+	m.width = 24
+	source := "**原文のまま**\n\n" + strings.Repeat("日本語", 12) + "\n"
+	blocks, _ := m.bodyBlocksForSource("user-body", source, "task")
+	var rendered strings.Builder
+	for _, block := range blocks {
+		rendered.WriteString(block.render)
+	}
+	if !strings.Contains(ansi.Strip(rendered.String()), "**原文のまま**") {
+		t.Fatal("user body must remain literal text")
+	}
+	for _, row := range renderer.WrapText(rendered.String(), m.width) {
+		if row == "" {
+			continue // Final line terminator.
+		}
+		if ansi.StringWidth(row) != m.width {
+			t.Fatalf("user background did not fill the row: %q", row)
+		}
+		assertMarkdownCellsUseBase03(t, row)
+	}
+}
+
 func TestConversationThemeKeepsThinkingAndToolContentsDimDefault(t *testing.T) {
 	m, _, cancel := testModel(&fakeBackend{}, Options{})
 	defer func() { cancel(); m.shutdown() }()

@@ -5,7 +5,6 @@ import (
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 	"hjh/internal/api"
 )
 
@@ -19,7 +18,6 @@ const (
 	magentaDimSGR = "\x1b[35;2m"
 	redSGR        = "\x1b[31m"
 	blueSGR       = "\x1b[34m"
-	userPanelSGR  = "\x1b[39;48;5;237m"
 )
 
 func styledText(text, sgr string) string {
@@ -35,23 +33,10 @@ func styledText(text, sgr string) string {
 	return strings.Join(lines, "\n")
 }
 
-func userPanel(text string, width int) string {
-	lines := strings.Split(ansi.Hardwrap(text, max(1, width), true), "\n")
-	for index, line := range lines {
-		if index == len(lines)-1 && line == "" {
-			continue
-		}
-		lines[index] = userPanelSGR + line + strings.Repeat(" ", max(0, width-ansi.StringWidth(line))) + resetSGR
-	}
-	return strings.Join(lines, "\n")
-}
-
-func entityLabelStyle(entity api.ConversationEntity, width int) string {
+func entityLabelStyle(entity api.ConversationEntity) string {
 	label := entityLabel(entity) + ":"
 	switch entity.Kind {
-	case "task":
-		return userPanel(yellowSGR+label+userPanelSGR, width) + "\n"
-	case "assistant":
+	case "task", "assistant":
 		return styledText(label, yellowSGR) + "\n"
 	case "thinking", "tool":
 		return styledText(label, yellowDimSGR) + "\n"
@@ -88,7 +73,7 @@ func entryLabelStyle(role string) string {
 func nativeBody(source, kind string, width int) string {
 	switch kind {
 	case "task":
-		return userPanel(source, width)
+		return paintMarkdownBackground(source, width)
 	case "thinking", "tool-detail":
 		return styledText(source, defaultDimSGR)
 	case "failure":
@@ -103,7 +88,7 @@ func nativeBody(source, kind string, width int) string {
 func editorStyles() textarea.Styles {
 	styles := textarea.DefaultDarkStyles()
 	for _, state := range []*textarea.StyleState{&styles.Focused, &styles.Blurred} {
-		base := lipgloss.NewStyle().Background(lipgloss.Color("237"))
+		base := lipgloss.NewStyle()
 		state.Base = base
 		state.CursorLine = base
 		state.Text = base

@@ -29,8 +29,8 @@ func TestEditorPaddingMatchesBackgroundAndFrameGeometry(t *testing.T) {
 				t.Fatalf("padding differs from editor background for %q: %q", value, frame.LiveRows[start:end])
 			}
 			for _, row := range frame.LiveRows[start:end] {
-				if ansi.StringWidth(row) != m.width || !strings.Contains(row, "48;5;237m") {
-					t.Fatalf("editor/padding width or background differs: %q", row)
+				if ansi.StringWidth(row) != m.width || strings.Contains(row, "48;") {
+					t.Fatalf("editor/padding must use full width and the default background: %q", row)
 				}
 			}
 			if strings.Join(frame.LiveRows[start+1:end-1], "\n") != strings.Join(input, "\n") {
