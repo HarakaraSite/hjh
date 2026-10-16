@@ -225,6 +225,8 @@ func captureConversationCut(ctx context.Context, q conversationQueryer, rootExec
 		}
 	}
 	var through sql.NullInt64
+	// Filter by subtree IDs so SQLite uses the execution/ordinal index instead
+	// of scanning every Session's records once for each root being restored.
 	if err := q.QueryRowContext(ctx, `
 		WITH RECURSIVE tree(execution_id) AS (
 			SELECT ?
@@ -233,8 +235,9 @@ func captureConversationCut(ctx context.Context, q conversationQueryer, rootExec
 		), saved(sequence) AS (
 			SELECT CASE WHEN json_type(r.payload_json, '$.conversation.sequence')='integer'
 				THEN CAST(json_extract(r.payload_json, '$.conversation.sequence') AS INTEGER) END
-			FROM semantic_records r JOIN tree t ON t.execution_id=r.execution_id
-			WHERE r.kind IN ('assistant_message','execution_admission','host_decision','model_result','tool_call','tool_result','user_message')
+			FROM semantic_records r
+			WHERE r.execution_id IN (SELECT execution_id FROM tree)
+				AND r.kind IN ('assistant_message','execution_admission','host_decision','model_result','tool_call','tool_result','user_message')
 			UNION ALL
 			SELECT CAST(json_extract(s.event_json, '$.conversation.sequence') AS INTEGER)
 			FROM assistant_text_states s JOIN tree t ON t.execution_id=s.execution_id

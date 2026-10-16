@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-16",
+  "session_id": "c792517a-00af-4bd6-a4c4-45f48f903570",
+  "change": "Use the existing execution/ordinal index to select sequence records belonging to the root execution subtree, instead of a join plan that scanned all Sessions for each root.",
+  "source": "internal/history/conversation.go:captureConversationCut",
+  "measurement": {
+    "database": "workspace .hjh/history.sqlite3 opened read-only",
+    "path": "GET /api/v2/sessions/{session_id}/view through httpapi.Server.ServeHTTP and corerun.Manager.SessionView",
+    "transport": "httptest.NewRecorder; HTTP handler processing including response JSON encoding, excluding network transport and TUI rendering",
+    "samples_per_variant": 1,
+    "before": {
+      "bytes": 4477095,
+      "elapsed_ms": 1548.08,
+      "entities": 5340,
+      "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+    },
+    "after": {
+      "bytes": 4477095,
+      "elapsed_ms": 578.929,
+      "entities": 5340,
+      "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+    },
+    "elapsed_reduction_percent": 62.6,
+    "comparison": "SHA-256 of the complete JSON response after removing only the generated viewId; object keys sorted by encoding/json",
+    "display_identical": true
+  },
+  "validation": [
+    "go test ./internal/history ./internal/corerun -run 'Test(ConversationCut|AssistantProgressDoesNotPersist|TerminalTransfersThinking|AssistantResult|ExecutionTerminalKeeps|Legacy|ConcurrentSessionView|SessionViewLoader)' -count=1",
+    "go vet ./internal/history",
+    "git diff --check"
+  ],
+  "artifacts": "/tmp/hjh-resume-profile-d6n6t86p",
+  "deployment": "Measurement used isolated binaries; running Core and installed binaries were not replaced during this measurement."
+}
