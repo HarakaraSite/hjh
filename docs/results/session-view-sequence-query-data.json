@@ -30,5 +30,81 @@
     "git diff --check"
   ],
   "artifacts": "/tmp/hjh-resume-profile-d6n6t86p",
-  "deployment": "Measurement used isolated binaries; running Core and installed binaries were not replaced during this measurement."
+  "deployment": "Measurement used isolated binaries; running Core and installed binaries were not replaced during this measurement.",
+  "followup": {
+    "change": [
+      "Prepare the record projection once per execution and reuse it for subsequent pages.",
+      "Use conditional content-digest join keys so unrelated records do not look up result or assistant bodies.",
+      "Read 256 records per page instead of 64."
+    ],
+    "measurement": {
+      "date": "2026-10-16",
+      "session_id": "c792517a-00af-4bd6-a4c4-45f48f903570",
+      "scope": "Read-only actual DB; complete HTTP session-view handler, excluding socket transport and TUI rendering",
+      "samples": [
+        {
+          "variant": "before",
+          "round": 1,
+          "bytes": 4477095,
+          "elapsed_ms": 564.553,
+          "entities": 5340,
+          "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+        },
+        {
+          "variant": "after",
+          "round": 1,
+          "bytes": 4477095,
+          "elapsed_ms": 493.581,
+          "entities": 5340,
+          "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+        },
+        {
+          "variant": "before",
+          "round": 2,
+          "bytes": 4477095,
+          "elapsed_ms": 574.442,
+          "entities": 5340,
+          "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+        },
+        {
+          "variant": "after",
+          "round": 2,
+          "bytes": 4477095,
+          "elapsed_ms": 497.532,
+          "entities": 5340,
+          "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+        },
+        {
+          "variant": "before",
+          "round": 3,
+          "bytes": 4477095,
+          "elapsed_ms": 579.536,
+          "entities": 5340,
+          "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+        },
+        {
+          "variant": "after",
+          "round": 3,
+          "bytes": 4477095,
+          "elapsed_ms": 516.536,
+          "entities": 5340,
+          "normalized_sha256": "ca6b81d26e1fc38fc3770b1590926c4faed023c9ca26f1c2a445ec6868c7ef6b"
+        }
+      ],
+      "median_ms": {
+        "before": 574.442,
+        "after": 497.532
+      },
+      "reduction_percent": 13.388644980694309,
+      "display_identical": true
+    },
+    "comparison": "Complete session-view JSON with only generated viewId removed; all before/after samples have identical hashes.",
+    "validation": [
+      "go test ./internal/history ./internal/corerun -run 'Test(ConversationCut|AssistantProgressDoesNotPersist|TerminalTransfersThinking|AssistantResult|ExecutionTerminalKeeps|Legacy|ConcurrentSessionView|SessionViewLoader|ThinkingMirror|AssistantMirror)' -count=1",
+      "go vet ./internal/history",
+      "git diff --check"
+    ],
+    "artifacts": "/tmp/hjh-resume-sql-ydtb80mi",
+    "scope": "Read-only measurement of actual Session data. Socket transport and TUI rendering are not timed."
+  }
 }

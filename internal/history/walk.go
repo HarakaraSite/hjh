@@ -12,7 +12,7 @@ import (
 	"hjh/internal/toolactivity"
 )
 
-const conversationPageSize = 64
+const conversationPageSize = 256
 
 // WalkConversationCut reads the permanent display facts through the supplied
 // heads a page at a time. Each page is closed before a visitor runs, so visitor
@@ -262,9 +262,8 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 		}
 		return nil
 	}
-	var after int64
-	for after < execution.LatestRecordOrdinal {
-		rows, err := s.db.QueryContext(ctx, `
+	// Reuse the projection statement while paging through this execution.
+	pageQuery, err := s.db.PrepareContext(ctx, `
 			SELECT r.record_id, r.ordinal, r.kind, r.observed_at,
 				COALESCE(json_extract(r.payload_json,'$.kind'),''),
 				COALESCE(json_extract(r.payload_json,'$.content.kind'),json_extract(assistant_body.content_bytes,'$.content.kind'),''),
@@ -307,14 +306,21 @@ func (s *Store) walkRecordFacts(ctx context.Context, cut ConversationCut, execut
 			LEFT JOIN semantic_records thinking_source
 				ON thinking_source.record_id=json_extract(r.payload_json,'$.thinkingRecordId')
 				AND thinking_source.execution_id=r.execution_id AND thinking_source.ordinal<r.ordinal
-			LEFT JOIN contents result_body ON result_body.content_digest=r.content_digest
-				AND r.kind='model_result' AND json_type(r.payload_json,'$.resultRef')='text'
-			LEFT JOIN contents assistant_body ON assistant_body.content_digest=r.content_digest
-				AND r.kind='assistant_message' AND json_extract(r.payload_json,'$.role')='assistant'
+			LEFT JOIN contents result_body ON result_body.content_digest=CASE
+				WHEN r.kind='model_result' AND json_type(r.payload_json,'$.resultRef')='text' THEN r.content_digest END
+			LEFT JOIN contents assistant_body ON assistant_body.content_digest=CASE
+				WHEN r.kind='assistant_message' AND json_extract(r.payload_json,'$.role')='assistant' THEN r.content_digest END
 			WHERE r.execution_id=? AND r.ordinal>? AND r.ordinal<=?
 				AND (r.kind IN ('user_message','assistant_message','model_result','tool_call','tool_result','execution_admission','host_decision')
 					OR (r.kind='context_update' AND json_extract(r.payload_json,'$.conversation.entityKind')='notice'))
-			ORDER BY r.ordinal LIMIT ?`, execution.ExecutionID, after, execution.LatestRecordOrdinal, conversationPageSize)
+			ORDER BY r.ordinal LIMIT ?`)
+	if err != nil {
+		return fmt.Errorf("history prepare conversation record page: %w", err)
+	}
+	defer pageQuery.Close()
+	var after int64
+	for after < execution.LatestRecordOrdinal {
+		rows, err := pageQuery.QueryContext(ctx, execution.ExecutionID, after, execution.LatestRecordOrdinal, conversationPageSize)
 		if err != nil {
 			return fmt.Errorf("history read conversation record page: %w", err)
 		}
