@@ -106,7 +106,7 @@ func sessionPickerOptions(sessions []api.Session, current string) []inlineOption
 }
 
 func (m *model) pickerPageSize() int {
-	available := max(2, m.height-len(renderer.WrapText(strings.Join(m.footerRows(), "\n"), max(1, m.width)))-len(renderer.WrapText(m.textarea.View(), max(1, m.width)))-len(m.childProgressRows())-2)
+	available := max(2, m.height-len(renderer.WrapText(strings.Join(m.footerRows(), "\n"), max(1, m.width)))-len(m.editorRows())-len(m.childProgressRows())-2)
 	rows := m.pickerRows(available)
 	count := 0
 	for _, row := range rows {

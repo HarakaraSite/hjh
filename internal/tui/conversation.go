@@ -181,6 +181,33 @@ func toolStateMarker(entity api.ConversationEntity) string {
 	return "…"
 }
 
+const editorVerticalPadding = 1
+
+// editorRows includes the full-width background above and below the textarea.
+// Keep these rows in the live dock, never in the conversation or its receipts.
+func (m *model) editorRows() []string {
+	if m.authUI != nil && m.authUI.open {
+		return nil
+	}
+	columns := max(1, m.width)
+	styles := m.textarea.Styles()
+	base := styles.Blurred.Base
+	if m.textarea.Focused() {
+		base = styles.Focused.Base
+	}
+	blank := base.Render(strings.Repeat(" ", columns))
+	inputRows := renderer.WrapText(m.textarea.View(), columns)
+	rows := make([]string, 0, len(inputRows)+2*editorVerticalPadding)
+	for range editorVerticalPadding {
+		rows = append(rows, blank)
+	}
+	rows = append(rows, inputRows...)
+	for range editorVerticalPadding {
+		rows = append(rows, blank)
+	}
+	return rows
+}
+
 func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, string, int, int, []string) {
 	columns := max(1, m.width)
 	rows := max(1, m.height)
@@ -189,10 +216,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	footerRows := renderer.WrapText(strings.Join(footer, "\n"), columns)
 	controlsRows := footerRows[:min(1, len(footerRows))]
 	infoRows := footerRows[len(controlsRows):]
-	inputRows := renderer.WrapText(m.textarea.View(), columns)
-	if m.authUI != nil && m.authUI.open {
-		inputRows = nil
-	}
+	inputRows := m.editorRows()
 	childRows := m.childProgressRows()
 	if m.screenOverlayOpen() {
 		childRows = nil
@@ -271,7 +295,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 		CommittedRows: committed,
 		LiveRows:      liveRows,
 		DockRows:      len(childRows) + len(commandRows) + 1 + len(inputRows) + len(footerRows),
-		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+len(childRows)+len(commandRows)+1+len(controlsRows)), Cell: 0},
+		Cursor:        renderer.Cursor{Row: max(0, len(bodyRows)+len(childRows)+len(commandRows)+1+len(controlsRows)+editorVerticalPadding), Cell: 0},
 		Size:          renderer.Size{Columns: columns, Rows: rows},
 	}
 	var cursor *tea.Cursor
@@ -287,7 +311,7 @@ func (m *model) screenFrame(footer []string) (renderer.Frame, *tea.Cursor, strin
 	} else if !m.pickerOpen {
 		if textareaCursor := m.textarea.Cursor(); textareaCursor != nil {
 			cursor = textareaCursor
-			cursor.Position.Y += len(bodyRows) + len(childRows) + len(commandRows) + 1 + len(controlsRows)
+			cursor.Position.Y += len(bodyRows) + len(childRows) + len(commandRows) + 1 + len(controlsRows) + editorVerticalPadding
 			frame.Cursor = renderer.Cursor{Row: cursor.Position.Y, Cell: cursor.Position.X}
 		}
 	}

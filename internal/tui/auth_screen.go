@@ -231,7 +231,7 @@ func orderedAuthMethods(methods []string) []string {
 
 func (m *model) authHelp() string {
 	if m.authUI == nil {
-		return "Enter send · Alt+Enter newline · F1 cancel · F4 Sessions · /help"
+		return "Enter send · F1 cancel · F4 Sessions · /help"
 	}
 	switch m.authUI.screen {
 	case authAPIKeyScreen:

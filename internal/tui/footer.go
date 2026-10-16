@@ -105,7 +105,7 @@ func (m *model) footerControls(width int) string {
 				controls = append(controls, "F3 steer")
 			}
 		}
-		controls = append(controls, "F4 sessions", "/ commands", "Alt+Enter newline")
+		controls = append(controls, "F4 sessions", "/ commands")
 	}
 	notice := m.footerNotice()
 	if notice != "" {
@@ -117,7 +117,7 @@ func (m *model) footerControls(width int) string {
 	return styleFooterControls(ansi.Truncate(strings.Join(controls, " · "), width, "…"), notice)
 }
 
-var footerControlKey = regexp.MustCompile(`^(Enter|Esc|Tab|Alt\+Enter|Ctrl\+[A-Za-z]|F[1-4]|↑/↓|←/→|/)( |$)`)
+var footerControlKey = regexp.MustCompile(`^(Enter|Esc|Tab|Ctrl\+[A-Za-z]|F[1-4]|↑/↓|←/→|/)( |$)`)
 
 func styleFooterControls(text, notice string) string {
 	parts := strings.Split(text, " · ")

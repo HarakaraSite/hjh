@@ -126,9 +126,9 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 		}
 		inputRows := renderer.WrapText(m.textarea.View(), width)
 		footerRows := m.footerRows()[1:]
-		helpStart := len(bodyRows) + 1 // divider then controls/notice
-		editorStart := helpStart + 1
-		footerStart := editorStart + len(inputRows)
+		helpStart := len(bodyRows) + 1                  // divider then controls/notice
+		editorStart := helpStart + 2                    // top background row
+		footerStart := editorStart + len(inputRows) + 1 // bottom background row
 		if footerStart > len(frame.LiveRows) || len(frame.LiveRows)-footerStart != len(footerRows) {
 			t.Fatalf("footer did not follow the editor controls: rows=%v", frame.LiveRows)
 		}
@@ -161,7 +161,7 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 	textareaCursor := m.textarea.Cursor()
 	frame, cursor, content, _, _, bodyRows := m.screenFrame(m.footerRows())
 	content = renderer.ReceiptText(content)
-	if textareaCursor == nil || cursor.Position.Y != len(bodyRows)+2+textareaCursor.Position.Y {
+	if textareaCursor == nil || cursor.Position.Y != len(bodyRows)+3+textareaCursor.Position.Y {
 		t.Fatalf("scrolled editor cursor row=%d, relative cursor=%v", cursor.Position.Y, textareaCursor)
 	}
 	if strings.Index(content, "Enter send") > strings.Index(content, "line 6") ||
