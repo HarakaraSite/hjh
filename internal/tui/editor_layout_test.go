@@ -36,7 +36,7 @@ func TestEditorPaddingMatchesBackgroundAndFrameGeometry(t *testing.T) {
 			if strings.Join(frame.LiveRows[start+1:end-1], "\n") != strings.Join(input, "\n") {
 				t.Fatal("padding changed textarea rendering")
 			}
-			if len(frame.LiveRows)-end != 2 || frame.DockRows != len(input)+6 || len(frame.LiveRows) > m.height {
+			if len(frame.LiveRows)-end != 1 || frame.DockRows != len(input)+5 || len(frame.LiveRows) > m.height {
 				t.Fatalf("padded editor/footer height not accounted for: dock=%d rows=%d", frame.DockRows, len(frame.LiveRows))
 			}
 			if m.viewport.Height() != max(1, m.height-frame.DockRows) {
@@ -77,7 +77,7 @@ func TestEditorDockStableDuringGenerationAndPickerReturn(t *testing.T) {
 		t.Helper()
 		frame, _, _, _, _, _ := m.screenFrame(m.footerRows())
 		input := renderer.WrapText(m.textarea.View(), m.width)
-		panelStart := len(frame.LiveRows) - 2 - len(input) - 2
+		panelStart := len(frame.LiveRows) - 1 - len(input) - 2
 		physicalPanelStart := m.height - len(frame.LiveRows) + panelStart
 		if initialPanelRow < 0 {
 			initialPanelRow = physicalPanelStart
@@ -166,13 +166,15 @@ func TestEditorPaddingPickerPageMatchesVisibleChoices(t *testing.T) {
 	frame, _, _, _, _, _ := m.screenFrame(m.footerRows())
 	visibleChoices := 0
 	for _, row := range frame.LiveRows {
+		if row == m.footerDivider(m.width) {
+			break
+		}
 		plain := ansi.Strip(row)
 		if strings.HasPrefix(plain, "> ") || strings.HasPrefix(plain, "  ") && strings.TrimSpace(plain) != "" {
 			visibleChoices++
 		}
 	}
-	visibleChoices-- // textarea prompt is not a picker choice
-	if visibleChoices != 3 || m.pickerPageSize() != visibleChoices {
+	if visibleChoices != 4 || m.pickerPageSize() != visibleChoices {
 		t.Fatalf("paging height differs from visible menu: visible=%d page=%d", visibleChoices, m.pickerPageSize())
 	}
 	update(m, tea.KeyPressMsg{Code: tea.KeyPgDown})

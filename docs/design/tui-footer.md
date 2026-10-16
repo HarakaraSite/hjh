@@ -1,11 +1,11 @@
 # TUI footer
 
-2026-10-12。利用者指定で旧Henjiの3行形式を採用する。
+2026-10-12に旧Henjiの3行形式を採用し、2026-10-16の利用者指定で現在の配置へ変更した。
 effortは右端へ分離せず、`openrouter / model-name / high`のようにmodelの直後へ並べる。
 
 操作案内・通知の行は区切り線の下、入力欄の上へ表示する。
 区切り線には左端に状態、中央にタイトル・Session短縮ID、右端にctx使用率を表示する。
-workspaceとprovider／model／effortの2行は入力欄の下へ表示する。
+入力欄の下は1行とし、左にworkspace、右端にprovider／model／effortを表示する。
 これらはlive bandだけに属し、会話へ保存・確定出力しない。
 Slash command候補を開いている間は上下・Enter・Tab・Escの案内へ切り替える。
 候補は区切り線の上に置き、入力欄と情報footerの下部固定を維持する。
@@ -17,8 +17,9 @@ resizeでは端末のcursor position reportから既存live bandの位置を確�
 
 1. 現在使えるキー操作と通知。待機中はEnter send、実行中はF1 cancel、受付可能な期間は
    F2 queue／F3 steer。Session・接続・認証の選択画面では操作案内を切り替える。
-2. 入力欄の下にworkspaceを表示する。状態とSession情報は区切り線へ移動する。
-3. provider / model / effortを左から連続表示する。長いmodelはeffortの幅を確保して省略する。
+2. 入力欄の下の1行にworkspaceを左寄せ、provider / model / effortを右寄せする。
+   接続情報は連続表示し、長いmodelはeffortの幅を確保して省略する。workspaceは残り幅に収め、
+   長い場合は末尾側を残して省略する。独立したmodel行は設けない。
 
 次回の実効接続は既存CoreのGET /selectionで取得する。TUIに設定解決規則を複製しない。
 初期表示を待って入力を止めず、取得中はresolving selection、失敗時はselection unavailable。
@@ -32,6 +33,15 @@ TUIの時計更新は表示だけを更新し、モデル呼出し・会話保�
 操作・情報の行はterminal cell幅で1行へ収め、狭幅でも折返しで会話領域を消費しない。
 配色は[Markdown整形・色契約](tui-rendering.md)に従う。workspace・短縮ID・provider・effortは通常表示。
 
+## workspace行へ接続情報を統合
+
+2026-10-16、利用者指定。workspace行の右端へprovider／model／effortを移し、
+独立した最下行を廃止する。区切り線・操作案内・入力欄の上下余白は維持する。
+footerは操作案内と統合情報行の2行となり、減った1行を本文領域へ戻す。
+本文高さ・dock・resize時のviewport・pickerページ移動は、この行数に従う。
+実行中のactual selectionと次回変更時の`→ next: ...`、取得中・取得失敗の表示も同じ行へ出す。
+実装済み。focused test・PTY確認の範囲は[確認結果](../results/tui-footer.md)を参照する。
+
 ## 区切り線へ状態・Session・ctxを集約
 
 2026-10-16、利用者指定。操作案内の上の区切り線へ、左端にready／working等の状態、
@@ -39,7 +49,7 @@ TUIの時計更新は表示だけを更新し、モデル呼出し・会話保�
 ctxの計測元・更新経路・表示形式は維持する。メタデータ間は`─`でつなぐ。
 タイトルは端末の中央へ配置し、左右の表示へ重なる場合は位置・表示幅を調整する。
 操作案内・通知は区切り線の直下に残す。入力欄の上下余白と、入力欄の下のworkspace・
-provider／model／effortの2行を維持し、行数・本文高さ・カーソル計算は変えない。
+provider／model／effortの2行をこの段階では維持した。後続のworkspace行への統合で1行に変更する。
 状態・Session・ctxを元の行にも重複表示しない。
 実装済み。focused test・PTY確認・差分レビューの範囲は[確認結果](../results/tui-footer.md)を参照する。
 
@@ -85,7 +95,7 @@ PTYでは実際の`Run`とfake Backendを100×24端末で動かし、pyteで全c
   モデル変更だけでは値を換算し直さず、次のモデル入力の準備時に更新する。
 - 子agentや要約専用呼出しの入力は表示対象にしない。コンパクション後は置換後の親入力を表示する。
 
-既存3行とlive bandの構成を維持し、表示用の保存記録・モデル呼出しは追加しない。
+live bandだけに表示し、表示用の保存記録・モデル呼出しは追加しない。
 [計画](../plans/context-usage-display.md)と[実装・確認結果](../results/context-usage-display.md)を参照する。
 
 ## 改善メモ：前ターンのsteering状態が残る

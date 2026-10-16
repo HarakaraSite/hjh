@@ -389,7 +389,7 @@ func TestPickerSelectionWhileRunActiveDoesNotChangeCapturedRequest(t *testing.T)
 	m.activeRun.hasActualSelection = true
 	m.footerSelectionSet = true
 	m.footerSelection.Selection = contracts.ModelSelection{Provider: "next-provider", ModelID: "next-model", Effort: "ultra"}
-	connection := m.footerModel(160)
+	connection := m.footerModelSelection(160)
 	if !strings.Contains(connection, "original-provider / original-model / low") || !strings.Contains(connection, "next: next-provider / next-model / ultra") {
 		t.Fatalf("footer does not distinguish the captured run from next selection: %q", connection)
 	}

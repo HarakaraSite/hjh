@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"hjh/internal/api"
 	"hjh/internal/contracts"
 	"hjh/internal/tui/renderer"
@@ -40,13 +42,14 @@ func TestThemeShowsNotificationsFailuresAndOrdinaryFooterMetadata(t *testing.T) 
 	if !strings.Contains(text, magentaDimSGR+"help:") || !strings.Contains(text, redSGR+"provider returned an error") {
 		t.Fatalf("notification/failure colors missing: %q", text)
 	}
+	m.width = 100
 	m.sessionID = "b71a29a6-7552-485d-9922-a1d7ae426706"
 	m.footerSelectionSet = true
 	m.footerSelection.Selection = contracts.ModelSelection{Provider: "openrouter", ModelID: "model", Effort: "high"}
 	m.sessionTitle = "README要約"
 	m.setContextBudget(contextUsageBudget(2400, contextLimit(10000), "config/defaults"))
-	if row := m.sessionFooter(); row != "/work/hjh" {
-		t.Fatalf("workspace was not ordinary text: %q", row)
+	if row := m.sessionFooter(); !strings.HasPrefix(row, "/work/hjh   ") || !strings.HasSuffix(row, "openrouter / model / high") || ansi.StringWidth(row) != m.width || strings.Contains(row, "\x1b[") {
+		t.Fatalf("workspace/selection were not right-aligned ordinary text: %q", row)
 	}
 	row := m.footerDivider(100)
 	if !strings.HasPrefix(row, blueSGR+"● ready"+resetSGR) || !strings.Contains(row, "README要約 · b71a29a6") || !strings.HasSuffix(row, "ctx 24%") || strings.Count(row, "\x1b[") != 2 {
@@ -57,7 +60,7 @@ func TestThemeShowsNotificationsFailuresAndOrdinaryFooterMetadata(t *testing.T) 
 		t.Fatalf("working activity lost its style: %q", row)
 	}
 	m.activeRun = nil
-	if row := m.footerModel(120); row != "openrouter / model / high" {
+	if row := m.footerModelSelection(120); row != "openrouter / model / high" {
 		t.Fatalf("provider/model/effort were styled: %q", row)
 	}
 	tool := api.ConversationEntity{Kind: "tool", Name: "write_file", Error: "failed"}

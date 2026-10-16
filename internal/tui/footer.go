@@ -69,7 +69,7 @@ func (m *model) footerTick() tea.Cmd {
 
 func (m *model) footerRows() []string {
 	width := max(1, m.width)
-	return []string{m.footerControls(width), m.sessionFooter(), m.footerModel(width)}
+	return []string{m.footerControls(width), m.sessionFooter()}
 }
 
 func (m *model) footerControls(width int) string {
@@ -254,19 +254,29 @@ func footerDividerGap(width int) string {
 	return " " + strings.Repeat("─", width-2) + " "
 }
 
-// sessionFooter is the workspace row below the editor; live Session metadata
-// belongs on the divider above the controls.
+// sessionFooter keeps the workspace on the left and model selection at the
+// right edge below the editor. Selection takes priority over the workspace;
+// live Session metadata belongs on the divider above the controls.
 func (m *model) sessionFooter() string {
 	width := max(1, m.width)
+	selection := m.footerModelSelection(width)
+	selectionWidth := ansi.StringWidth(selection)
+	const gap = 3
+	pathWidth := width - selectionWidth - gap
 	path := m.workspace
-	if ansi.StringWidth(path) > width {
-		path = ansi.TruncateLeft(path, ansi.StringWidth(path)-width+1, "…")
+	if pathWidth <= 0 {
+		path = ""
+	} else if ansi.StringWidth(path) > pathWidth {
+		remove := ansi.StringWidth(path) - pathWidth + 1
+		for {
+			path = "…" + ansi.TruncateLeft(m.workspace, remove, "")
+			if ansi.StringWidth(path) <= pathWidth {
+				break
+			}
+			remove++
+		}
 	}
-	return path
-}
-
-func (m *model) footerModel(width int) string {
-	return m.footerModelSelection(width)
+	return path + strings.Repeat(" ", width-ansi.StringWidth(path)-selectionWidth) + selection
 }
 
 func (m *model) footerModelSelection(width int) string {

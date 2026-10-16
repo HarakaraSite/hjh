@@ -165,7 +165,7 @@ func TestRealEditorCursorTracksTextAndFooterLayout(t *testing.T) {
 		t.Fatalf("scrolled editor cursor row=%d, relative cursor=%v", cursor.Position.Y, textareaCursor)
 	}
 	if strings.Index(content, "Enter send") > strings.Index(content, "line 6") ||
-		strings.Index(content, "ready") > strings.Index(content, "Enter send") || cursor.Position.Y >= len(frame.LiveRows)-2 {
+		strings.Index(content, "ready") > strings.Index(content, "Enter send") || cursor.Position.Y >= len(frame.LiveRows)-1 {
 		t.Fatalf("input, controls, footer, and cursor are not ordered in the live frame: %q", content)
 	}
 }

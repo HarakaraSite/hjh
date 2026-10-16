@@ -64,3 +64,33 @@ fake生成は1件、Core停止呼出しは0件。実プロバイダ、実保存D
 実装確認時点では稼働Coreの停止・常用バイナリ更新・コミット・プッシュは行っていない。
 後続の利用者指示で、本変更のコミットと`dist/hjh`・`dist/hjh-tui`の更新を行う。
 今回の表示変更はTUIの再起動で反映され、Coreの再起動は不要。プッシュは行わない。
+
+## 2026-10-16：workspaceと接続情報を1行へ統合
+
+利用者指定により、入力欄の下のworkspace行の右端へprovider / model / effortを移し、
+独立したmodel行を廃止した。接続情報は既存の選択表示を使い、右端へ揃える。
+workspaceは残り幅へ左寄せし、長い場合は末尾側を残して省略する。
+actual/next selection、取得中・取得失敗の表示と、区切り線上の状態・Session・ctxは維持した。
+footerRowsは操作案内と統合情報行の2行となる。screenFrameとpickerは実際の行数を参照し、
+resize時のviewportも固定値でなくfooter行数から計算する。減った1行を本文領域へ戻す。
+
+確認：次のfocused testと差分checkが成功した。
+
+```sh
+go test ./internal/tui -run 'Test(Footer|SessionFooter|Theme|Header|SavedHeader|ContextDetails|ConversationTheme|Editor|RealEditorCursor|JapaneseEditor|SlashMenuDock|InlinePicker|AuthenticationOverlay|PickersShare|ResizeCursor|APIKeyInputIsMasked|ChatGPTCallbackUsesMasked|Connection)' -count=1
+git diff --check
+```
+
+workspaceと接続情報の左右配置、長いworkspace・modelの省略、選択情報の状態表示、
+本文高さ・resize viewport・カーソル、picker表示候補数とページ移動量を確認した。
+差分レビューで追加findingはなかった。
+
+PTYでは実際のRunとfake Backendを100×24で駆動し、最下行y23にworkspace左・接続情報右、
+入力欄の最終行y21、背景色237の下余白y22を確認した。以前の証跡との比較でも区切り線・
+操作案内が1行下がり、旧model専用行がなくなることを確認した。
+日本語複数行・F4→Esc復帰・Alt+Enter・workingの時計更新とready復帰・Ctrl+Dも成功した。
+証跡：`/tmp/hjh-footer-merged-pty-omqd_77x/`。fake生成1件、Core停止呼出し0件。
+実プロバイダ、実保存DB、物理端末目視、PTYでのresizeは未確認。
+実装確認時点では稼働Coreの停止・常用バイナリ更新・コミット・プッシュは行っていない。
+後続の利用者指示で本変更をコミットし、`dist/hjh`・`dist/hjh-tui`へ配置後にプッシュする。
+反映にはTUIの再起動が必要。Coreの停止・再起動は行わない。

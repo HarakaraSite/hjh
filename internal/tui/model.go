@@ -1237,7 +1237,7 @@ func (m *model) layout() {
 	}
 	m.textarea.SetWidth(m.width)
 	m.viewport.SetWidth(m.width)
-	viewportHeight := max(1, m.height-4-len(m.editorRows()))
+	viewportHeight := max(1, m.height-1-len(m.footerRows())-len(m.editorRows()))
 	m.viewport.SetHeight(viewportHeight)
 	m.refreshViewport(true)
 }

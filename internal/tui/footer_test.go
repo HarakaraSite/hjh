@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -13,48 +14,104 @@ import (
 	"hjh/internal/contracts"
 )
 
-func TestFooterUsesThreeRowsWithWorkspaceAndAdjacentEffort(t *testing.T) {
+func TestFooterUsesTwoRowsWithWorkspaceAndRightAlignedSelection(t *testing.T) {
 	m, _, cancel := testModel(&fakeBackend{}, Options{Workspace: "/home/agent/projects/hjh"})
 	defer func() { cancel(); m.shutdown() }()
 	m.width = 100
 	m.sessionID = "b71a29a6-7552-485d-9922-a1d7ae426706"
 	m.sessionTitle = "README要約"
 	m.footerSelectionSet = true
-	m.footerSelection.Selection = contracts.ModelSelection{Provider: "openrouter", ModelID: "model-name", Effort: "high"}
+	m.footerSelection.Selection = contracts.ModelSelection{Provider: "openai-chatgpt", ModelID: "gpt-6.1-sol", Effort: "high"}
 	rows := m.footerRows()
-	for i := range rows {
-		rows[i] = ansi.Strip(rows[i])
-	}
-	if len(rows) != 3 || rows[2] != "openrouter / model-name / high" {
+	if len(rows) != 2 {
 		t.Fatalf("footer rows = %q", rows)
 	}
-	if rows[1] != "/home/agent/projects/hjh" {
-		t.Fatalf("workspace row = %q", rows[1])
+	selection := "openai-chatgpt / gpt-6.1-sol / high"
+	want := m.workspace + strings.Repeat(" ", m.width-ansi.StringWidth(m.workspace)-ansi.StringWidth(selection)) + selection
+	if rows[1] != want || ansi.StringWidth(rows[1]) != m.width {
+		t.Fatalf("workspace/selection row = %q, want %q", rows[1], want)
 	}
 	divider := ansi.Strip(m.footerDivider(m.width))
 	if !strings.HasPrefix(divider, "● ready") || !strings.Contains(divider, "README要約 · b71a29a6") {
 		t.Fatalf("Session divider = %q", divider)
 	}
-	if strings.Contains(rows[0], "F1") || !strings.Contains(rows[0], "Enter send") {
-		t.Fatalf("idle controls = %q", rows[0])
+	controls := ansi.Strip(rows[0])
+	if strings.Contains(controls, "F1") || !strings.Contains(controls, "Enter send") {
+		t.Fatalf("idle controls = %q", controls)
 	}
-	m.width = 30
-	m.sessionTitle = strings.Repeat("長いタイトル🐈", 12)
-	rows = m.footerRows()
-	for i := range rows {
-		rows[i] = ansi.Strip(rows[i])
+}
+
+func TestSessionFooterPrioritizesSelectionAndTruncatesWorkspace(t *testing.T) {
+	m, _, cancel := testModel(&fakeBackend{}, Options{Workspace: "/home/agent/長いワークスペース/projects/hjh"})
+	defer func() { cancel(); m.shutdown() }()
+	m.footerSelectionSet = true
+	m.footerSelection.Selection = contracts.ModelSelection{Provider: "openai-chatgpt", ModelID: "gpt-6.1-sol", Effort: "high"}
+	selection := "openai-chatgpt / gpt-6.1-sol / high"
+	selectionWidth := ansi.StringWidth(selection)
+	cases := []struct {
+		name  string
+		width int
+		path  string
+	}{
+		{"workspace tail", selectionWidth + 3 + 14, "…/projects/hjh"},
+		{"workspace wide cut", selectionWidth + 3 + 15, "…/projects/hjh"},
+		{"workspace ellipsis", selectionWidth + 4, "…"},
+		{"selection leaves only gap", selectionWidth + 3, ""},
+		{"selection fills row", selectionWidth, ""},
+		{"narrow selection", 24, ""},
 	}
-	for _, row := range rows {
-		if ansi.StringWidth(row) > m.width {
-			t.Fatalf("footer overflows: %q", row)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m.width = tc.width
+			fittedSelection := m.footerModelSelection(m.width)
+			want := tc.path + strings.Repeat(" ", m.width-ansi.StringWidth(tc.path)-ansi.StringWidth(fittedSelection)) + fittedSelection
+			if row := m.sessionFooter(); row != want || ansi.StringWidth(row) != m.width {
+				t.Fatalf("workspace/selection row = %q, want %q", row, want)
+			}
+		})
 	}
-	if !strings.Contains(ansi.Strip(m.footerDivider(m.width)), "b71a29a6") || !strings.HasSuffix(rows[2], " / high") {
-		t.Fatalf("narrow footer lost ID/effort: %q", rows)
+	m.width = 100
+	m.workspace = ""
+	if row := m.sessionFooter(); !strings.HasSuffix(row, selection) || strings.TrimSpace(row) != selection || ansi.StringWidth(row) != m.width {
+		t.Fatalf("selection without workspace = %q", row)
 	}
-	m.width = 16
-	if row := m.sessionFooter(); !strings.HasPrefix(row, "…") || !strings.HasSuffix(row, "/projects/hjh") || ansi.StringWidth(row) > m.width {
-		t.Fatalf("narrow workspace row = %q", row)
+}
+
+func TestSessionFooterKeepsPreviewAndRunSelectionStatesRightAligned(t *testing.T) {
+	selection := contracts.ModelSelection{Provider: "openai-chatgpt", ModelID: "gpt-6.1-sol", Effort: "high"}
+	next := contracts.ModelSelection{Provider: "openai-chatgpt", ModelID: "gpt-6.1-sol", Effort: "low"}
+	cases := []struct {
+		name    string
+		preview bool
+		run     *activeRun
+		err     error
+		want    string
+	}{
+		{name: "resolving preview", want: "resolving selection"},
+		{name: "unavailable preview", err: errors.New("preview failed"), want: "selection unavailable"},
+		{name: "resolving actual", preview: true, run: &activeRun{}, want: "resolving selection"},
+		{name: "actual", run: &activeRun{actualSelection: selection, hasActualSelection: true}, want: "openai-chatgpt / gpt-6.1-sol / high"},
+		{name: "actual and next", preview: true, run: &activeRun{actualSelection: selection, hasActualSelection: true}, want: "openai-chatgpt / gpt-6.1-sol / high → next: openai-chatgpt / gpt-6.1-sol / low"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m, _, cancel := testModel(&fakeBackend{}, Options{Workspace: "/work/hjh"})
+			defer func() { cancel(); m.shutdown() }()
+			m.width = 160
+			m.activeRun = tc.run
+			m.footerSelectionSet = tc.preview
+			m.footerSelection.Selection = next
+			m.footerSelectionError = tc.err
+			rows := m.footerRows()
+			want := m.workspace + strings.Repeat(" ", m.width-ansi.StringWidth(m.workspace)-ansi.StringWidth(tc.want)) + tc.want
+			if len(rows) != 2 || rows[1] != want || ansi.StringWidth(rows[1]) != m.width {
+				t.Fatalf("selection state footer = %q, want combined row %q", rows, want)
+			}
+			m.width = ansi.StringWidth(tc.want)
+			if row := m.sessionFooter(); row != m.footerModelSelection(m.width) || ansi.StringWidth(row) != m.width {
+				t.Fatalf("full-width selection did not displace workspace: %q", row)
+			}
+		})
 	}
 }
 
@@ -73,7 +130,7 @@ func TestFooterRunUsesCoreStartTimeAndAvailableControls(t *testing.T) {
 		rows[i] = ansi.Strip(rows[i])
 	}
 	divider := ansi.Strip(m.footerDivider(m.width))
-	if !strings.HasPrefix(divider, "⠋ working 01:05") || strings.Contains(rows[2], "next:") {
+	if !strings.HasPrefix(divider, "⠋ working 01:05") || strings.Contains(rows[1], "next:") {
 		t.Fatalf("run divider = %q, footer = %q", divider, rows)
 	}
 	for _, key := range []string{"F1 cancel", "F2 queue", "F3 steer"} {
@@ -115,7 +172,7 @@ func TestFooterSelectionReadsCorePreviewAndRejectsPreviousSelection(t *testing.T
 	m.requestFooterSelection()
 	first := receive(t, messages).(footerSelectionLoadedMsg)
 	update(m, first)
-	if got := m.footerModel(120); got != "openrouter / from-config / high" {
+	if got := m.footerModelSelection(120); got != "openrouter / from-config / high" {
 		t.Fatalf("resolved config footer = %q", got)
 	}
 	m.setProvider("another")
@@ -126,7 +183,7 @@ func TestFooterSelectionReadsCorePreviewAndRejectsPreviousSelection(t *testing.T
 	}
 	second.value.Selection = contracts.ModelSelection{Provider: "another", ModelID: "new-default", Effort: "low"}
 	update(m, second)
-	if got := m.footerModel(120); got != "another / new-default / low" {
+	if got := m.footerModelSelection(120); got != "another / new-default / low" {
 		t.Fatalf("new route footer = %q", got)
 	}
 }
@@ -191,7 +248,7 @@ func TestFooterDividerCentersSessionAndRightAlignsContext(t *testing.T) {
 			t.Fatalf("divider metadata/width = %q at width %d", row, width)
 		}
 	}
-	if row := m.footerModel(m.width); row != "openrouter / model-name / high" {
+	if row := m.footerModelSelection(m.width); row != "openrouter / model-name / high" {
 		t.Fatalf("context displaced model selection: %q", row)
 	}
 	// Actual and next selections remain together below the editor.
@@ -199,7 +256,7 @@ func TestFooterDividerCentersSessionAndRightAlignsContext(t *testing.T) {
 		actualSelection:    contracts.ModelSelection{Provider: "openrouter", ModelID: "current-model", Effort: "high"},
 		hasActualSelection: true}
 	m.footerSelection.Selection = contracts.ModelSelection{Provider: "openrouter", ModelID: "next-model", Effort: "low"}
-	if row := m.footerModel(m.width); row != "openrouter / current-model / high → next: openrouter / next-model / low" {
+	if row := m.footerModelSelection(m.width); row != "openrouter / current-model / high → next: openrouter / next-model / low" {
 		t.Fatalf("actual/next selection row = %q", row)
 	}
 	if row := ansi.Strip(m.footerDivider(m.width)); !strings.HasSuffix(row, "ctx 24%") {
@@ -241,7 +298,7 @@ func TestFooterOmitsContextUsageWithoutMeasurement(t *testing.T) {
 	if strings.Contains(row, "ctx") || ansi.StringWidth(row) != 60 {
 		t.Fatalf("divider without measurement = %q", row)
 	}
-	if row := m.footerModel(60); row != "openrouter / model-name / high" {
+	if row := m.footerModelSelection(60); row != "openrouter / model-name / high" {
 		t.Fatalf("model row changed without measurement: %q", row)
 	}
 }
