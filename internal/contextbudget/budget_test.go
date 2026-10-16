@@ -45,7 +45,7 @@ func TestResolvePrecedenceAndUnknownCapacity(t *testing.T) {
 	unknown := Resolve(Configuration{}, contracts.ModelSelection{}, Capacity{Source: "unknown"})
 	if unknown.Limit != nil || unknown.ContextTokens != nil || unknown.InputTokens != nil ||
 		unknown.Sources.ContextTokens != "unknown" || unknown.Sources.InputTokens != "unknown" ||
-		unknown.InputRatio == nil || *unknown.InputRatio != 0.8 || unknown.Sources.InputRatio != "default" {
+		unknown.InputRatio == nil || *unknown.InputRatio != 0.9 || unknown.Sources.InputRatio != "default" {
 		t.Fatalf("unknown capacity invented a limit or lost the default ratio: %+v", unknown)
 	}
 
@@ -64,7 +64,7 @@ func TestResolveUsesCapacityOnlyWhenConfigurationDoesNotSetField(t *testing.T) {
 		ContextSource: "models.dev",
 		InputSource:   "provider-catalog",
 	})
-	if budget.Limit == nil || *budget.Limit != 800 || budget.Sources.ContextTokens != "models.dev" ||
+	if budget.Limit == nil || *budget.Limit != 900 || budget.Sources.ContextTokens != "models.dev" ||
 		budget.Sources.InputTokens != "provider-catalog" {
 		t.Fatalf("capacity metadata was not used: %+v", budget)
 	}
@@ -78,7 +78,7 @@ func TestResolveLimitSourceNamesTheGoverningTerm(t *testing.T) {
 	selection := contracts.ModelSelection{Provider: "demo", ModelID: "model"}
 	// The capacity window with the default ratio governs the limit.
 	window := Resolve(Configuration{}, selection, Capacity{ContextTokens: int64Pointer(1000), Source: "models.dev"})
-	if window.Limit == nil || *window.Limit != 800 || window.LimitSource != "models.dev" {
+	if window.Limit == nil || *window.Limit != 900 || window.LimitSource != "models.dev" {
 		t.Fatalf("window-governed limit source: %+v", window)
 	}
 	// A smaller configured input cap governs and keeps its own origin.
@@ -105,7 +105,7 @@ func TestOverrideKeepsUnchangedBudgetOriginsAndTracksDerivedHookLimits(t *testin
 	// The full resolved object returned by select() can be passed to replace().
 	echo := Override(base, Values{ContextTokens: base.ContextTokens, InputTokens: base.InputTokens,
 		OutputReserve: base.OutputReserve, InputRatio: base.InputRatio, HistoryTokens: base.HistoryTokens})
-	if echo.Sources != base.Sources || echo.LimitSource != "models.dev" || *echo.Limit != 800 {
+	if echo.Sources != base.Sources || echo.LimitSource != "models.dev" || *echo.Limit != 900 {
 		t.Fatalf("unchanged selection acquired hook provenance: %+v", echo)
 	}
 	for _, policy := range []Values{

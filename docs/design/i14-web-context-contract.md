@@ -33,7 +33,7 @@ captured `config.json`の`contextBudget`で明示設定できる。
 ```json
 {
   "contextBudget": {
-    "defaults": { "inputRatio": 0.8 },
+    "defaults": { "inputRatio": 0.9 },
     "providers": {
       "my-provider": { "contextTokens": 100000, "outputReserve": 10000 }
     },
@@ -45,7 +45,7 @@ captured `config.json`の`contextBudget`で明示設定できる。
 ```
 
 fieldごとにmodels > providers > defaults > capacity metadataの順で解決する。
-未指定のinputRatioは0.8。contextTokens=C、inputTokens=I、outputReserve=Rから
+未指定のinputRatioは0.9。contextTokens=C、inputTokens=I、outputReserve=Rから
 `min(floor(C*q), I, C-R)`を既知項だけで計算する。実際に予約していないcatalogの
 max outputをRとみなさない。現在adapterはmax_tokens/max_output_tokensを送らないので
 Rは未指定なら不明。historyTokensは任意の履歴だけの追加予算で、既定の固定上限はない。

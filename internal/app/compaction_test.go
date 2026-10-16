@@ -212,7 +212,7 @@ func TestJSCompactionUsesEffectiveBudgetOrUnknownDefault(t *testing.T) {
 		source string
 	}{
 		{"unknown", map[string]any{}, 800000, "hook"},
-		{"model-context", map[string]any{"contextTokens": 128000}, 102400, "config/defaults"},
+		{"model-context", map[string]any{"contextTokens": 128000}, 115200, "config/defaults"},
 		{"large-input", map[string]any{"inputTokens": 1000000}, 1000000, "config/defaults"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

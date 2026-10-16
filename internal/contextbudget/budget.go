@@ -77,7 +77,7 @@ func Resolve(config Configuration, selection contracts.ModelSelection, capacity 
 	}
 	setUnknownSources(&budget.Sources)
 	if values.InputRatio == nil {
-		ratio := 0.8
+		ratio := 0.9
 		budget.InputRatio = &ratio
 		budget.Sources.InputRatio = "default"
 	} else {

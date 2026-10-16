@@ -18,7 +18,10 @@ Policy is an editable object in JS:
 | `summaryCharacters` | 1200 | Soft target in the summarization instruction, not a local truncation limit. |
 
 The hook reads the effective input limit from `api.context.get().budget` on
-each request, so changing models also changes its compaction budget. With the
+each request, so changing models also changes its compaction budget. The default
+input ratio is 0.9 of the context window; when no other constraint governs, the
+0.8 trigger ratio places summarization at 72% of the full window. The
+`triggerRatio` and `rawTargetRatio` remain 0.8 and 0.6. With the
 unknown-limit default, summarization is considered above 640,000 estimated
 tokens and the retained raw input target is 480,000. A known limit is not
 capped at 800,000. These are policy values, not model capacity claims. Token counts use

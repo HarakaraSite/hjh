@@ -41,5 +41,7 @@ Edit its `policy` values to tune the trigger and retained input size.
 It follows the selected model's effective input budget. When that budget is
 unknown, `fallbackInputTokens` defaults to 800,000; the trigger is 80% and the
 retained raw input target is 60% of the effective budget.
+The default input budget is 90% of the context window when no other constraint
+governs, so the 80% trigger corresponds to 72% of the full window.
 It requires the model/memory APIs and does not create child agents.
 See [its contract and storage behavior](../../docs/design/js-compaction.md).

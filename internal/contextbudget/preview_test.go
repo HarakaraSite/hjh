@@ -57,7 +57,7 @@ func TestPreviewIncludesRecentHistoryAndStopsAtFirstOverflow(t *testing.T) {
 func TestOverrideReusesBudgetFormulaAndDoesNotChangeBase(t *testing.T) {
 	base := Resolve(Configuration{Defaults: Values{ContextTokens: int64Pointer(10000), InputTokens: int64Pointer(3000)}}, contracts.ModelSelection{}, Capacity{})
 	raised := Override(base, Values{InputTokens: int64Pointer(7000), InputRatio: float64Pointer(0.9), OutputReserve: int64Pointer(2000)})
-	if *raised.Limit != 7000 || raised.Sources.InputTokens != "hook" || *base.Limit != 3000 || *base.InputRatio != 0.8 {
+	if *raised.Limit != 7000 || raised.Sources.InputTokens != "hook" || *base.Limit != 3000 || *base.InputRatio != 0.9 {
 		t.Fatalf("override failed: %+v base %+v", raised, base)
 	}
 	lowered := Override(raised, Values{InputTokens: int64Pointer(1000), HistoryTokens: int64Pointer(400)})
